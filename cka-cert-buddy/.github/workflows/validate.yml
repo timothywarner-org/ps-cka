@@ -1,0 +1,98 @@
+name: Content validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "**.md"
+      - ".github/**"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for deprecated Kubernetes API versions
+        continue-on-error: true
+        run: |
+          echo "Checking for deprecated Kubernetes API versions..."
+          if grep -rn --include="*.md" \
+            -e 'extensions/v1beta1' \
+            -e 'apps/v1beta1' \
+            -e 'apps/v1beta2' \
+            -e 'networking.k8s.io/v1beta1' \
+            -e 'storage.k8s.io/v1beta1' \
+            -e 'rbac.authorization.k8s.io/v1beta1' \
+            -e 'batch/v1beta1' \
+            --exclude="CLAUDE.md" \
+            --exclude="CONTRIBUTING.md" \
+            .; then
+            echo "::warning::Found deprecated Kubernetes API versions. Update to current stable versions for v1.35."
+          else
+            echo "No deprecated API versions found."
+          fi
+
+      - name: Check for non-ASCII characters
+        continue-on-error: true
+        run: |
+          echo "Checking for non-ASCII characters (curly quotes, en/em dashes)..."
+          if grep -rPn --include="*.md" \
+            '[\x{2018}\x{2019}\x{201C}\x{201D}\x{2013}\x{2014}]' \
+            .; then
+            echo "::warning::Found non-ASCII characters. Replace curly quotes with straight quotes and en/em dashes with --."
+          else
+            echo "No non-ASCII characters found."
+          fi
+
+      - name: Check for contractions
+        continue-on-error: true
+        run: |
+          echo "Checking for contractions..."
+          if grep -rPni --include="*.md" \
+            "\b(don't|doesn't|won't|wouldn't|can't|couldn't|shouldn't|isn't|aren't|wasn't|weren't|hasn't|haven't|hadn't|it's|that's|there's|here's|what's|who's|let's|we're|they're|you're|I'm|we've|they've|you've|I've|we'll|they'll|you'll|I'll|he's|she's)\b" \
+            --exclude="CONTRIBUTING.md" \
+            .; then
+            echo "::warning::Found contractions. Replace with full forms (e.g., 'do not' instead of 'don't')."
+          else
+            echo "No contractions found."
+          fi
+
+      - name: Check for missing context-switch commands in scenarios
+        continue-on-error: true
+        run: |
+          echo "Checking that scenario files reference context switching..."
+          SCENARIO_FILES=$(grep -rl --include="*.md" -e "scenario-creator\|practice.scenario\|Practice Scenario" .github/skills/ .github/prompts/ 2>/dev/null || true)
+          if [ -n "$SCENARIO_FILES" ]; then
+            for f in $SCENARIO_FILES; do
+              if ! grep -q "kubectl config use-context" "$f"; then
+                echo "::warning file=$f::Scenario-related file does not mention 'kubectl config use-context'."
+              fi
+            done
+          fi
+          echo "Context-switch check complete."
+
+      - name: Check for incorrect Kubernetes terminology
+        continue-on-error: true
+        run: |
+          echo "Checking for incorrect Kubernetes terminology..."
+          if grep -rPn --include="*.md" \
+            -e '\bmaster node\b' \
+            -e '\bslave node\b' \
+            -e '\bkube-master\b' \
+            -e '\bETCD\b' \
+            --exclude=".github/copilot-instructions.md" \
+            --exclude="CLAUDE.md" \
+            --exclude="CONTRIBUTING.md" \
+            .; then
+            echo "::warning::Found incorrect Kubernetes terminology. See copilot-instructions.md for the terminology table."
+          else
+            echo "No incorrect terminology found."
+          fi
+
+      - name: Check markdown links
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          config-file: ".github/workflows/mlc-config.json"
+          use-quiet-mode: "yes"
+        continue-on-error: true

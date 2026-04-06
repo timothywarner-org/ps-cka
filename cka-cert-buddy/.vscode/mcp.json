@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "ckabuddy-k8sdocs": {
+      "type": "http",
+      "url": "https://learn.microsoft.com/api/mcp"
+    }
+  }
+}
