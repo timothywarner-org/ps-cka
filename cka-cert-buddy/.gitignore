@@ -1,0 +1,39 @@
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor files
+*.swp
+*.swo
+*~
+.idea/
+*.code-workspace
+
+# VS Code workspace settings
+# Ignore everything in .vscode except mcp.json and extensions.json
+# mcp.json is intentionally tracked so learners get MCP server config on clone
+.vscode/*
+!.vscode/mcp.json
+!.vscode/extensions.json
+
+# Node artifacts (from npx MCP servers)
+node_modules/
+
+# Python artifacts (from uvx MCP servers)
+__pycache__/
+.python-version
+.venv/
+
+# Environment and secrets
+.env
+.env.*
+*.key
+*.pem
+
+# Claude Code
+.claude/
+
+# Kubernetes artifacts
+*.kubeconfig
+kubeconfig

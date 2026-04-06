@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="images/banner.png" alt="CKA Skill Path Banner" width="800">
+</div>
+
 # Certified Kubernetes Administrator (CKA) Skill Path
 
 [![Pluralsight Author](https://img.shields.io/badge/Pluralsight-Author-E80A89?style=for-the-badge&logo=pluralsight&logoColor=white)](https://www.pluralsight.com/authors/tim-warner)
@@ -158,6 +162,17 @@ All demos follow **Globomantics**, a fictional company migrating their monolithi
 - [Gateway API Documentation](https://gateway-api.sigs.k8s.io/) (allowed during exam)
 - [Helm Documentation](https://helm.sh/docs/) (allowed during exam)
 - [killer.sh Exam Simulator](https://killer.sh/)
+
+## CKA Cert Buddy
+
+This repo includes a **GitHub Copilot agent** for CKA exam practice in the [`cka-cert-buddy/`](cka-cert-buddy/) directory. Open it as a VS Code workspace to access:
+
+- **Practice scenarios** -- exam-realistic tasks with two-phase delivery (scenario first, solution on request)
+- **Guided labs** -- hands-on exercises on kind clusters with validation gates and cleanup
+- **Study planner** -- personalized plans based on your confidence across the five exam domains
+- **Reference docs** -- comprehensive command guide, exam lifecycle guide, and curated learning resources
+
+See the [CKA Cert Buddy README](cka-cert-buddy/README.md) for setup instructions.
 
 ## Author
 
