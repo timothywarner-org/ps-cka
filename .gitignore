@@ -1,6 +1,8 @@
 # Tim's stuff
 
-# temp/
+temp/
+reference/
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
