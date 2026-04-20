@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CKA Lab Architecture Diagrams</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <style>
+    :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #e6edf3; --accent: #58a6ff; --green: #3fb950; --orange: #d29922; --purple: #bc8cff; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 2rem; line-height: 1.6; }
+    h1 { text-align: center; font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    .subtitle { text-align: center; color: #8b949e; margin-bottom: 2rem; font-size: 1.1rem; }
+    .toc { max-width: 700px; margin: 0 auto 3rem; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem 2rem; }
+    .toc h2 { color: var(--accent); margin-bottom: 0.75rem; font-size: 1.1rem; }
+    .toc ol { padding-left: 1.5rem; }
+    .toc li { margin: 0.4rem 0; }
+    .toc a { color: var(--green); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    section { max-width: 1100px; margin: 0 auto 3rem; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 2rem; }
+    section h2 { color: var(--accent); font-size: 1.4rem; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+    section h3 { color: var(--purple); font-size: 1.1rem; margin: 1rem 0 0.5rem; }
+    .teach-note { background: #1c2128; border-left: 3px solid var(--orange); padding: 0.75rem 1rem; margin: 1rem 0; border-radius: 0 6px 6px 0; font-size: 0.95rem; }
+    .teach-note strong { color: var(--orange); }
+    .mermaid { margin: 1.5rem 0; text-align: center; }
+    .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1rem; }
+    .compare-card { background: #1c2128; border-radius: 6px; padding: 1rem; }
+    .compare-card h4 { color: var(--green); margin-bottom: 0.5rem; }
+    .compare-card.vm h4 { color: var(--purple); }
+    ul { padding-left: 1.5rem; margin: 0.5rem 0; }
+    li { margin: 0.25rem 0; }
+    code { background: #1c2128; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+    @media (max-width: 768px) { .compare-grid { grid-template-columns: 1fr; } body { padding: 1rem; } }
+  </style>
+</head>
+<body>
+
+<h1>CKA Lab Architecture Reference</h1>
+<p class="subtitle">KIND (containers) vs kubeadm (VMs) &mdash; Two paths to the same Kubernetes cluster</p>
+
+<nav class="toc">
+  <h2>Table of Contents</h2>
+  <ol>
+    <li><a href="#d1">Diagram 1 &mdash; kind-up.ps1 Script Flow</a></li>
+    <li><a href="#d2">Diagram 2 &mdash; kind-down.ps1 Script Flow</a></li>
+    <li><a href="#d3">Diagram 3 &mdash; KIND Cluster Architecture (what gets created)</a></li>
+    <li><a href="#d4">Diagram 4 &mdash; KIND Config YAML Structure</a></li>
+    <li><a href="#d5">Diagram 5 &mdash; kubeadm + VMs Architecture (Vagrantfile approach)</a></li>
+    <li><a href="#d6">Diagram 6 &mdash; kubeadm Bootstrap Sequence (manual VM path)</a></li>
+    <li><a href="#d7">Diagram 7 &mdash; Side-by-Side Comparison: KIND vs kubeadm</a></li>
+  </ol>
+</nav>
+
+<!-- ============================================================ -->
+<section id="d1">
+  <h2>1. kind-up.ps1 &mdash; Startup Script Flow</h2>
+  <div class="teach-note"><strong>Teaching point:</strong> This script is idempotent &mdash; safe to re-run. It checks for existing clusters and skips creation if one exists. Students should understand why idempotency matters in automation.</div>
+
+  <pre class="mermaid">
+flowchart TD
+    A["<b>kind-up.ps1</b><br/>User runs script"] --> B{"Topology menu<br/>(unless -ConfigPath given)"}
+    B -->|"[1] Simple"| C1["cka-simple.yaml<br/>1 CP + 1 Worker"]
+    B -->|"[2] Standard"| C2["cka-3node.yaml<br/>1 CP + 2 Workers"]
+    B -->|"[3] HA"| C3["cka-ha.yaml<br/>3 CP + 2 Workers"]
+    B -->|"[4] Workloads"| C4["cka-workloads.yaml<br/>1 CP + 3 Workers"]
+
+    C1 --> PROMPTS
+    C2 --> PROMPTS
+    C3 --> PROMPTS
+    C4 --> PROMPTS
+
+    PROMPTS["Show kubeadm? y/N<br/>Run tutorial? 0-4"] --> D
+
+    D["<b>Step 1:</b> Validate prerequisites"] --> D1{"docker CLI<br/>on PATH?"}
+    D1 -->|No| FAIL1["EXIT: Docker not found"]
+    D1 -->|Yes| D2{"KIND<br/>installed?"}
+    D2 -->|No| FAIL2["EXIT: winget install Kubernetes.kind"]
+    D2 -->|Yes| D3{"kubectl<br/>installed?"}
+    D3 -->|No| FAIL3["EXIT: Ships with Docker Desktop"]
+    D3 -->|Yes| E
+
+    E["<b>Step 2:</b> Start Docker Desktop"] --> E1{"Docker daemon<br/>already running?"}
+    E1 -->|Yes| F
+    E1 -->|No| E2["Launch Docker Desktop.exe<br/>(soft warn if missing)"]
+    E2 --> E3["Poll docker info<br/>every 5s (timeout: 120s)"]
+    E3 -->|Ready| F
+    E3 -->|Timeout| FAIL4["EXIT: Docker failed to start"]
+
+    F["<b>Step 3:</b> Create KIND cluster"] --> F1{"Cluster already<br/>exists?"}
+    F1 -->|Yes| G["Skip creation<br/>(idempotent)"]
+    F1 -->|No| F2{"ShowKubeadm?"}
+    F2 -->|Yes| F3["kind create cluster -v 6<br/>(verbose kubeadm output)"]
+    F2 -->|No| F4["kind create cluster<br/>--config yaml --wait 120s"]
+    F3 --> F5{"Workloads<br/>topology?"}
+    F4 --> F5
+    F5 -->|Yes| F6["Apply node labels + taints"]
+    F5 -->|No| G
+    F6 --> G
+
+    G --> H["<b>Step 4:</b> Verify cluster health"]
+    H --> H1["Set kubeconfig context"]
+    H1 --> H2["Poll nodes for Ready status"]
+    H2 --> H3["kubectl get nodes -o wide"]
+    H3 --> H4["Show kube-system pods"]
+
+    H4 --> I["<b>Step 5:</b> Resource summary"]
+    I --> I1["docker stats + host memory"]
+
+    I1 --> J{"<b>Step 6:</b> Tutorial?"}
+    J -->|"[0] None"| DONE
+    J -->|"[1] Components"| T1["12-step component walkthrough"]
+    J -->|"[2] Module 1"| T2["10-step architecture tour"]
+    J -->|"[3] Module 2"| T3["16-step kubectl workflows"]
+    J -->|"[4] Module 3"| T4["18-step diagnostics lab"]
+
+    T1 --> DONE
+    T2 --> DONE
+    T3 --> DONE
+    T4 --> DONE
+
+    DONE["CKA Lab Ready"]
+
+    style A fill:#1f6feb,color:#fff
+    style DONE fill:#238636,color:#fff
+    style FAIL1 fill:#da3633,color:#fff
+    style FAIL2 fill:#da3633,color:#fff
+    style FAIL3 fill:#da3633,color:#fff
+    style FAIL4 fill:#da3633,color:#fff
+    style T1 fill:#1c2128,color:#e6edf3
+    style T2 fill:#1c2128,color:#e6edf3
+    style T3 fill:#1c2128,color:#e6edf3
+    style T4 fill:#1c2128,color:#e6edf3
+  </pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="d2">
+  <h2>2. kind-down.ps1 &mdash; Shutdown Script Flow</h2>
+  <div class="teach-note"><strong>Teaching point:</strong> Teardown order matters. The script deletes the cluster <em>before</em> stopping Docker, and stops Docker <em>before</em> shutting down WSL2. Reversing this order would cause errors.</div>
+
+  <pre class="mermaid">
+flowchart TD
+    A["<b>kind-down.ps1</b><br/>User runs script"] --> B{"Shutdown menu<br/>(unless -StopDockerDesktop given)"}
+    B -->|"[1] Cluster only"| MODE_KEEP["DD stays running<br/>(fast re-creation)"]
+    B -->|"[2] Full shutdown"| MODE_STOP["Stop Docker + WSL2"]
+
+    MODE_KEEP --> PRUNE
+    MODE_STOP --> PRUNE
+
+    PRUNE{"Prune prompt<br/>(unless -Prune given)"} -->|Yes| S1P["Will prune after delete"]
+    PRUNE -->|No| S1
+
+    S1P --> S1
+
+    S1["<b>Step 1:</b> Delete KIND cluster"] --> S1a{"Docker<br/>running?"}
+    S1a -->|No| S1b["Containers already gone"]
+    S1a -->|Yes| S1c{"Cluster<br/>exists?"}
+    S1c -->|No| S1d["Nothing to delete"]
+    S1c -->|Yes| S1e["kind delete cluster"]
+    S1e -->|Fail| S1f["Fallback: docker rm -f<br/>(by label)"]
+
+    S1b --> S2
+    S1d --> S2
+    S1e -->|OK| S2
+    S1f --> S2
+
+    S2{"<b>Step 2:</b> Prune?"} -->|Yes| S2a["docker system prune -af"]
+    S2 -->|No| S3
+
+    S2a --> S3
+
+    S3{"<b>Step 3:</b> Stop Docker?"} -->|Full shutdown| S3a["Force-kill DD + backend + proxy"]
+    S3 -->|Cluster only| S3c["DD remains running"]
+
+    S3a --> S4["<b>Step 4:</b> WSL2 shutdown<br/>(deferred to end)"]
+    S3c --> S5
+
+    S4 --> S5
+
+    S5["<b>Step 5:</b> Verification"] --> S5a["Check docker info"]
+    S5a --> S5b["Report host memory"]
+    S5b --> DONE{"Banner"}
+    DONE -->|Full shutdown| DONE1["CKA Lab Shut Down<br/>wsl --shutdown"]
+    DONE -->|Cluster only| DONE2["CKA Lab Torn Down<br/>Ready for kind-up.ps1"]
+
+    style A fill:#da3633,color:#fff
+    style DONE1 fill:#238636,color:#fff
+    style DONE2 fill:#238636,color:#fff
+  </pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="d3">
+  <h2>3. KIND Cluster Architecture &mdash; What Gets Created</h2>
+  <div class="teach-note"><strong>Teaching point:</strong> KIND runs Kubernetes nodes as Docker containers, not VMs. Each container runs systemd + kubelet + containerd (nested). The host's Docker daemon is the "hypervisor" equivalent. This is why KIND is fast but not production-grade.</div>
+
+  <pre class="mermaid">
+graph TB
+    subgraph HOST["Windows 11 Host"]
+        subgraph WSL2["WSL2 Linux VM (vmmem)"]
+            subgraph DOCKER["Docker Desktop Engine"]
+                subgraph CP["Container: cka-lab-control-plane"]
+                    CP_SYS["systemd"]
+                    CP_KUBELET["kubelet"]
+                    CP_CTRD["containerd (nested)"]
+                    CP_API["kube-apiserver"]
+                    CP_SCHED["kube-scheduler"]
+                    CP_CM["kube-controller-manager"]
+                    CP_ETCD["etcd"]
+                    CP_PROXY["kube-proxy"]
+                    CP_CNI["kindnet (CNI)"]
+                    CP_DNS["CoreDNS"]
+                end
+
+                subgraph W1["Container: cka-lab-worker"]
+                    W1_SYS["systemd"]
+                    W1_KUBELET["kubelet"]
+                    W1_CTRD["containerd (nested)"]
+                    W1_PROXY["kube-proxy"]
+                    W1_CNI["kindnet (CNI)"]
+                    W1_PODS["User Pods"]
+                end
+
+                subgraph W2["Container: cka-lab-worker2"]
+                    W2_SYS["systemd"]
+                    W2_KUBELET["kubelet"]
+                    W2_CTRD["containerd (nested)"]
+                    W2_PROXY["kube-proxy"]
+                    W2_CNI["kindnet (CNI)"]
+                    W2_PODS["User Pods"]
+                end
+
+                NET["Docker bridge network: kind"]
+            end
+        end
+
+        KUBECTL["kubectl (host)"]
+        PORTS["NodePort mappings<br/>30000, 30080, 30443"]
+    end
+
+    KUBECTL -->|"kubeconfig<br/>kind-cka-lab context"| CP_API
+    PORTS --> CP
+    CP --- NET
+    W1 --- NET
+    W2 --- NET
+
+    style HOST fill:#0d1117,stroke:#30363d,color:#e6edf3
+    style WSL2 fill:#1c2128,stroke:#58a6ff,color:#e6edf3
+    style DOCKER fill:#161b22,stroke:#3fb950,color:#e6edf3
+    style CP fill:#1f3d1f,stroke:#3fb950,color:#e6edf3
+    style W1 fill:#1f2d3d,stroke:#58a6ff,color:#e6edf3
+    style W2 fill:#1f2d3d,stroke:#58a6ff,color:#e6edf3
+  </pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="d4">
+  <h2>4. KIND Config YAML Structure</h2>
+  <div class="teach-note"><strong>Teaching point:</strong> KIND configs use <code>kubeadmConfigPatches</code> &mdash; the same YAML kubeadm uses on real clusters. The admission plugins (PodSecurity, NodeRestriction) and port mappings are CKA exam topics.</div>
+
+  <pre class="mermaid">
+graph LR
+    subgraph CONFIG["kind: Cluster<br/>apiVersion: kind.x-k8s.io/v1alpha4"]
+
+        subgraph NODES["nodes:"]
+            CP_ROLE["role: control-plane"]
+            W1_ROLE["role: worker"]
+            W2_ROLE["role: worker<br/><i>(3-node only)</i>"]
+        end
+
+        subgraph PATCHES["kubeadmConfigPatches<br/>(control-plane only)"]
+            CLUSTER_CFG["kind: ClusterConfiguration"]
+            ADMISSION["apiServer.extraArgs:<br/>enable-admission-plugins:<br/>NodeRestriction, PodSecurity"]
+        end
+
+        subgraph PORTS["extraPortMappings<br/>(control-plane only)"]
+            P1["30000:30000/TCP"]
+            P2["30080:30080/TCP"]
+            P3["30443:30443/TCP"]
+        end
+    end
+
+    CP_ROLE --> PATCHES
+    CP_ROLE --> PORTS
+
+    subgraph DEFAULTS["Implicit defaults"]
+        RUNTIME["Runtime: containerd"]
+        CNI["CNI: kindnet"]
+        IMG["Image: kindest/node:latest"]
+    end
+
+    CONFIG --> DEFAULTS
+
+    style CONFIG fill:#161b22,stroke:#58a6ff,color:#e6edf3
+    style PATCHES fill:#1c2128,stroke:#d29922,color:#e6edf3
+    style PORTS fill:#1c2128,stroke:#3fb950,color:#e6edf3
+    style DEFAULTS fill:#1c2128,stroke:#8b949e,color:#e6edf3
+  </pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="d5">
+  <h2>5. kubeadm + VMs Architecture (Vagrantfile Approach)</h2>
+  <div class="teach-note"><strong>Teaching point:</strong> This is how the CKA exam environment actually works &mdash; real VMs with real networking. The Vagrantfile automates provisioning, but <code>kubeadm init</code> and <code>kubeadm join</code> are still manual (intentionally, for exam practice).</div>
+
+  <pre class="mermaid">
+graph TB
+    subgraph HOST["Windows 11 Host"]
+        subgraph HYPERV["Hyper-V Hypervisor"]
+            subgraph VM_CP["VM: cp<br/>Ubuntu 22.04 | 2 CPU | 2GB RAM<br/>192.168.56.10"]
+                VCP_CTRD["containerd"]
+                VCP_KUBELET["kubelet"]
+                VCP_KUBEADM["kubeadm"]
+                VCP_API["kube-apiserver"]
+                VCP_SCHED["kube-scheduler"]
+                VCP_CM["kube-controller-manager"]
+                VCP_ETCD["etcd"]
+                VCP_CNI["CNI plugin<br/>(Calico/Flannel)"]
+            end
+
+            subgraph VM_W1["VM: worker1<br/>Ubuntu 22.04 | 2 CPU | 2GB RAM<br/>192.168.56.110"]
+                VW1_CTRD["containerd"]
+                VW1_KUBELET["kubelet"]
+                VW1_KUBEADM["kubeadm"]
+                VW1_PODS["User Pods"]
+            end
+
+            subgraph VM_W2["VM: worker2<br/>Ubuntu 22.04 | 2 CPU | 2GB RAM<br/>192.168.56.111"]
+                VW2_CTRD["containerd"]
+                VW2_KUBELET["kubelet"]
+                VW2_KUBEADM["kubeadm"]
+                VW2_PODS["User Pods"]
+            end
+
+            VNET["Private network: 192.168.56.0/24"]
+        end
+
+        VAGRANT["vagrant up<br/>(provisions all 3 VMs)"]
+    end
+
+    VAGRANT -->|"COMMON_PROVISION<br/>shell script"| VM_CP
+    VAGRANT -->|"COMMON_PROVISION<br/>shell script"| VM_W1
+    VAGRANT -->|"COMMON_PROVISION<br/>shell script"| VM_W2
+
+    VM_CP --- VNET
+    VM_W1 --- VNET
+    VM_W2 --- VNET
+
+    VCP_KUBEADM -->|"kubeadm init<br/>(manual step)"| VCP_API
+    VW1_KUBEADM -->|"kubeadm join<br/>(manual step)"| VCP_API
+    VW2_KUBEADM -->|"kubeadm join<br/>(manual step)"| VCP_API
+
+    style HOST fill:#0d1117,stroke:#30363d,color:#e6edf3
+    style HYPERV fill:#1c2128,stroke:#bc8cff,color:#e6edf3
+    style VM_CP fill:#2d1f3d,stroke:#bc8cff,color:#e6edf3
+    style VM_W1 fill:#2d1f3d,stroke:#bc8cff,color:#e6edf3
+    style VM_W2 fill:#2d1f3d,stroke:#bc8cff,color:#e6edf3
+  </pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="d6">
+  <h2>6. kubeadm Bootstrap Sequence (Manual VM Path)</h2>
+  <div class="teach-note"><strong>Teaching point:</strong> This is the sequence every CKA candidate must know cold. The Vagrantfile automates steps 1-4 (provisioning). Steps 5-8 are intentionally manual &mdash; these map directly to CKA exam tasks.</div>
+
+  <pre class="mermaid">
+flowchart TD
+    subgraph PROVISION["Vagrant Provisioning (automated)"]
+        P1["1. Disable swap<br/><code>swapoff -a</code>"]
+        P2["2. Load kernel modules<br/><code>overlay, br_netfilter</code>"]
+        P3["3. Set sysctl params<br/><code>ip_forward=1<br/>bridge-nf-call-iptables=1</code>"]
+        P4["4. Install packages<br/><code>containerd, kubelet,<br/>kubeadm, kubectl</code>"]
+    end
+
+    subgraph MANUAL["Manual Steps (CKA exam practice)"]
+        M1["5. <b>kubeadm init</b><br/>--apiserver-advertise-address=192.168.56.10<br/>--pod-network-cidr=10.244.0.0/16"]
+        M2["6. Configure kubectl<br/><code>mkdir ~/.kube<br/>cp /etc/kubernetes/admin.conf ~/.kube/config</code>"]
+        M3["7. Install CNI plugin<br/><code>kubectl apply -f calico.yaml</code><br/>or flannel.yaml"]
+        M4["8. Join workers<br/><code>kubeadm join 192.168.56.10:6443<br/>--token &lt;token&gt;<br/>--discovery-token-ca-cert-hash sha256:&lt;hash&gt;</code>"]
+    end
+
+    subgraph VERIFY["Verification"]
+        V1["9. kubectl get nodes<br/>All nodes Ready"]
+        V2["10. kubectl get pods -n kube-system<br/>All system pods Running"]
+    end
+
+    P1 --> P2 --> P3 --> P4
+    P4 -->|"On control-plane VM"| M1
+    M1 --> M2 --> M3
+    M3 -->|"On each worker VM"| M4
+    M4 --> V1 --> V2
+
+    style PROVISION fill:#1c2128,stroke:#3fb950,color:#e6edf3
+    style MANUAL fill:#1c2128,stroke:#d29922,color:#e6edf3
+    style VERIFY fill:#1c2128,stroke:#58a6ff,color:#e6edf3
+  </pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="d7">
+  <h2>7. Side-by-Side: KIND vs kubeadm on VMs</h2>
+  <div class="teach-note"><strong>Teaching point:</strong> KIND is for fast iteration and daily practice. kubeadm on VMs is for exam-realistic experience. Use both: KIND 80% of the time, VMs when practicing cluster setup/teardown.</div>
+
+  <pre class="mermaid">
+graph LR
+    subgraph KIND["KIND Path (Containers)"]
+        direction TB
+        K1["Install: Docker Desktop + KIND CLI"]
+        K2["Config: cka-3node.yaml"]
+        K3["Create: kind create cluster"]
+        K4["Result: 3 Docker containers<br/>acting as K8s nodes"]
+        K5["Networking: Docker bridge + kindnet"]
+        K6["Teardown: kind delete cluster"]
+        K1 --> K2 --> K3 --> K4 --> K5 --> K6
+    end
+
+    subgraph VM["kubeadm Path (VMs)"]
+        direction TB
+        V1["Install: Vagrant + Hyper-V"]
+        V2["Config: Vagrantfile"]
+        V3["Provision: vagrant up<br/>(3 Ubuntu VMs)"]
+        V4["Bootstrap: kubeadm init + join"]
+        V5["Networking: Real IPs + Calico/Flannel"]
+        V6["Teardown: vagrant destroy"]
+        V1 --> V2 --> V3 --> V4 --> V5 --> V6
+    end
+
+    style KIND fill:#1f3d1f,stroke:#3fb950,color:#e6edf3
+    style VM fill:#2d1f3d,stroke:#bc8cff,color:#e6edf3
+  </pre>
+
+  <div class="compare-grid">
+    <div class="compare-card">
+      <h4>KIND (Containers)</h4>
+      <ul>
+        <li><strong>Startup:</strong> ~2-4 minutes</li>
+        <li><strong>RAM:</strong> ~2-3 GB total</li>
+        <li><strong>Nodes:</strong> Docker containers</li>
+        <li><strong>Runtime:</strong> containerd (nested in Docker)</li>
+        <li><strong>CNI:</strong> kindnet (simple, built-in)</li>
+        <li><strong>kubeadm:</strong> Runs automatically inside KIND</li>
+        <li><strong>Networking:</strong> Docker bridge, port mappings</li>
+        <li><strong>Best for:</strong> Daily practice, pod/service exercises, RBAC, storage</li>
+        <li><strong>Limitation:</strong> No real VM isolation, can't practice cluster bootstrap</li>
+      </ul>
+    </div>
+    <div class="compare-card vm">
+      <h4>kubeadm on VMs</h4>
+      <ul>
+        <li><strong>Startup:</strong> ~10-15 minutes</li>
+        <li><strong>RAM:</strong> ~6-8 GB total (2GB per VM)</li>
+        <li><strong>Nodes:</strong> Full Hyper-V VMs</li>
+        <li><strong>Runtime:</strong> containerd (native)</li>
+        <li><strong>CNI:</strong> Calico or Flannel (your choice)</li>
+        <li><strong>kubeadm:</strong> You run init/join manually</li>
+        <li><strong>Networking:</strong> Real private network (192.168.56.0/24)</li>
+        <li><strong>Best for:</strong> Cluster setup practice, networking, exam simulation</li>
+        <li><strong>Limitation:</strong> Heavier resources, slower iteration</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>What KIND Does Under the Hood (It's kubeadm!)</h3>
+  <pre class="mermaid">
+sequenceDiagram
+    participant User
+    participant KIND as KIND CLI
+    participant Docker
+    participant Container as Node Container
+    participant kubeadm
+
+    User->>KIND: kind create cluster --config yaml
+    KIND->>Docker: Pull kindest/node image
+    KIND->>Docker: Create container per node role
+    Docker-->>Container: Start container with systemd
+    KIND->>Container: Write kubeadm config patches
+    Container->>kubeadm: kubeadm init (control-plane)
+    kubeadm-->>Container: API server, etcd, scheduler running
+    KIND->>Container: Install kindnet CNI
+    loop Each worker
+        Container->>kubeadm: kubeadm join
+    end
+    KIND->>User: Write kubeconfig, set context
+    User->>User: kubectl get nodes (Ready!)
+  </pre>
+  <div class="teach-note"><strong>Key insight:</strong> KIND uses kubeadm internally! The difference is that KIND automates and containerizes it, while the VM path gives you hands-on kubeadm experience. Both produce a real Kubernetes cluster with the same API.</div>
+
+</section>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#1f6feb',
+      primaryTextColor: '#e6edf3',
+      primaryBorderColor: '#58a6ff',
+      lineColor: '#8b949e',
+      secondaryColor: '#238636',
+      tertiaryColor: '#1c2128',
+      fontSize: '14px'
+    },
+    flowchart: { curve: 'basis', useMaxWidth: true },
+    sequence: { useMaxWidth: true }
+  });
+</script>
+
+</body>
+</html>

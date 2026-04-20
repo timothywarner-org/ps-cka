@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CKA Lab - Repository Architecture</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px 40px; background: #0f172a; color: #e2e8f0; }
+  h1 { color: #38bdf8; font-size: 1.8rem; margin-bottom: 4px; }
+  .subtitle { color: #94a3b8; font-size: 0.95rem; margin-bottom: 24px; }
+  .diagram-container { background: #1e293b; border-radius: 12px; padding: 32px; border: 1px solid #334155; overflow-x: auto; margin-bottom: 20px; }
+  .diagram-container h2 { color: #38bdf8; font-size: 1.1rem; margin: 0 0 16px 0; }
+  .note { color: #64748b; font-size: 0.8rem; margin-top: 16px; }
+</style>
+</head>
+<body>
+
+<h1>Repository Architecture</h1>
+<p class="subtitle">How the scripts, shared module, configs, and tutorials connect.</p>
+
+<div class="diagram-container">
+  <h2>Code Dependencies &amp; Dot-Source Chain</h2>
+  <pre class="mermaid">
+flowchart LR
+    subgraph root["Root (Entry Points)"]
+        direction TB
+        UP["kind-up.ps1\nCluster startup"]:::entry
+        DOWN["kind-down.ps1\nCluster shutdown"]:::entry
+        TUT["Start-Tutorial.ps1\nTutorial runner"]:::entry
+    end
+
+    subgraph lib["lib/ (Shared Module)"]
+        direction TB
+        CKALAB["CkaLab.ps1\n\nWrite-Step / Success / Info / ErrorMsg\nInitialize-LabPath\nTest-DockerReady\nStart-DockerDesktop\nWait-DockerReady\nStop-DockerDesktop\nTest-Prerequisites\nGet-KindClusters\nTest-ClusterExists\nGet-HostMemoryInfo\nWrite-HostMemory"]:::lib
+        TUTORIALS["tutorials.ps1\n\nWrite-TutorialSection\nWrite-TutorialBanner\nStart-ComponentWalkthrough\nStart-TutorialM01\nStart-TutorialM02\nStart-TutorialM03"]:::tut
+    end
+
+    subgraph configs["configs/"]
+        direction TB
+        C1["cka-simple.yaml"]:::config
+        C2["cka-3node.yaml"]:::config
+        C3["cka-ha.yaml"]:::config
+        C4["cka-workloads.yaml"]:::config
+    end
+
+    subgraph vagrant["Vagrant (Root)"]
+        direction TB
+        VF["Vagrantfile"]:::vagrant
+        BS["bootstrap_cp.sh"]:::vagrant
+        JW["join_worker.sh"]:::vagrant
+        SN["cka-snapshot.ps1 / cka-restore.ps1"]:::vagrant
+        VAL["cka-validate.ps1"]:::vagrant
+    end
+
+    UP -->|"dot-source"| CKALAB
+    DOWN -->|"dot-source"| CKALAB
+    TUT -->|"dot-source"| CKALAB
+    CKALAB -->|"auto-sources"| TUTORIALS
+
+    UP -->|"reads config"| configs
+    UP -.->|"calls tutorials"| TUTORIALS
+
+    classDef entry fill:#2563eb,color:#fff,stroke:#1d4ed8,stroke-width:2px
+    classDef lib fill:#6366f1,color:#fff,stroke:#4f46e5,stroke-width:2px
+    classDef tut fill:#8b5cf6,color:#fff,stroke:#7c3aed
+    classDef config fill:#475569,color:#e2e8f0,stroke:#64748b
+    classDef vagrant fill:#0d9488,color:#fff,stroke:#0f766e
+  </pre>
+</div>
+
+<div class="diagram-container">
+  <h2>KIND Runtime Stack</h2>
+  <pre class="mermaid">
+flowchart TB
+    subgraph host["Windows 11 Host"]
+        PS["PowerShell 7+"]:::ps
+        DD["Docker Desktop\n(WSL2 backend)"]:::docker
+        KC["kubectl"]:::tool
+        KIND["kind CLI"]:::tool
+    end
+
+    subgraph wsl["WSL2 VM"]
+        DAEMON["Docker Daemon\n(dockerd)"]:::docker
+        subgraph cluster["KIND Cluster: cka-lab"]
+            direction LR
+            subgraph cp["Control Plane Container"]
+                API["kube-apiserver"]:::k8s
+                ETCD["etcd"]:::k8s
+                SCHED["kube-scheduler"]:::k8s
+                CM["controller-manager"]:::k8s
+            end
+            subgraph w1["Worker Container(s)"]
+                KL["kubelet"]:::k8s
+                KP["kube-proxy"]:::k8s
+                PODS["User Pods"]:::pod
+            end
+        end
+    end
+
+    PS -->|"invokes"| KIND
+    PS -->|"invokes"| KC
+    KIND -->|"Docker API"| DAEMON
+    KC -->|"kubeconfig"| API
+    DD -->|"manages"| DAEMON
+    DAEMON -->|"runs"| cluster
+    API --- KL
+
+    classDef ps fill:#2563eb,color:#fff,stroke:#1d4ed8
+    classDef docker fill:#0db7ed,color:#fff,stroke:#0991b2
+    classDef tool fill:#475569,color:#e2e8f0,stroke:#64748b
+    classDef k8s fill:#326ce5,color:#fff,stroke:#2558c7
+    classDef pod fill:#16a34a,color:#fff,stroke:#15803d
+  </pre>
+</div>
+
+<div class="diagram-container">
+  <h2>Vagrant Runtime Stack</h2>
+  <pre class="mermaid">
+flowchart TB
+    subgraph host2["Windows 11 Host (Admin PowerShell)"]
+        VAG["vagrant CLI"]:::tool
+        SNAP["cka-snapshot.ps1\ncka-restore.ps1"]:::ps
+        VALIDATE["cka-validate.ps1"]:::ps
+        HV["Hyper-V"]:::hv
+    end
+
+    subgraph nat["CKA-NAT Switch (192.168.50.0/24)"]
+        subgraph vm1["control1 — 192.168.50.10"]
+            K1["kubeadm + kubelet + kubectl\ncontainerd (SystemdCgroup)\nbootstrap_cp.sh"]:::k8s
+        end
+        subgraph vm2["worker1 — 192.168.50.11"]
+            K2["kubeadm + kubelet\ncontainerd\njoin_worker.sh"]:::k8s
+        end
+        subgraph vm3["worker2 — 192.168.50.12"]
+            K3["kubeadm + kubelet\ncontainerd\njoin_worker.sh"]:::k8s
+        end
+    end
+
+    VAG -->|"provisions"| HV
+    HV -->|"manages"| nat
+    SNAP -->|"checkpoint"| HV
+    VALIDATE -->|"vagrant ssh"| vm1
+    VALIDATE -->|"vagrant ssh"| vm2
+    VALIDATE -->|"vagrant ssh"| vm3
+
+    vm1 <-->|"cluster network"| vm2
+    vm1 <-->|"cluster network"| vm3
+
+    classDef tool fill:#475569,color:#e2e8f0,stroke:#64748b
+    classDef ps fill:#2563eb,color:#fff,stroke:#1d4ed8
+    classDef hv fill:#0078d4,color:#fff,stroke:#005a9e
+    classDef k8s fill:#326ce5,color:#fff,stroke:#2558c7
+  </pre>
+</div>
+
+<p class="note">All diagrams render client-side via Mermaid.js. Open in any browser.</p>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'dark', flowchart: { curve: 'basis', padding: 16 } });
+</script>
+</body>
+</html>

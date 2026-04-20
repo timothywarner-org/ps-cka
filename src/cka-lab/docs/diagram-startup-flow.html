@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CKA Lab - Cluster Startup Flow</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px 40px; background: #0f172a; color: #e2e8f0; }
+  h1 { color: #38bdf8; font-size: 1.8rem; margin-bottom: 4px; }
+  .subtitle { color: #94a3b8; font-size: 0.95rem; margin-bottom: 24px; }
+  .diagram-container { background: #1e293b; border-radius: 12px; padding: 32px; border: 1px solid #334155; overflow-x: auto; }
+  .legend { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 20px; font-size: 0.85rem; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-swatch { width: 14px; height: 14px; border-radius: 3px; }
+  .note { color: #64748b; font-size: 0.8rem; margin-top: 16px; }
+</style>
+</head>
+<body>
+
+<h1>kind-up.ps1 &mdash; Cluster Startup Flow</h1>
+<p class="subtitle">Interactive menu sequence, Docker Desktop launch, KIND cluster creation, health verification, and optional tutorials.</p>
+
+<div class="diagram-container">
+<pre class="mermaid">
+flowchart TD
+    Start([".\kind-up.ps1"]):::entry --> Source["Source lib/CkaLab.ps1\nInitialize-LabPath"]:::lib
+    Source --> Banner["Banner: KIND Cluster Startup"]
+
+    Banner --> TopoMenu{"Topology Menu\n-ConfigPath skips"}:::menu
+    TopoMenu -->|"1 Simple"| Simple["cka-simple.yaml\n1 CP + 1 Worker"]:::config
+    TopoMenu -->|"2 Standard"| Standard["cka-3node.yaml\n1 CP + 2 Workers"]:::config
+    TopoMenu -->|"3 HA"| HA["cka-ha.yaml\n3 CP + 2 Workers"]:::config
+    TopoMenu -->|"4 Workloads"| Workloads["cka-workloads.yaml\n1 CP + 3 Workers"]:::config
+
+    Simple --> KubeadmMenu
+    Standard --> KubeadmMenu
+    HA --> KubeadmMenu
+    Workloads --> KubeadmMenu
+
+    KubeadmMenu{"Show kubeadm\ncommands? y/N"}:::menu -->|"Yes"| Verbose["Verbose: kind -v 6"]
+    KubeadmMenu -->|"No"| Normal["Normal mode"]
+
+    Verbose --> TutMenu
+    Normal --> TutMenu
+
+    TutMenu{"Run tutorial\nafter creation? 0-4"}:::menu -->|"0 Skip"| NoTut[" "]:::invisible
+    TutMenu -->|"1-4"| YesTut["Tutorial queued"]:::tut
+
+    NoTut --> Step1
+    YesTut --> Step1
+
+    Step1["Step 1: Test-Prerequisites\ndocker / kind / kubectl"]:::step --> PreCheck{All found?}
+    PreCheck -->|"No"| Fail1(["EXIT: Missing tools"]):::fail
+    PreCheck -->|"Yes"| Step2
+
+    Step2["Step 2: Start-DockerDesktop\nWait-DockerReady"]:::step --> DDCheck{Docker ready?}
+    DDCheck -->|"Timeout"| Fail2(["EXIT: DD timeout"]):::fail
+    DDCheck -->|"Ready"| Step3
+
+    Step3["Step 3: kind create cluster\n--config --wait 120s"]:::step --> Exists{Cluster exists?}
+    Exists -->|"Yes"| SkipCreate["Skip: idempotent"]
+    Exists -->|"No"| Create["Create cluster"]
+    Create --> CreateOK{Success?}
+    CreateOK -->|"No"| Fail3(["EXIT: Creation failed"]):::fail
+    CreateOK -->|"Yes"| IsWork{Workloads\ntopology?}
+    IsWork -->|"Yes"| Labels["Apply labels + taints\nzone, tier, NoSchedule"]:::labels
+    IsWork -->|"No"| Step4
+    Labels --> Step4
+    SkipCreate --> Step4
+
+    Step4["Step 4: Verify Health\nWait for nodes Ready"]:::step --> Step5["Step 5: Resource Summary\ndocker stats + host memory"]:::step
+    Step5 --> TutCheck{Tutorial selected?}
+    TutCheck -->|"No"| Done(["CKA Lab Ready"]):::done
+    TutCheck -->|"Yes"| Step6["Step 6: Run Tutorial\ninteractive, on-rails"]:::tut
+    Step6 --> Done
+
+    classDef entry fill:#2563eb,color:#fff,stroke:#1d4ed8,stroke-width:2px
+    classDef lib fill:#6366f1,color:#fff,stroke:#4f46e5
+    classDef menu fill:#7c3aed,color:#fff,stroke:#6d28d9,stroke-width:2px
+    classDef config fill:#475569,color:#e2e8f0,stroke:#64748b
+    classDef step fill:#0891b2,color:#fff,stroke:#0e7490,stroke-width:2px
+    classDef labels fill:#d97706,color:#fff,stroke:#b45309
+    classDef tut fill:#8b5cf6,color:#fff,stroke:#7c3aed
+    classDef fail fill:#dc2626,color:#fff,stroke:#b91c1c,stroke-width:2px
+    classDef done fill:#16a34a,color:#fff,stroke:#15803d,stroke-width:2px
+    classDef invisible fill:none,stroke:none,color:none
+</pre>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-swatch" style="background:#2563eb"></div> Entry point</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#7c3aed"></div> Interactive menu</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#0891b2"></div> Execution step</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#d97706"></div> Workloads-only</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#8b5cf6"></div> Tutorial</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#dc2626"></div> Exit on failure</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#16a34a"></div> Success</div>
+</div>
+<p class="note">All interactive prompts can be skipped with CLI parameters (-ConfigPath, -ShowKubeadm, -Tutorial, -SkipDdStart).</p>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'dark', flowchart: { curve: 'basis', padding: 16 } });
+</script>
+</body>
+</html>

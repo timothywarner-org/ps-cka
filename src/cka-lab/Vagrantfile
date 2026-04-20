@@ -1,0 +1,289 @@
+Vagrant.configure("2") do |config|
+  config.vm.box = "generic/ubuntu2204"
+  config.vm.box_check_update = false
+
+  # --- Create the CKA-NAT switch before first VM boots ---
+  config.trigger.before :up do |trigger|
+    trigger.info = "Ensuring CKA-NAT Hyper-V switch exists..."
+    trigger.run = {
+      privileged: "true",
+      powershell_elevated_interactive: "true",
+      path: "./create-nat-switch.ps1"
+    }
+  end
+
+  # --- Node definitions: hostname => static IP ---
+  NODES = {
+    "control1" => "192.168.50.10",
+    "worker1"  => "192.168.50.11",
+    "worker2"  => "192.168.50.12",
+  }
+
+  GATEWAY = "192.168.50.1"
+  DNS     = "8.8.8.8"
+
+  NODES.each do |name, ip|
+    config.vm.define name do |node|
+      node.vm.hostname = name
+
+      # Hyper-V provider settings
+      node.vm.provider "hyperv" do |h|
+        h.memory = 2048
+        h.cpus = 2
+        h.vmname = name
+        h.enable_checkpoints = true
+        h.enable_automatic_checkpoints = false
+      end
+
+      # Use CKA-NAT switch instead of Default Switch.
+      # auto_config: false tells Vagrant NOT to write its own network config —
+      # netplan (below) becomes the sole authority for the interface, which
+      # avoids a race between Vagrant's DHCP attempt and our static IP.
+      node.vm.network "public_network", bridge: "CKA-NAT", auto_config: false
+
+      # --- Static IP via netplan ---
+      node.vm.provision "shell", name: "static-ip", inline: <<-NETPLAN
+        set -euo pipefail
+
+        echo "[+] Configuring static IP #{ip} on $(hostname)..."
+
+        # Find the Hyper-V network interface:
+        #   - must be UP (avoids cloud-init stub interfaces that never came up)
+        #   - exclude loopback, docker, cni, veth, virbr, bridge, flannel, calico
+        #   - prefer eth0 (deterministic on Hyper-V boxes) if present and up
+        if ip -o link show up | awk -F': ' '{print $2}' | grep -qx eth0; then
+          IFACE=eth0
+        else
+          IFACE=$(ip -o link show up | \
+            awk -F': ' '$2 !~ /^(lo|docker|cni|veth|virbr|br-|flannel|cali)/ {print $2; exit}')
+        fi
+
+        if [ -z "${IFACE:-}" ]; then
+          echo "[ERROR] Could not detect network interface" >&2
+          ip -o link show >&2
+          exit 1
+        fi
+        echo "[+] Using interface: $IFACE"
+
+        cat <<YAML | tee /etc/netplan/01-cka-static.yaml
+network:
+  version: 2
+  ethernets:
+    ${IFACE}:
+      dhcp4: false
+      addresses:
+        - #{ip}/24
+      routes:
+        - to: default
+          via: #{GATEWAY}
+      nameservers:
+        addresses: [#{DNS}, 8.8.4.4]
+YAML
+
+        # Remove any DHCP config that conflicts
+        rm -f /etc/netplan/00-installer-config.yaml 2>/dev/null || true
+        rm -f /etc/netplan/50-cloud-init.yaml 2>/dev/null || true
+        rm -f /etc/netplan/50-vagrant.yaml 2>/dev/null || true
+
+        # Regenerate backend config, then prefer `netplan try` — it auto-reverts
+        # if the new config kills connectivity (which would be unrecoverable
+        # mid-provision). Fall back to `apply` on older netplan builds.
+        netplan generate
+        if netplan try --help >/dev/null 2>&1; then
+          # `netplan try` wants a confirmation on stdin; feeding it newline
+          # accepts the change before the 30s auto-revert timer fires.
+          echo "" | netplan try --timeout 30 || netplan apply
+        else
+          netplan apply
+        fi
+        echo "[OK] Static IP #{ip} applied on $IFACE"
+      NETPLAN
+
+      # --- /etc/hosts so nodes can resolve each other ---
+      node.vm.provision "shell", name: "hosts-file", inline: <<-HOSTS
+        set -euo pipefail
+        echo "[+] Writing /etc/hosts entries..."
+
+        # Remove any old CKA entries, then append fresh
+        sed -i '/# CKA-LAB/d' /etc/hosts
+        echo "192.168.50.10 control1  # CKA-LAB" >> /etc/hosts
+        echo "192.168.50.11 worker1   # CKA-LAB" >> /etc/hosts
+        echo "192.168.50.12 worker2   # CKA-LAB" >> /etc/hosts
+
+        echo "[OK] /etc/hosts updated"
+      HOSTS
+
+      # --- Main CKA prereq provisioner ---
+      node.vm.provision "shell", name: "cka-prereqs", inline: <<-'SHELL'
+        #!/usr/bin/env bash
+        #================================================================
+        # CKA Lab — Pre-cluster provisioning
+        # Installs containerd + kubeadm/kubelet/kubectl on Ubuntu 22.04
+        # Stops BEFORE kubeadm init so you can snapshot clean state
+        #================================================================
+
+        set -euo pipefail
+
+        # --- Logging + error handling ---
+        LOG="/var/log/cka-provision.log"
+        STEP=""
+
+        log()  { echo "[$(date '+%H:%M:%S')] $*" | tee -a "$LOG"; }
+        fail() { log "FATAL: Step '$STEP' failed (exit $?). Check $LOG"; exit 1; }
+        trap fail ERR
+
+        run_step() {
+          STEP="$1"
+          log ">>> $STEP"
+        }
+
+        # --- 1. Disable swap ---
+        run_step "Disable swap"
+        swapoff -a
+        sed -i '/ swap / s/^/#/' /etc/fstab
+        log "    swap disabled and fstab updated"
+
+        # --- 2. Kernel modules ---
+        run_step "Load kernel modules"
+        cat <<EOF | tee /etc/modules-load.d/k8s.conf
+overlay
+br_netfilter
+EOF
+        modprobe overlay
+        modprobe br_netfilter
+        log "    overlay + br_netfilter loaded"
+
+        # --- 3. Sysctl params ---
+        run_step "Configure sysctl for bridged traffic"
+        cat <<EOF | tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-iptables  = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward                 = 1
+EOF
+        sysctl --system >> "$LOG" 2>&1
+        log "    sysctl applied"
+
+        # --- 4. Install containerd ---
+        run_step "Install containerd"
+        apt-get update >> "$LOG" 2>&1
+        apt-get install -y containerd apt-transport-https ca-certificates curl gnupg >> "$LOG" 2>&1
+        log "    packages installed"
+
+        run_step "Configure containerd with systemd cgroup driver"
+        mkdir -p /etc/containerd
+        containerd config default | tee /etc/containerd/config.toml >> "$LOG"
+        if ! sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml; then
+          log "WARNING: sed failed — verify SystemdCgroup manually"
+        fi
+        if grep -q 'SystemdCgroup = true' /etc/containerd/config.toml; then
+          log "    SystemdCgroup = true confirmed"
+        else
+          log "FATAL: SystemdCgroup not set — containerd config format may have changed"
+          exit 1
+        fi
+        systemctl restart containerd
+        systemctl enable containerd
+
+        # --- 5. Configure crictl ---
+        run_step "Configure crictl"
+        cat <<EOF | tee /etc/crictl.yaml
+runtime-endpoint: unix:///run/containerd/containerd.sock
+image-endpoint: unix:///run/containerd/containerd.sock
+timeout: 10
+EOF
+        log "    crictl.yaml written"
+
+        # --- 6. Kubernetes apt repo ---
+        run_step "Add Kubernetes v1.35 apt repo"
+        mkdir -p /etc/apt/keyrings
+        if ! curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.35/deb/Release.key \
+             | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg; then
+          log "FATAL: Could not fetch K8s GPG key — check DNS/internet"
+          exit 1
+        fi
+        echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.35/deb/ /" \
+          | tee /etc/apt/sources.list.d/kubernetes.list
+        log "    repo added"
+
+        # --- 7. Install K8s components ---
+        # Pinned to prevent drift during recording — bump version here
+        # when curriculum updates. Format matches pkgs.k8s.io:
+        #   <upstream>-<debian-revision>, e.g. 1.35.0-1.1
+        # Use `apt-cache madison kubelet` inside a provisioned VM to
+        # discover the latest 1.35.x-1.1 before bumping.
+        run_step "Install kubelet, kubeadm, kubectl (pinned)"
+        K8S_PKG_VERSION="1.35.0-1.1"
+        apt-get update >> "$LOG" 2>&1
+        apt-get install -y \
+          kubelet="$K8S_PKG_VERSION" \
+          kubeadm="$K8S_PKG_VERSION" \
+          kubectl="$K8S_PKG_VERSION" >> "$LOG" 2>&1
+        apt-mark hold kubelet kubeadm kubectl
+        systemctl enable kubelet
+        log "    installed $K8S_PKG_VERSION and held"
+
+        # --- 8. Shell quality of life ---
+        run_step "Configure bash aliases and completion"
+        echo 'alias k=kubectl' >> /home/vagrant/.bashrc
+        echo 'source <(kubectl completion bash)' >> /home/vagrant/.bashrc
+        echo 'complete -o default -F __start_kubectl k' >> /home/vagrant/.bashrc
+
+        # --- 9. Verification gate ---
+        run_step "Verify all components"
+        FAIL=0
+        for cmd in kubeadm kubelet kubectl containerd; do
+          if command -v "$cmd" &>/dev/null; then
+            log "    $cmd OK"
+          else
+            log "    MISSING: $cmd"
+            FAIL=1
+          fi
+        done
+        if [ "$FAIL" -eq 1 ]; then
+          log "FATAL: One or more components missing"
+          exit 1
+        fi
+
+        # --- 10. Connection summary ---
+        NODE=$(hostname)
+        IP=$(hostname -I | awk '{print $1}')
+        log ""
+        log "================================================"
+        log "  NODE READY: $NODE"
+        log "  IP:         $IP"
+        log "  SSH:        ssh vagrant@$IP"
+        log "  Vagrant:    vagrant ssh $NODE"
+        log "  Log:        $LOG"
+        log "  (Credentials in README.md — not logged here)"
+        log "================================================"
+      SHELL
+
+    end # node
+  end # NODES.each
+
+  # --- After all VMs are up, print consolidated connection guide ---
+  config.trigger.after :up do |trigger|
+    trigger.info = "CKA Lab — Connection Summary"
+    trigger.ruby do |env, machine|
+      puts ""
+      puts "=" * 60
+      puts "  CKA LAB — CONNECTION GUIDE"
+      puts "=" * 60
+      puts ""
+      puts "  %-12s %-18s %s" % ["NODE", "IP", "SSH COMMAND"]
+      puts "  " + "-" * 56
+      puts "  %-12s %-18s %s" % ["control1", "192.168.50.10", "ssh vagrant@192.168.50.10"]
+      puts "  %-12s %-18s %s" % ["worker1",  "192.168.50.11", "ssh vagrant@192.168.50.11"]
+      puts "  %-12s %-18s %s" % ["worker2",  "192.168.50.12", "ssh vagrant@192.168.50.12"]
+      puts ""
+      puts "  Credentials: see README.md (not logged here)"
+      puts "  Vagrant:   vagrant ssh <node>"
+      puts "  Validate:  .\\cka-validate.ps1"
+      puts "  Snapshot:  .\\cka-snapshot.ps1"
+      puts ""
+      puts "=" * 60
+      puts ""
+    end
+  end
+
+end

@@ -1,0 +1,46 @@
+# KIND HA cluster for CKA certification training
+# 3 control-plane nodes + 2 workers
+#
+# CKA topics this enables:
+#   - etcd quorum and failure recovery (kill one CP, cluster survives)
+#   - HA control plane architecture (stacked etcd topology)
+#   - Leader election for kube-scheduler and kube-controller-manager
+#   - etcdctl snapshot save/restore across members
+#
+# Note: Heavier on resources (~10GB RAM). Use for etcd/HA-specific practice.
+#
+# Usage:
+#   kind create cluster --config cka-ha.yaml --wait 180s
+#
+# Or: .\kind-up.ps1 and select option 3
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+# name is set by kind-up.ps1 --name flag (default: cka-lab)
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: ClusterConfiguration
+        apiServer:
+          extraArgs:
+            "enable-admission-plugins": "NodeRestriction,PodSecurity"
+  - role: control-plane
+  - role: control-plane
+  # NodePort mappings live on a worker node, not a control-plane.
+  # Rationale: in HA failover demos we kill a control-plane to prove etcd
+  # quorum survives. If the port mappings were bound to CP #1, NodePort
+  # traffic would die with it -- defeating the whole point of the demo.
+  # Workers are not drained during HA teaching scenarios, so host->NodePort
+  # routing stays up even when a control-plane is offline.
+  - role: worker
+    extraPortMappings:
+      - containerPort: 30000
+        hostPort: 30000
+        protocol: TCP
+      - containerPort: 30080
+        hostPort: 30080
+        protocol: TCP
+      - containerPort: 30443
+        hostPort: 30443
+        protocol: TCP
+  - role: worker

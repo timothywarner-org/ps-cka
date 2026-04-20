@@ -1,0 +1,30 @@
+# Binary artifacts
+*.deb
+*.zip
+*.tar.gz
+*.vhdx
+
+# Vagrant
+.vagrant/
+
+# Demo runbook source material
+temp/
+
+# Secrets & credentials
+.env
+.env.*
+*.pem
+*.key
+*.crt
+*.pfx
+kubeconfig
+*.kubeconfig
+
+# Logs
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*~

@@ -58,59 +58,45 @@ pie title CKA v1.35 Exam Domains
     "Storage" : 10
 ```
 
-## Lab Environment Setup
+## Lab Environment -- Two Paths
 
-All demos use **kind** (Kubernetes IN Docker) for reproducible, exam-aligned clusters that spin up in under 30 seconds.
+The lab environment lives in [`src/cka-lab/`](src/cka-lab/) and gives you two ways to practice. Both target Kubernetes **v1.35** and live on the same Windows 11 host -- pick based on what the module is teaching.
+
+### Fast path -- KIND on Docker (sub-30-second cluster)
+
+Best for: most demos, kubectl reps, the diagnostic ladder, anything where you want a clean cluster *now*. PowerShell 7 interactive menus pick the topology, optionally start a tutorial, and tear down cleanly.
+
+```powershell
+cd src/cka-lab
+.\kind-up.ps1            # menu: topology + optional tutorial
+.\Start-Tutorial.ps1     # run a tutorial against a live cluster
+.\kind-down.ps1          # menu: cluster only or full Docker shutdown
+```
+
+Walkthrough -> [`src/cka-lab/TUTORIAL-KIND.md`](src/cka-lab/TUTORIAL-KIND.md)
+
+### Exam-shaped path -- Hyper-V VMs with kubeadm
+
+Best for: Course 2, anything that needs real systemd, a real package manager, or node-level break/fix drills. Three Ubuntu 22.04 VMs (`control1`, `worker1`, `worker2`) on a dedicated `CKA-NAT` switch (`192.168.50.0/24`). Vagrant brings them up with all kubeadm v1.35 prereqs installed -- you run `kubeadm init` yourself. Native Hyper-V checkpoints give you the practice loop.
+
+```powershell
+cd src/cka-lab
+vagrant up --provider=hyperv   # admin pwsh required
+.\cka-validate.ps1             # confirm prereqs
+.\cka-snapshot.ps1             # save "pre-cluster" baseline
+vagrant ssh control1           # bootstrap the cluster yourself
+.\cka-restore.ps1              # nuke it, go again
+```
+
+Walkthrough -> [`src/cka-lab/TUTORIAL-HYPERV.md`](src/cka-lab/TUTORIAL-HYPERV.md)
 
 ### Prerequisites
 
-- Windows 11 (23H2+) with WSL2, macOS, or Linux
-- Docker Desktop 4.x (or Docker Engine on Linux)
-- [kind](https://kind.sigs.k8s.io/) v0.25+
-- kubectl v1.35
-
-### Quick Start
-
-```bash
-# Clone the repo
-git clone https://github.com/timothywarner/ps-cka.git
-cd ps-cka/exercise-files
-
-# Create the standard 3-node lab cluster (used across all courses)
-kind create cluster --config shared/cka-lab-cluster.yaml --name cka-lab
-
-# Verify cluster health
-kubectl get nodes -o wide
-kubectl -n kube-system get pods
-```
-
-### Standard Cluster Configuration
-
-The same kind config is reused across all 11 courses:
-
-```yaml
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-nodes:
-- role: control-plane
-  kubeadmConfigPatches:
-  - |
-    kind: InitConfiguration
-    nodeRegistration:
-      kubeletExtraArgs:
-        node-labels: "ingress-ready=true"
-  extraPortMappings:
-  - containerPort: 80
-    hostPort: 80
-  - containerPort: 443
-    hostPort: 443
-  - containerPort: 30000
-    hostPort: 30000
-- role: worker
-- role: worker
-```
-
-For **kubeadm-specific demos** (Course 2), a Vagrant + VirtualBox setup is used for full systemd and package management access.
+- Windows 11 Pro/Enterprise (Hyper-V enabled) -- required for the exam-shaped path
+- PowerShell 7+
+- Docker Desktop 4.x with WSL2 -- for the fast path
+- [kind](https://kind.sigs.k8s.io/) v0.25+, kubectl v1.35
+- Vagrant -- for the exam-shaped path
 
 ## Repository Structure
 
