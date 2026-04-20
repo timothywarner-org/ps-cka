@@ -88,9 +88,19 @@ There is no `$Script:CkaLabRoot`. Earlier revisions exposed one; it's been remov
 `lib/tutorials.ps1` contains four tutorial functions:
 
 - `Start-ComponentWalkthrough` -- 12-step verification of all K8s components
-- `Start-TutorialM01` -- Course 1 Module 1: architecture & lab setup
-- `Start-TutorialM02` -- Course 1 Module 2: kubectl workflows
-- `Start-TutorialM03` -- Course 1 Module 3: core resources & diagnostics
+- `Start-TutorialM01` -- Course 1 Module 1: architecture & lab setup (10 steps)
+- `Start-TutorialM02` -- Course 1 Module 2: kubectl workflows (16 steps)
+- `Start-TutorialM03` -- Course 1 Module 3: core resources & diagnostics (18 steps)
+
+All 57 steps are rendered through `Write-TutorialSection`, which accepts five content params:
+
+- `-Title` -- section header (e.g. `"2/16  IMPERATIVE: CREATE A DEPLOYMENT"`)
+- `-Explanation` -- the "why" shown before the command runs
+- `-Command` -- the literal string passed to `Invoke-Expression`
+- `-CommandBreakdown` -- pre-run flag-by-flag dissection, one line per token (`flag = what it does`)
+- `-OutputFields` -- post-run column/field explainer for the output the learner just saw
+
+`-CommandBreakdown` and `-OutputFields` are optional but populated on every step. If you add a new section, fill both -- the enrichment is uniform across all 57 calls and the helper is the only place that renders them.
 
 Invariants the tutorial code relies on (do not regress these):
 
@@ -98,6 +108,7 @@ Invariants the tutorial code relies on (do not regress these):
 - **No TTY dependency**: `kubectl run -it` is banned. All interactive pod runs use `--restart=Never --attach --rm` so tutorials work over SSH, in CI, and inside recording sessions where a TTY isn't guaranteed.
 - **Topology-agnostic narration**: tutorial copy never hard-codes node counts. Functions query `kubectl get nodes --no-headers | Measure-Object` into `$nodeCount` and interpolate that into output. A tutorial should read correctly against 2, 3, 4, or 5 nodes.
 - **Word-boundary regex**: tutorial output matchers use `\broles?\b`, `\brolebindings?\b`, `\bconfigmap\w*` so that `rolebinding` doesn't match `role` and `configmaps` matches `configmap`.
+- **Breakdown + OutputFields parity**: when adding or editing a section, both `-CommandBreakdown` and `-OutputFields` must stay in sync with the command. Silent drift (command changed, breakdown not updated) is the top regression risk here.
 
 Tutorials use deterministic names for all commands:
 

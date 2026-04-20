@@ -23,6 +23,10 @@ param(
 # duplicated logic already hardened in lib/CkaLab.ps1.)
 . (Join-Path -Path $PSScriptRoot -ChildPath "lib\CkaLab.ps1")
 
+# UTF-8 console so tutorial output (and kubectl calls inside tutorials) render
+# bullets/checkmarks/emoji correctly on Windows PowerShell consoles.
+Initialize-LabEncoding
+
 # Verify the cluster is running
 if (-not (Test-ClusterExists -ClusterName $ClusterName)) {
     Write-ErrorMsg "Cluster '$ClusterName' is not running. Start it with: .\kind-up.ps1"

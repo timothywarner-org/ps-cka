@@ -137,6 +137,43 @@ steps. No slides. No markdown. Just kubectl output and context.
 | 3 | **Course 1, Module 2** | 16 | kubectl workflows — imperative vs. declarative, `--dry-run=client -o yaml`, `explain`. |
 | 4 | **Course 1, Module 3** | 18 | Core resources + the **diagnostic ladder**: `get → describe → logs → events`. |
 
+### What each step looks like
+
+Every one of the 57 steps is rendered as a consistent 4-block pattern:
+
+```
+================================================================
+  2/16  IMPERATIVE: CREATE A DEPLOYMENT
+================================================================
+
+  Deployments manage rollouts. Three things just happened:
+  a Deployment, a ReplicaSet, and 3 Pods. All from one command.
+
+  Command:  kubectl create deployment web --image=nginx --replicas=3
+  ---- What each part does -----------------------------------
+  kubectl create  = imperative create (vs apply, which is declarative from YAML)
+  deployment      = resource kind (short: deploy)
+  web             = Deployment name; becomes the label selector app=web
+  --image=nginx   = container image used in the pod template
+  --replicas=3    = desired pod count; ReplicaSet enforces this continuously
+  ----------------------------------------------------------------
+
+  deployment.apps/web created
+
+  ---- What you just saw -------------------------------------
+  deployment.apps/web created = Deployment object persisted
+  Chain spawned: Deployment -> ReplicaSet -> 3 Pods (all labeled app=web)
+  Pod names follow <deploy>-<rs-hash>-<pod-hash> (e.g. web-7d4b9c8f-xkl2m)
+  Verify the chain with: kubectl get deploy,rs,pods
+
+  Press Enter to continue:
+```
+
+The **"What each part does"** block explains every flag and argument before the
+command runs. The **"What you just saw"** block explains the columns and fields
+of the output after it runs. You can skip both by hitting Enter fast — they're
+there for the first pass, not to slow down reps two and three.
+
 ### Launching a tutorial
 
 Two ways.
