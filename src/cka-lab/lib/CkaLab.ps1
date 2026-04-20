@@ -43,7 +43,12 @@ function Initialize-LabEncoding {
         render as garbage like "ΓÇó Γ£ô ≡ƒû╝". Setting both the OS code page
         and PowerShell's OutputEncoding fixes it without altering any command.
         Call this FIRST in every entry point, before any external command runs.
+
+        On Linux (including pwsh inside WSL2) the terminal is already UTF-8 and
+        chcp.com does not exist, so this function is a no-op there.
     #>
+    if (-not $IsWindows) { return }
+
     try {
         # OS-level console code page (affects what external tools print).
         # 65001 = UTF-8. chcp output is noisy; redirect it.
@@ -67,7 +72,15 @@ function Initialize-LabPath {
     .SYNOPSIS
         Adds winget, Docker, and System32 to PATH if missing.
         Spawned PowerShell sessions often inherit a minimal PATH.
+
+        On Linux (including pwsh inside WSL2) the PATH is inherited from the
+        launching shell (bash/zsh) and already contains kind/kubectl/docker
+        via Docker Desktop's WSL integration, so this function is a no-op.
+        Also avoids touching $env:LOCALAPPDATA / $env:SystemRoot which are
+        unset on Linux and would throw Join-Path null-binding errors.
     #>
+    if (-not $IsWindows) { return }
+
     $pathsToAdd = @(
         (Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\WinGet\Links"),    # kind.exe
         "C:\Program Files\Docker\Docker\resources\bin",                              # docker.exe, kubectl.exe
@@ -116,10 +129,19 @@ function Start-DockerDesktop {
     .SYNOPSIS
         Launches Docker Desktop if not already running.
         Returns $true if it was already running, $false if launched.
+
+        On Linux / WSL2 PowerShell: cannot launch Docker Desktop from here
+        (it lives on the Windows host). Report readiness and return without
+        attempting to Start-Process a Windows .exe.
     #>
     if (Test-DockerReady) {
         Write-Info "Docker Desktop is already running"
         return $true
+    }
+
+    if (-not $IsWindows) {
+        Write-Info "Docker daemon not responding from this shell. In WSL2, start Docker Desktop on the Windows host (or use -SkipDdStart once it's running)."
+        return $false
     }
 
     $ddExe = "C:\Program Files\Docker\Docker\Docker Desktop.exe"
@@ -166,7 +188,15 @@ function Stop-DockerDesktop {
     <#
     .SYNOPSIS
         Force-stops Docker Desktop and its backend processes.
+
+        On Linux / WSL2 PowerShell: Docker Desktop runs on the Windows host.
+        We can't Stop-Process Windows processes from here; log and skip.
     #>
+    if (-not $IsWindows) {
+        Write-Info "Skipping Docker Desktop stop (runs on Windows host; stop it there manually if needed)."
+        return
+    }
+
     if (Get-Command docker -ErrorAction SilentlyContinue) {
         Write-Info "Sending Docker Desktop quit signal..."
         Stop-Process -Name "Docker Desktop" -Force -ErrorAction SilentlyContinue

@@ -253,26 +253,32 @@ Write-Output ""
 
 # Execute WSL shutdown as the very last action (if pending)
 if ($WslShutdownPending) {
-    Write-Info "Executing WSL shutdown in 3 seconds..."
-    Start-Sleep -Seconds 3
-
-    # Prefer whatever wsl the current PATH resolves to. On ARM64 Windows,
-    # %SystemRoot%\System32 gets Sysnative-redirected when a 32-bit host runs,
-    # so hardcoding that path can point at the wrong wsl.exe (or nothing).
-    # Fallback order: Get-Command -> 'wsl.exe' on PATH -> skip with a friendly note.
-    $wslExe = Get-Command wsl -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source
-    if (-not $wslExe) {
-        $wslExe = Get-Command wsl.exe -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source
-    }
-
-    if ($wslExe -and (Test-Path -Path $wslExe)) {
-        & $wslExe --shutdown 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            Write-Success "WSL shutdown complete"
-        } else {
-            Write-ErrorMsg "WSL shutdown failed (exit code $LASTEXITCODE)"
-        }
+    # Running from inside WSL2, 'wsl --shutdown' would kill the shell we're
+    # running in. Skip with guidance so the user can run it from a Windows terminal.
+    if (-not $IsWindows) {
+        Write-Info "Skipping WSL shutdown (you are running inside WSL). From a Windows PowerShell/terminal, run: wsl --shutdown"
     } else {
-        Write-Info "wsl.exe not found on PATH - skipping WSL shutdown (run 'wsl --shutdown' manually if needed)"
+        Write-Info "Executing WSL shutdown in 3 seconds..."
+        Start-Sleep -Seconds 3
+
+        # Prefer whatever wsl the current PATH resolves to. On ARM64 Windows,
+        # %SystemRoot%\System32 gets Sysnative-redirected when a 32-bit host runs,
+        # so hardcoding that path can point at the wrong wsl.exe (or nothing).
+        # Fallback order: Get-Command -> 'wsl.exe' on PATH -> skip with a friendly note.
+        $wslExe = Get-Command wsl -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source
+        if (-not $wslExe) {
+            $wslExe = Get-Command wsl.exe -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source
+        }
+
+        if ($wslExe -and (Test-Path -Path $wslExe)) {
+            & $wslExe --shutdown 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                Write-Success "WSL shutdown complete"
+            } else {
+                Write-ErrorMsg "WSL shutdown failed (exit code $LASTEXITCODE)"
+            }
+        } else {
+            Write-Info "wsl.exe not found on PATH - skipping WSL shutdown (run 'wsl --shutdown' manually if needed)"
+        }
     }
 }
