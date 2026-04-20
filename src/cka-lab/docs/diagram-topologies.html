@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CKA Lab - Cluster Topologies</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px 40px; background: #0f172a; color: #e2e8f0; }
+  h1 { color: #38bdf8; font-size: 1.8rem; margin-bottom: 4px; }
+  .subtitle { color: #94a3b8; font-size: 0.95rem; margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 1200px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: #1e293b; border-radius: 12px; padding: 24px; border: 1px solid #334155; }
+  .card h2 { font-size: 1.1rem; margin: 0 0 4px 0; }
+  .card .meta { color: #94a3b8; font-size: 0.85rem; margin-bottom: 16px; }
+  .card .topics { font-size: 0.8rem; color: #64748b; margin-top: 12px; padding-top: 12px; border-top: 1px solid #334155; }
+  .card .topics strong { color: #94a3b8; }
+  .shared { background: #1e293b; border-radius: 12px; padding: 20px 24px; border: 1px solid #334155; margin-top: 20px; }
+  .shared h2 { font-size: 1rem; color: #38bdf8; margin: 0 0 8px 0; }
+  .shared-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; font-size: 0.85rem; }
+  .shared-item { background: #334155; border-radius: 6px; padding: 6px 10px; }
+</style>
+</head>
+<body>
+
+<h1>KIND Cluster Topologies</h1>
+<p class="subtitle">Four pre-built configurations in <code>configs/</code>, selected via the kind-up.ps1 interactive menu or <code>-ConfigPath</code>.</p>
+
+<div class="grid">
+
+<div class="card" style="border-color: #2563eb;">
+  <h2 style="color: #60a5fa;">1. Simple</h2>
+  <div class="meta">cka-simple.yaml &mdash; 2 nodes, ~4 GB RAM</div>
+  <pre class="mermaid">
+flowchart TB
+    CP["control-plane\nAPI Server + etcd\nScheduler + CM"]:::cp
+    W1["worker"]:::worker
+    CP --- W1
+    classDef cp fill:#2563eb,color:#fff,stroke:#1d4ed8
+    classDef worker fill:#475569,color:#e2e8f0,stroke:#64748b
+  </pre>
+  <div class="topics"><strong>CKA topics:</strong> Quick practice, smoke tests, basic kubectl, pod lifecycle</div>
+</div>
+
+<div class="card" style="border-color: #16a34a;">
+  <h2 style="color: #4ade80;">2. Standard</h2>
+  <div class="meta">cka-3node.yaml &mdash; 3 nodes, ~6 GB RAM</div>
+  <pre class="mermaid">
+flowchart TB
+    CP["control-plane\nAPI Server + etcd\nScheduler + CM"]:::cp
+    W1["worker"]:::worker
+    W2["worker2"]:::worker
+    CP --- W1
+    CP --- W2
+    classDef cp fill:#16a34a,color:#fff,stroke:#15803d
+    classDef worker fill:#475569,color:#e2e8f0,stroke:#64748b
+  </pre>
+  <div class="topics"><strong>CKA topics:</strong> Exam-matching topology, pod scheduling across nodes, services, rolling updates</div>
+</div>
+
+<div class="card" style="border-color: #d97706;">
+  <h2 style="color: #fbbf24;">3. HA (High Availability)</h2>
+  <div class="meta">cka-ha.yaml &mdash; 5 nodes, ~10 GB RAM</div>
+  <pre class="mermaid">
+flowchart TB
+    CP1["control-plane\netcd member 1\nAPI Server"]:::cp
+    CP2["control-plane2\netcd member 2\nAPI Server"]:::cp
+    CP3["control-plane3\netcd member 3\nAPI Server"]:::cp
+    W1["worker"]:::worker
+    W2["worker2"]:::worker
+    CP1 <--->|"raft"| CP2
+    CP2 <--->|"raft"| CP3
+    CP1 <--->|"raft"| CP3
+    CP1 --- W1
+    CP3 --- W2
+    classDef cp fill:#d97706,color:#fff,stroke:#b45309
+    classDef worker fill:#475569,color:#e2e8f0,stroke:#64748b
+  </pre>
+  <div class="topics"><strong>CKA topics:</strong> etcd quorum, leader election, etcdctl snapshot/restore, kill a CP and survive, stacked etcd topology</div>
+</div>
+
+<div class="card" style="border-color: #db2777;">
+  <h2 style="color: #f472b6;">4. Workloads</h2>
+  <div class="meta">cka-workloads.yaml &mdash; 4 nodes, ~8 GB RAM</div>
+  <pre class="mermaid">
+flowchart TB
+    CP["control-plane"]:::cp
+    W1["worker\nzone=east\ntier=frontend"]:::labeled
+    W2["worker2\nzone=west\ntier=backend"]:::labeled
+    W3["worker3\nzone=east | tier=backend\nTAINT: dedicated=special:NoSchedule"]:::tainted
+    CP --- W1
+    CP --- W2
+    CP --- W3
+    classDef cp fill:#db2777,color:#fff,stroke:#be185d
+    classDef labeled fill:#475569,color:#e2e8f0,stroke:#64748b
+    classDef tainted fill:#7f1d1d,color:#fca5a5,stroke:#dc2626,stroke-width:2px,stroke-dasharray: 5 5
+  </pre>
+  <div class="topics"><strong>CKA topics:</strong> Node affinity/anti-affinity, taints + tolerations, DaemonSets, topology spread, cordon/drain/uncordon, resource quotas</div>
+</div>
+
+</div>
+
+<div class="shared">
+  <h2>Shared Settings (All Topologies)</h2>
+  <div class="shared-grid">
+    <div class="shared-item">Admission: PodSecurity + NodeRestriction</div>
+    <div class="shared-item">NodePorts: 30000, 30080, 30443</div>
+    <div class="shared-item">Runtime: containerd (CKA exam match)</div>
+    <div class="shared-item">CNI: kindnet (default)</div>
+    <div class="shared-item">Cluster name: cka-lab (via --name flag)</div>
+    <div class="shared-item">API: kind.x-k8s.io/v1alpha4</div>
+  </div>
+</div>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'dark', flowchart: { curve: 'basis', padding: 12, nodeSpacing: 30, rankSpacing: 40 } });
+</script>
+</body>
+</html>

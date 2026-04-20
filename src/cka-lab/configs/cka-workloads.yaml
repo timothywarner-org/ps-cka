@@ -1,0 +1,46 @@
+# KIND workloads cluster for CKA certification training
+# 1 control-plane + 3 workers (with labels for scheduling exercises)
+#
+# CKA topics this enables:
+#   - ReplicaSets and Deployments (scale across 3 workers, observe pod spread)
+#   - Node affinity / anti-affinity (schedule to labeled nodes)
+#   - Taints and tolerations (worker3 is tainted NoSchedule)
+#   - DaemonSets (verify one pod per node)
+#   - Pod topology spread constraints
+#   - Cordon / drain / uncordon workflows
+#   - Resource quotas and LimitRanges (visible impact with multiple workers)
+#
+# After cluster creation, apply labels and taints:
+#   kubectl label node cka-lab-worker  zone=east tier=frontend
+#   kubectl label node cka-lab-worker2 zone=west tier=backend
+#   kubectl label node cka-lab-worker3 zone=east tier=backend
+#   kubectl taint node cka-lab-worker3 dedicated=special:NoSchedule
+#
+# Usage:
+#   kind create cluster --config cka-workloads.yaml --wait 120s
+#
+# Or: .\kind-up.ps1 and select option 4
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+# name is set by kind-up.ps1 --name flag (default: cka-lab)
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: ClusterConfiguration
+        apiServer:
+          extraArgs:
+            "enable-admission-plugins": "NodeRestriction,PodSecurity"
+    extraPortMappings:
+      - containerPort: 30000
+        hostPort: 30000
+        protocol: TCP
+      - containerPort: 30080
+        hostPort: 30080
+        protocol: TCP
+      - containerPort: 30443
+        hostPort: 30443
+        protocol: TCP
+  - role: worker
+  - role: worker
+  - role: worker

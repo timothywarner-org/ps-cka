@@ -1,0 +1,33 @@
+# KIND 2-node cluster for CKA certification training
+# 1 control plane + 1 worker (lighter, faster startup)
+#
+# Usage:
+#   kind create cluster --config cka-simple.yaml --wait 120s
+#
+# Or just run: .\kind-up.ps1 and select option 1
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+# name is set by kind-up.ps1 --name flag (default: cka-lab)
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: ClusterConfiguration
+        # Expose API server metrics for CKA monitoring exercises
+        apiServer:
+          extraArgs:
+            "enable-admission-plugins": "NodeRestriction,PodSecurity"
+    # Map ports for NodePort services (CKA exam tests this)
+    extraPortMappings:
+      - containerPort: 30000
+        hostPort: 30000
+        protocol: TCP
+      - containerPort: 30080
+        hostPort: 30080
+        protocol: TCP
+      - containerPort: 30443
+        hostPort: 30443
+        protocol: TCP
+  - role: worker
+# Uses containerd (default) - matches CKA exam runtime
+# Networking defaults to kindnet CNI

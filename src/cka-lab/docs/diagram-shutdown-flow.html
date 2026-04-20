@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CKA Lab - Cluster Shutdown Flow</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px 40px; background: #0f172a; color: #e2e8f0; }
+  h1 { color: #38bdf8; font-size: 1.8rem; margin-bottom: 4px; }
+  .subtitle { color: #94a3b8; font-size: 0.95rem; margin-bottom: 24px; }
+  .diagram-container { background: #1e293b; border-radius: 12px; padding: 32px; border: 1px solid #334155; overflow-x: auto; }
+  .legend { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 20px; font-size: 0.85rem; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-swatch { width: 14px; height: 14px; border-radius: 3px; }
+  .note { color: #64748b; font-size: 0.8rem; margin-top: 16px; }
+</style>
+</head>
+<body>
+
+<h1>kind-down.ps1 &mdash; Cluster Shutdown Flow</h1>
+<p class="subtitle">Interactive shutdown mode selection, cluster deletion, optional Docker Desktop and WSL2 teardown.</p>
+
+<div class="diagram-container">
+<pre class="mermaid">
+flowchart TD
+    Start([".\kind-down.ps1"]):::entry --> Source["Source lib/CkaLab.ps1\nInitialize-LabPath"]:::lib
+    Source --> Banner["Banner: KIND Cluster Shutdown"]
+
+    Banner --> ShutMenu{"Shutdown Mode\n-StopDockerDesktop skips"}:::menu
+    ShutMenu -->|"1 Cluster only"| ClusterOnly["DD stays running\nFast re-creation"]
+    ShutMenu -->|"2 Full shutdown"| FullShut["Stop DD + WSL2"]
+
+    ClusterOnly --> PruneMenu
+    FullShut --> PruneMenu
+
+    PruneMenu{"Prune Docker\nimages? y/N"}:::menu -->|"Yes"| DoPrune["Will prune"]
+    PruneMenu -->|"No"| NoPrune[" "]:::invisible
+
+    DoPrune --> Step1
+    NoPrune --> Step1
+
+    Step1["Step 1: Delete KIND Cluster"]:::step --> DockerUp{Docker\nrunning?}
+    DockerUp -->|"No"| Gone["Containers already gone"]
+    DockerUp -->|"Yes"| ClusterCheck{Cluster\nexists?}
+    ClusterCheck -->|"No"| NoDel["Nothing to delete"]
+    ClusterCheck -->|"Yes"| Delete["kind delete cluster\n--name cka-lab"]
+    Delete --> DelOK{Success?}
+    DelOK -->|"Yes"| Deleted["Cluster deleted"]:::done
+    DelOK -->|"No"| ForceRM["Force-remove containers\nby label filter"]:::warn
+
+    Gone --> Step2
+    NoDel --> Step2
+    Deleted --> Step2
+    ForceRM --> Step2
+
+    Step2{"Step 2: Prune?"}:::step -->|"Yes"| Prune["docker system prune -af\n--volumes"]
+    Step2 -->|"No"| SkipPrune["Skip prune"]
+
+    Prune --> Step3
+    SkipPrune --> Step3
+
+    Step3{"Step 3: Stop DD?"}:::step -->|"Full shutdown"| StopDD["Stop-DockerDesktop\nKill DD + backend + proxy"]:::shutdown
+    Step3 -->|"Cluster only"| SkipDD["DD stays running"]
+
+    StopDD --> Step4
+    SkipDD --> Step4
+
+    Step4{"Step 4: WSL2?"}:::step -->|"Full shutdown"| WSLPend["WSL shutdown pending\nDeferred to end"]:::shutdown
+    Step4 -->|"Cluster only"| SkipWSL["Skip WSL"]
+
+    WSLPend --> Step5
+    SkipWSL --> Step5
+
+    Step5["Step 5: Verification\nTest-DockerReady\nWrite-HostMemory"]:::step --> FinalBanner
+
+    FinalBanner{"Shutdown\nmode?"}
+    FinalBanner -->|"Cluster only"| DoneFast(["CKA Lab Torn Down\nDD running, ready for kind-up"]):::done
+    FinalBanner -->|"Full"| WSL["wsl --shutdown\n(3s delay, last action)"]:::shutdown
+    WSL --> DoneFull(["CKA Lab Shut Down\nDD stopped, WSL down"]):::done
+
+    classDef entry fill:#2563eb,color:#fff,stroke:#1d4ed8,stroke-width:2px
+    classDef lib fill:#6366f1,color:#fff,stroke:#4f46e5
+    classDef menu fill:#7c3aed,color:#fff,stroke:#6d28d9,stroke-width:2px
+    classDef step fill:#0891b2,color:#fff,stroke:#0e7490,stroke-width:2px
+    classDef shutdown fill:#dc2626,color:#fff,stroke:#b91c1c
+    classDef warn fill:#d97706,color:#fff,stroke:#b45309
+    classDef done fill:#16a34a,color:#fff,stroke:#15803d,stroke-width:2px
+    classDef invisible fill:none,stroke:none,color:none
+</pre>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-swatch" style="background:#2563eb"></div> Entry point</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#7c3aed"></div> Interactive menu</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#0891b2"></div> Execution step</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#dc2626"></div> Shutdown action</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#d97706"></div> Fallback/warning</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#16a34a"></div> Done</div>
+</div>
+<p class="note">Default path (option 1) destroys the cluster but leaves Docker Desktop running for fast re-creation. WSL shutdown is always the last action to avoid killing the script's own session.</p>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'dark', flowchart: { curve: 'basis', padding: 16 } });
+</script>
+</body>
+</html>
