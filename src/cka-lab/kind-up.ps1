@@ -102,6 +102,10 @@ $ProgressPreference = "SilentlyContinue"
 # Source shared library (provides helpers, Docker mgmt, tutorials, etc.)
 . (Join-Path -Path $PSScriptRoot -ChildPath "lib\CkaLab.ps1")
 
+# Must run before any external command so kind/kubectl/docker UTF-8 output
+# (bullets, checkmarks, emoji) renders correctly on the Windows console.
+Initialize-LabEncoding
+
 Initialize-LabPath
 
 # Banner

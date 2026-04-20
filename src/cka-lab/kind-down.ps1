@@ -68,6 +68,9 @@ $ProgressPreference = "SilentlyContinue"
 # Source shared library
 . (Join-Path -Path $PSScriptRoot -ChildPath "lib\CkaLab.ps1")
 
+# UTF-8 console so kind/kubectl/docker bullets and checkmarks render correctly.
+Initialize-LabEncoding
+
 Initialize-LabPath
 
 # Banner

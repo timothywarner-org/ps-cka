@@ -32,6 +32,36 @@ function Write-ErrorMsg {
 
 #region Environment Setup
 
+function Initialize-LabEncoding {
+    <#
+    .SYNOPSIS
+        Forces the console and PowerShell pipeline to UTF-8.
+
+    .DESCRIPTION
+        KIND, kubectl, and docker emit UTF-8 (bullets, checkmarks, emoji). The
+        default Windows console code page is cp437 / cp1252, so those bytes
+        render as garbage like "ΓÇó Γ£ô ≡ƒû╝". Setting both the OS code page
+        and PowerShell's OutputEncoding fixes it without altering any command.
+        Call this FIRST in every entry point, before any external command runs.
+    #>
+    try {
+        # OS-level console code page (affects what external tools print).
+        # 65001 = UTF-8. chcp output is noisy; redirect it.
+        $null = & chcp.com 65001 2>&1
+    } catch {
+        # chcp not available (unlikely on Windows); non-fatal
+    }
+    try {
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+        [Console]::InputEncoding  = [System.Text.Encoding]::UTF8
+        # $OutputEncoding controls how PowerShell encodes bytes it sends
+        # through the pipeline to external commands.
+        $global:OutputEncoding = [System.Text.Encoding]::UTF8
+    } catch {
+        Write-Output "[WARN] Could not set UTF-8 console encoding: $($_.Exception.Message)"
+    }
+}
+
 function Initialize-LabPath {
     <#
     .SYNOPSIS
