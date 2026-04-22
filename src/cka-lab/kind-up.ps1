@@ -294,14 +294,51 @@ if (Test-ClusterExists -ClusterName $ClusterName) {
     # one of these ports, kind fails partway through with a confusing containerd
     # error. Warn early so Tim isn't blocked on camera. Non-fatal by default;
     # -Force (or user confirmation) suppresses the prompt.
+    # Cross-platform: Get-NetTCPConnection is Windows-only, so on Linux/macOS
+    # (PS7 on WSL2) we probe by trying to bind a TcpListener on 0.0.0.0:<port>.
+    # Bind success -> port free; SocketException -> port busy. Process name is
+    # a best-effort lookup via Get-Process on Windows, `ss` on Linux, `lsof` on
+    # macOS -- if we can't resolve it we fall back to '<unknown>'.
     $portsToCheck = @(30000, 30080, 30443)
     $portsInUse = @()
     foreach ($port in $portsToCheck) {
-        $conn = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue | Where-Object { $_.State -eq 'Listen' } | Select-Object -First 1
-        if ($conn) {
-            $owner = try {
-                (Get-Process -Id $conn.OwningProcess -ErrorAction SilentlyContinue).ProcessName
-            } catch { '<unknown>' }
+        $inUse = $false
+        $owner = '<unknown>'
+        if ($IsWindows) {
+            $conn = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue | Where-Object { $_.State -eq 'Listen' } | Select-Object -First 1
+            if ($conn) {
+                $inUse = $true
+                $owner = try {
+                    (Get-Process -Id $conn.OwningProcess -ErrorAction SilentlyContinue).ProcessName
+                } catch { '<unknown>' }
+            }
+        } else {
+            $listener = $null
+            try {
+                $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Any, $port)
+                $listener.Start()
+            } catch [System.Net.Sockets.SocketException] {
+                $inUse = $true
+            } finally {
+                if ($listener) { try { $listener.Stop() } catch { } }
+            }
+            if ($inUse) {
+                # Try `ss -ltnp` (Linux) then `lsof` (macOS) for the process name.
+                # Both are best-effort; process name often requires matching-user
+                # privileges, so a blank result just means we keep '<unknown>'.
+                try {
+                    $ssOut = & ss -ltnp "sport = :$port" 2>$null | Out-String
+                    if ($ssOut -match 'users:\(\("([^"]+)"') { $owner = $Matches[1] }
+                } catch { }
+                if ($owner -eq '<unknown>') {
+                    try {
+                        $lsofOut = & lsof -nP -iTCP:$port -sTCP:LISTEN 2>$null | Out-String
+                        if ($lsofOut -match '(?m)^(\S+)\s+\d+') { $owner = $Matches[1] }
+                    } catch { }
+                }
+            }
+        }
+        if ($inUse) {
             $portsInUse += [pscustomobject]@{ Port = $port; Process = $owner }
         }
     }
