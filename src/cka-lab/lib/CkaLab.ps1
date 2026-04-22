@@ -6,21 +6,29 @@
 
 #region Output Helpers
 
+# Neon green (#39FF14) via 24-bit ANSI so the color survives colorblind / dark
+# VS Code themes that remap the 16-color `Green` to something muted. `[INFO]`
+# was previously Yellow, which reads as orange/red on Tim's theme — red is
+# reserved for errors, not informational chatter. PS7-only (`#Requires 7.0`
+# at the entry points), so `` `e `` is always available.
+$Script:NeonGreen = "`e[38;2;57;255;20m"
+$Script:AnsiReset = "`e[0m"
+
 function Write-Step {
     param([string]$Message)
     Write-Host ""
-    Write-Host ">>> $Message" -ForegroundColor Green
+    Write-Host "$($Script:NeonGreen)>>> $Message$($Script:AnsiReset)"
     Write-Host ""
 }
 
 function Write-Success {
     param([string]$Message)
-    Write-Host "[OK] $Message" -ForegroundColor Green
+    Write-Host "$($Script:NeonGreen)[OK] $Message$($Script:AnsiReset)"
 }
 
 function Write-Info {
     param([string]$Message)
-    Write-Host "[INFO] $Message" -ForegroundColor Yellow
+    Write-Host "$($Script:NeonGreen)[INFO] $Message$($Script:AnsiReset)"
 }
 
 function Write-ErrorMsg {
