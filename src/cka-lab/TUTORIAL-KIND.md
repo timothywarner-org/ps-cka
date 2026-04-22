@@ -416,11 +416,16 @@ bound to the occupied host port won't be reachable via `localhost:30080`.
 ### Tear down to bare metal
 
 ```powershell
-.\kind-down.ps1 -StopDockerDesktop -Prune
+.\kind-down.ps1 -StopDockerDesktop
 ```
 
-Deletes the cluster, prunes unused Docker images, stops Docker Desktop, shuts down
-WSL2. Good end-of-day command when you want your RAM back.
+Deletes the cluster, stops Docker Desktop, terminates Docker Desktop's two WSL
+distros (`docker-desktop` and `docker-desktop-data`). Your Ubuntu / Debian / other
+WSL sessions are left running. Good end-of-day command when you want your RAM back.
+
+Add `-Prune` to also remove dangling Docker images, or `-DeepPrune` for the nuclear
+option (removes ALL unused images, build cache, AND unused volumes — will affect
+other projects on the same Docker daemon).
 
 ### Cluster-only teardown (keep DD warm)
 
@@ -449,35 +454,43 @@ Two modes, one script.
 
 Use this **between drills** in the same session.
 
-### Mode 2: Full shutdown
+### Mode 2: Stop Docker Desktop
 
 ```powershell
 .\kind-down.ps1
-# [2] Full shutdown              (stop Docker Desktop + WSL2)
+# [2] Stop Docker Desktop   (also terminates docker-desktop WSL distros;
+#                            other WSL distros are left running)
 ```
 
 - Deletes the KIND cluster
 - Stops Docker Desktop
-- Runs `wsl --shutdown` as the final step (reclaims the WSL2 memory allotment)
+- Terminates ONLY Docker Desktop's `docker-desktop` and `docker-desktop-data` WSL2
+  distros (reclaims DD's memory allotment). Your Ubuntu/Debian/other WSL sessions
+  are untouched — this is **not** `wsl --shutdown`.
 
 Use this **end of day** or when you want your laptop back for non-Docker work.
 
-### The Prune prompt
+### Opt-in pruning
 
-Either mode asks:
+Prune is **opt-in only** — no interactive prompt. Pass a flag when you want it:
 
+```powershell
+.\kind-down.ps1 -Prune        # dangling images only (docker system prune -f)
+.\kind-down.ps1 -DeepPrune    # ALL unused images + volumes (docker system prune -af --volumes)
 ```
-Prune unused Docker images to reclaim disk space? [y/N]
-```
 
-Answer **Y** once a week or when disk is tight. It runs `docker system prune -af --volumes`
-and can free several gigabytes after repeated cluster creations. Answer **N** to keep the
-`kindest/node` image cached — that's what makes the next `kind create` fast.
+`-Prune` is safe for multi-project Docker setups — it only removes images nothing
+references. `-DeepPrune` is the nuclear option: it will pull the `kindest/node` image
+(and anything else unused) out of the cache, making the next `kind create` slow.
+Use `-DeepPrune` when disk is tight; `-Prune` for routine hygiene; neither for the
+fastest next boot.
 
-### WSL2 shutdown timing
+### WSL terminate timing
 
-`kind-down.ps1` defers the `wsl --shutdown` call until the very last line so it doesn't
-kill the PowerShell session mid-script. You'll see a 3-second countdown before it fires.
+`kind-down.ps1` defers the `wsl --terminate` calls until the very last lines so they
+don't race the script itself. You'll see a 3-second countdown before it fires. Only
+Docker Desktop's distros are targeted — a stray `wsl --shutdown` would have killed
+your foreground Ubuntu terminal too, which this explicitly avoids.
 
 ---
 
@@ -639,7 +652,9 @@ docker start cka-lab-control-plane2
 
 # Tear down
 .\kind-down.ps1                                                   # cluster only
-.\kind-down.ps1 -StopDockerDesktop -Prune                         # full shutdown
+.\kind-down.ps1 -StopDockerDesktop                                # + stop Docker Desktop
+.\kind-down.ps1 -StopDockerDesktop -Prune                         # + remove dangling images
+.\kind-down.ps1 -StopDockerDesktop -DeepPrune                     # + nuke all unused images/volumes
 
 # Full rebuild
 .\kind-down.ps1 ; .\kind-up.ps1
