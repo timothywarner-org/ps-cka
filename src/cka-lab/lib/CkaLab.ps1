@@ -8,24 +8,24 @@
 
 function Write-Step {
     param([string]$Message)
-    Write-Output ""
-    Write-Output ">>> $Message"
-    Write-Output ""
+    Write-Host ""
+    Write-Host ">>> $Message" -ForegroundColor Green
+    Write-Host ""
 }
 
 function Write-Success {
     param([string]$Message)
-    Write-Output "[SUCCESS] $Message"
+    Write-Host "[OK] $Message" -ForegroundColor Green
 }
 
 function Write-Info {
     param([string]$Message)
-    Write-Output "[INFO] $Message"
+    Write-Host "[INFO] $Message" -ForegroundColor Yellow
 }
 
 function Write-ErrorMsg {
     param([string]$Message)
-    Write-Output "[ERROR] $Message"
+    Write-Host "[ERROR] $Message" -ForegroundColor Red
 }
 
 #endregion

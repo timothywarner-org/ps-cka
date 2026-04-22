@@ -240,10 +240,10 @@ function Start-TutorialM01 {
 
     Write-TutorialSection `
         -Title "8/10  DNS HEALTH CHECK" `
-        -Explanation "Let's test DNS end-to-end. We'll spin up a temporary busybox pod`n  and resolve 'kubernetes.default' -- the API server's internal Service.`n  If this resolves, your cluster's DNS is healthy." `
-        -Command "kubectl run dns-test --image=busybox:1.36 --rm --restart=Never --attach -- nslookup kubernetes.default" `
-        -CommandBreakdown "kubectl run dns-test   = imperative pod creation; 'dns-test' is the pod name`n  --image=busybox:1.36   = pinned busybox image (ships nslookup, wget, sh)`n  --rm                   = auto-delete the pod after it exits (keeps the cluster clean)`n  --restart=Never        = pod restartPolicy=Never; makes this a one-shot, not a long-lived workload`n  --attach               = stream the container's stdout/stderr to your terminal`n  --                     = end-of-kubectl-flags separator; everything after goes to the CONTAINER`n  nslookup kubernetes.default = the command busybox runs inside the container" `
-        -OutputFields "Server:    10.96.0.10     = the CoreDNS Service IP (from /etc/resolv.conf inside the pod)`n  Address:   10.96.0.10#53  = DNS server + port`n  Name:      kubernetes.default.svc.cluster.local  = FQDN the short name expanded to`n  Address:   10.96.0.1                              = ClusterIP of the 'kubernetes' Service (the API)`n  'pod dns-test deleted' = --rm auto-cleanup confirmation`n  Any 'server can't find' or timeout = CoreDNS is broken; check section 6 + 7."
+        -Explanation "Let's test DNS end-to-end. We'll spin up a temporary busybox pod`n  and resolve the API server's internal Service by its FQDN:`n  kubernetes.default.svc.cluster.local -> 10.96.0.1.`n  NOTE: busybox's nslookup does not walk /etc/resolv.conf search list,`n  so always query the FQDN here. If this resolves, CoreDNS is healthy." `
+        -Command "kubectl run dns-test --image=busybox:1.36 --rm --restart=Never --attach -- nslookup kubernetes.default.svc.cluster.local" `
+        -CommandBreakdown "kubectl run dns-test   = imperative pod creation; 'dns-test' is the pod name`n  --image=busybox:1.36   = pinned busybox image (ships nslookup, wget, sh)`n  --rm                   = auto-delete the pod after it exits (keeps the cluster clean)`n  --restart=Never        = pod restartPolicy=Never; makes this a one-shot, not a long-lived workload`n  --attach               = stream the container's stdout/stderr to your terminal`n  --                     = end-of-kubectl-flags separator; everything after goes to the CONTAINER`n  nslookup kubernetes.default.svc.cluster.local = FQDN lookup (busybox skips the search list)" `
+        -OutputFields "Server:    10.96.0.10     = the CoreDNS Service IP (from /etc/resolv.conf inside the pod)`n  Address:   10.96.0.10#53  = DNS server + port`n  Name:      kubernetes.default.svc.cluster.local  = fully qualified Service DNS name`n  Address:   10.96.0.1                              = ClusterIP of the 'kubernetes' Service (the API)`n  'pod dns-test deleted' = --rm auto-cleanup confirmation`n  Any 'server can't find' or timeout = CoreDNS is broken; check section 6 + 7."
 
     # --- Demo 4: Cluster Info ---
     Write-TutorialSection `
@@ -538,17 +538,17 @@ function Start-TutorialM03 {
     # ==========================================================
     Write-TutorialSection `
         -Title "13/18  DNS: SHORT NAME RESOLUTION" `
-        -Explanation "Pods can reach Services by name within the same namespace.`n  'managed-svc' resolves to the ClusterIP because both are in 'default'." `
-        -Command "kubectl run dns-short --image=busybox:1.36 --rm --restart=Never --attach -- nslookup managed-svc" `
-        -CommandBreakdown "kubectl run dns-short     = throwaway Pod named 'dns-short'`n  --image=busybox:1.36      = includes nslookup`n  --rm --restart=Never      = run-once, auto-delete when done`n  --attach                  = stream stdout back (no TTY -- safe in CI / recordings)`n  -- nslookup managed-svc   = command inside the container (short name, no dots)" `
-        -OutputFields "Server:    = the CoreDNS Service IP (10.96.0.10) -- pulled from pod's /etc/resolv.conf`n  Address:   = resolved ClusterIP of managed-svc (e.g. 10.96.x.x)`n  Short-name resolution works because /etc/resolv.conf has 'search default.svc.cluster.local ...'`n  From another namespace, 'managed-svc' alone would FAIL to resolve"
+        -Explanation "Pods can reach Services by name within the same namespace.`n  'managed-svc' resolves to the ClusterIP because both are in 'default'.`n  NOTE: busybox's nslookup skips the search list, so we use 'getent hosts'`n  which drives the full resolver -- that's the honest proof ndots+search work." `
+        -Command "kubectl run dns-short --image=busybox:1.36 --rm --restart=Never --attach -- getent hosts managed-svc" `
+        -CommandBreakdown "kubectl run dns-short     = throwaway Pod named 'dns-short'`n  --image=busybox:1.36      = ships getent, nslookup, wget, sh`n  --rm --restart=Never      = run-once, auto-delete when done`n  --attach                  = stream stdout back (no TTY -- safe in CI / recordings)`n  -- getent hosts managed-svc = NSS resolver lookup; honors /etc/resolv.conf`n                                search list + ndots (unlike busybox nslookup)" `
+        -OutputFields "Single output line: '<ClusterIP>  managed-svc' -- IP first, then the name queried`n  Short-name resolution works because /etc/resolv.conf has 'search default.svc.cluster.local ...'`n  getent returns exit 0 on success, 2 on NXDOMAIN -- scriptable in exam break/fix work`n  From another namespace, 'managed-svc' alone would FAIL to resolve"
 
     Write-TutorialSection `
         -Title "14/18  DNS: FQDN FOR CROSS-NAMESPACE" `
-        -Explanation "The Fully Qualified Domain Name works from ANY namespace:`n  <service>.<namespace>.svc.cluster.local`n  Use this when crossing namespace boundaries." `
+        -Explanation "The Fully Qualified Domain Name works from ANY namespace:`n  <service>.<namespace>.svc.cluster.local`n  Use this when crossing namespace boundaries. FQDN is unambiguous,`n  so busybox's nslookup handles it fine here -- no search list needed." `
         -Command "kubectl run dns-fqdn --image=busybox:1.36 --rm --restart=Never --attach -- nslookup managed-svc.default.svc.cluster.local" `
         -CommandBreakdown "kubectl run dns-fqdn          = throwaway Pod named 'dns-fqdn'`n  --image=busybox:1.36          = includes nslookup`n  --rm --restart=Never --attach = run-once, auto-delete, stream stdout`n  -- nslookup <fqdn>            = lookup the fully qualified name:`n    managed-svc                 = service name`n    default                     = namespace`n    svc                         = type marker (services)`n    cluster.local               = cluster DNS suffix (default)" `
-        -OutputFields "Server:    = CoreDNS Service IP (10.96.0.10)`n  Address:   = same ClusterIP as short-name resolution -- proving FQDN == short name + search path`n  FQDN is unambiguous from ANY namespace -- short names only work within same NS`n  Pod-to-Pod DNS also exists: <pod-ip-with-dashes>.<ns>.pod.cluster.local"
+        -OutputFields "Server:    = CoreDNS Service IP (10.96.0.10)`n  Address:   = same ClusterIP returned by the getent lookup above -- proves FQDN == short+search`n  FQDN is unambiguous from ANY namespace -- short names only work within same NS`n  Pod-to-Pod DNS also exists: <pod-ip-with-dashes>.<ns>.pod.cluster.local"
 
     # ==========================================================
     # Demo 5: The Diagnostic Ladder

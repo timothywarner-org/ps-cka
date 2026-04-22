@@ -40,6 +40,31 @@ You need all of these. Non-negotiable:
 | ~10 GB free disk | Ubuntu box + three VM differencing disks |
 | ~8 GB free RAM | Three VMs at 2 GB each, plus overhead |
 
+### First-time install (copy-paste)
+
+Run these once in an **elevated** PowerShell 7. Reboot after enabling Hyper-V.
+
+```powershell
+# Hyper-V feature — reboot after this line
+Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All
+
+# PowerShell 7 (required — every lab script declares #Requires -Version 7.0)
+winget install --id Microsoft.PowerShell --source winget
+
+# Vagrant
+winget install --id Hashicorp.Vagrant --source winget
+```
+
+Verify after the reboot, from an **admin PowerShell 7 (`pwsh`)** prompt:
+
+```powershell
+Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V | Select FeatureName,State
+vagrant --version
+$PSVersionTable.PSVersion
+```
+
+Expect: Hyper-V `State: Enabled`, Vagrant 2.4.x or later, PowerShell 7.x.
+
 > **Admin PowerShell is not optional.** If you try any script from a regular
 > shell, it fails immediately at the `#Requires` header. Right-click PowerShell
 > → Run as administrator. Pin a shortcut with the admin flag if you forget.

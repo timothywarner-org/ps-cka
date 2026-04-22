@@ -100,15 +100,45 @@ Deep dive and the practice loop: **[TUTORIAL-HYPERV.md](TUTORIAL-HYPERV.md)**
 ### KIND path
 - Windows 10/11 with **Docker Desktop** (WSL2 backend recommended)
 - **KIND** — `winget install Kubernetes.kind`
-- **kubectl** — ships with Docker Desktop
-- **PowerShell 7+**
+- **kubectl** — `winget install Kubernetes.kubectl`
+- **PowerShell 7+** — `winget install Microsoft.PowerShell`
+
+One-shot install on a fresh box:
+
+```powershell
+winget install --id Microsoft.PowerShell --source winget
+winget install --id Docker.DockerDesktop --source winget
+winget install --id Kubernetes.kind       --source winget
+winget install --id Kubernetes.kubectl    --source winget
+```
+
+Verify:
+
+```powershell
+docker --version; kind version; kubectl version --client --output=yaml; $PSVersionTable.PSVersion
+```
 
 ### Hyper-V path
 - **Windows 11 Pro / Enterprise** (Hyper-V is gated out of Home)
 - **Hyper-V** feature enabled (reboot required)
-- **[Vagrant](https://developer.hashicorp.com/vagrant/install)**
-- **Admin PowerShell** — Hyper-V cmdlets require elevation, every time, no exceptions
+- **[Vagrant](https://developer.hashicorp.com/vagrant/install)** 2.4.x+
+- **Admin PowerShell 7+** — Hyper-V cmdlets require elevation, every time, no exceptions
 - ~6 GB free RAM for the 3 VMs
+
+One-shot install (run the first two lines elevated; reboot after Hyper-V):
+
+```powershell
+Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All
+winget install --id Microsoft.PowerShell --source winget
+winget install --id Hashicorp.Vagrant    --source winget
+```
+
+Verify:
+
+```powershell
+Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V | Select FeatureName,State
+vagrant --version; $PSVersionTable.PSVersion
+```
 
 Running both at once is fine if you have the RAM for it — KIND lives inside Docker Desktop's WSL2 VM, Hyper-V runs alongside it.
 

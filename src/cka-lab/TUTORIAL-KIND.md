@@ -25,6 +25,26 @@ No admin PowerShell required. KIND runs as a normal user — it just needs Docke
 | **kubectl** | 1.32+ | `winget install Kubernetes.kubectl` |
 | **PowerShell** | 7.0+ | `pwsh`, not `powershell.exe`. Scripts declare `#Requires -Version 7.0`. |
 
+### First-time install (copy-paste)
+
+Run these once in an elevated PowerShell. `winget` comes with Windows 11 by default.
+
+```powershell
+# PowerShell 7 (required — the lab scripts declare #Requires -Version 7.0)
+winget install --id Microsoft.PowerShell --source winget
+
+# Docker Desktop (WSL2 backend)
+winget install --id Docker.DockerDesktop --source winget
+
+# KIND and kubectl
+winget install --id Kubernetes.kind --source winget
+winget install --id Kubernetes.kubectl --source winget
+```
+
+After Docker Desktop installs, launch it once, sign in, and confirm **Settings → General → Use the WSL 2 based engine** is checked. Then reboot. That one reboot is the only ceremony.
+
+From this point forward, open **PowerShell 7 (`pwsh`)** — not Windows PowerShell — for every script in this lab.
+
 Verify in one line:
 
 ```powershell

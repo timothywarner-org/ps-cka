@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CKA Lab Flow — kind-up → Tutorial M01 → kind-down</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --fg: #f8fafc;
+      --muted: #94a3b8;
+      --card: #1e293b;
+      --accent-up: #2874A6;
+      --accent-tut: #1E8449;
+      --accent-down: #B9770E;
+      --accent-err: #C0392B;
+      --accent-start: #6C3483;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    }
+    header {
+      padding: 28px 40px 18px;
+      border-bottom: 1px solid #334155;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 18px;
+    }
+    header code {
+      background: var(--card);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 16px;
+      color: #e2e8f0;
+    }
+    .legend {
+      display: flex;
+      gap: 22px;
+      flex-wrap: wrap;
+      padding: 16px 40px;
+      background: var(--card);
+      border-bottom: 1px solid #334155;
+      font-size: 16px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .swatch {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      border: 2px solid;
+    }
+    .swatch-up    { background: #D6EAF8; border-color: var(--accent-up); }
+    .swatch-tut   { background: #D5F5E3; border-color: var(--accent-tut); }
+    .swatch-down  { background: #FDEBD0; border-color: var(--accent-down); }
+    .swatch-err   { background: #FADBD8; border-color: var(--accent-err); }
+    .swatch-start { background: #E8DAEF; border-color: var(--accent-start); }
+    main {
+      padding: 28px 24px 48px;
+      background: #f8fafc;
+      min-height: calc(100vh - 160px);
+    }
+    .mermaid {
+      max-width: 100%;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+      overflow: auto;
+    }
+    /* Node labels get bumped up — Mermaid renders them in SVG text */
+    .mermaid .nodeLabel,
+    .mermaid .edgeLabel,
+    .mermaid .cluster-label {
+      font-size: 20px !important;
+      font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif !important;
+    }
+    .mermaid .cluster-label {
+      font-size: 22px !important;
+      font-weight: 700 !important;
+    }
+    footer {
+      padding: 16px 40px 28px;
+      color: var(--muted);
+      font-size: 14px;
+      text-align: center;
+      background: var(--bg);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CKA Lab Flow</h1>
+    <p>
+      Happy-path walkthrough:
+      <code>kind-up.ps1</code> (3-node topology, <code>cka-3node.yaml</code>) →
+      <code>Start-TutorialM01</code> (Course 1, Module 1 — 10 steps) →
+      <code>kind-down.ps1</code>
+    </p>
+  </header>
+
+  <div class="legend">
+    <div class="legend-item"><div class="swatch swatch-start"></div> Entry / Exit</div>
+    <div class="legend-item"><div class="swatch swatch-up"></div> kind-up.ps1</div>
+    <div class="legend-item"><div class="swatch swatch-tut"></div> Start-TutorialM01</div>
+    <div class="legend-item"><div class="swatch swatch-down"></div> kind-down.ps1</div>
+    <div class="legend-item"><div class="swatch swatch-err"></div> Abort / Error path</div>
+  </div>
+
+  <main>
+    <div class="mermaid">
+flowchart TD
+
+  START(["Learner opens<br/>PowerShell 7"]):::entry
+
+  %% ============================================================
+  %% KIND-UP.PS1
+  %% ============================================================
+  subgraph SUP ["kind-up.ps1"]
+    direction TB
+    UP_INIT["Dot-source lib/CkaLab.ps1<br/>Initialize-LabEncoding (UTF-8)<br/>Initialize-LabPath"]:::up
+    UP_TOPO{{"Topology menu<br/>[1] Simple  [2] Standard<br/>[3] HA  [4] Workloads"}}:::up
+    UP_3NODE["Choice = 2<br/>ConfigPath = configs/cka-3node.yaml<br/>nodeCount = 3"]:::up
+    UP_VERBOSE{{"Show kubeadm internals?<br/>y / N"}}:::up
+    UP_TUT_MENU{{"Tutorial menu<br/>[0] None  [1] Components<br/>[2] M01  [3] M02  [4] M03"}}:::up
+    UP_TUT_M01["Choice = 2<br/>tutorialSelection = 'm01'"]:::up
+
+    UP_STEP1["Step 1: Validate prerequisites<br/>docker · kind · kubectl<br/>Config file exists?"]:::up
+    UP_STEP2["Step 2: Start Docker Desktop<br/>Wait-DockerReady (poll daemon)"]:::up
+
+    UP_EXISTS{{"Test-ClusterExists<br/>'cka-lab'?"}}:::up
+    UP_SKIP["Cluster exists —<br/>skip creation (idempotent)"]:::up
+
+    UP_PREFLIGHT{{"NodePort preflight<br/>30000 / 30080 / 30443<br/>free on host?"}}:::up
+    UP_PORT_PROMPT{{"Continue anyway?<br/>y / N"}}:::up
+
+    UP_WAIT["Topology-aware wait<br/>3-node → --wait 120s"]:::up
+    UP_CREATE["kind create cluster<br/>--name cka-lab<br/>--config configs/cka-3node.yaml<br/>--wait 120s"]:::up
+    UP_STEP4["Step 4: Verify cluster health<br/>Poll 'kubectl get nodes'<br/>until all Ready (max 60s)"]:::up
+    UP_STEP5["Step 5: Resource summary<br/>docker stats (filtered)<br/>Write-HostMemory"]:::up
+    UP_BANNER["Final banner:<br/>'CKA Lab Ready'<br/>3 nodes | context kind-cka-lab"]:::up
+    UP_LAUNCH["Step 6: Launch tutorial<br/>Start-TutorialM01 -ClusterName cka-lab"]:::up
+
+    UP_INIT --> UP_TOPO
+    UP_TOPO --> UP_3NODE
+    UP_3NODE --> UP_VERBOSE
+    UP_VERBOSE --> UP_TUT_MENU
+    UP_TUT_MENU --> UP_TUT_M01
+    UP_TUT_M01 --> UP_STEP1
+    UP_STEP1 --> UP_STEP2
+    UP_STEP2 --> UP_EXISTS
+    UP_EXISTS -- "yes" --> UP_SKIP --> UP_STEP4
+    UP_EXISTS -- "no" --> UP_PREFLIGHT
+    UP_PREFLIGHT -- "clear" --> UP_WAIT
+    UP_PREFLIGHT -- "conflict" --> UP_PORT_PROMPT
+    UP_PORT_PROMPT -- "y / -Force" --> UP_WAIT
+    UP_WAIT --> UP_CREATE
+    UP_CREATE --> UP_STEP4
+    UP_STEP4 --> UP_STEP5 --> UP_BANNER --> UP_LAUNCH
+  end
+
+  UP_TOPO_BAD["Invalid choice<br/>exit 1"]:::err
+  UP_MISSING["Missing tools or<br/>config not found<br/>exit 1"]:::err
+  UP_DD_FAIL["Docker daemon<br/>never became ready<br/>throw → exit 1"]:::err
+  UP_PORT_ABORT["User declined<br/>exit 1"]:::err
+  UP_CREATE_FAIL["KIND exit != 0<br/>exit 1"]:::err
+  UP_NODES_BAD["Nodes did not reach Ready<br/>within 60s<br/>exit 1"]:::err
+
+  UP_TOPO -. "other input" .-> UP_TOPO_BAD
+  UP_STEP1 -. "missing" .-> UP_MISSING
+  UP_STEP2 -. "timeout" .-> UP_DD_FAIL
+  UP_PORT_PROMPT -. "N" .-> UP_PORT_ABORT
+  UP_CREATE -. "failure" .-> UP_CREATE_FAIL
+  UP_STEP4 -. "NotReady" .-> UP_NODES_BAD
+
+  START --> UP_INIT
+
+  %% ============================================================
+  %% START-TUTORIALM01
+  %% ============================================================
+  subgraph STUT ["Start-TutorialM01 — Course 1, Module 1"]
+    direction TB
+    T_INTRO["Intro banner<br/>'Module 1: Architecture &amp; Lab Setup'<br/>node count queried at runtime"]:::tut
+    T01["1/10 NODE STATUS<br/>kubectl get nodes -o wide"]:::tut
+    T02["2/10 WHAT KIND BUILT<br/>docker ps --filter label=kind"]:::tut
+    T03["3/10 KUBECONFIG CONTEXT<br/>kubectl config current-context"]:::tut
+    T04["4/10 CONTROL PLANE STATIC PODS<br/>kubectl -n kube-system get pods<br/>(apiserver · etcd · scheduler · ccm)"]:::tut
+    T05["5/10 KUBE-PROXY DAEMONSET<br/>kubectl -n kube-system get ds kube-proxy"]:::tut
+    T06["6/10 COREDNS SERVICE<br/>kubectl -n kube-system get svc kube-dns<br/>ClusterIP 10.96.0.10"]:::tut
+    T07["7/10 COREDNS DEPLOYMENT<br/>kubectl -n kube-system get deploy coredns<br/>2 replicas"]:::tut
+    T08["8/10 DNS HEALTH CHECK<br/>busybox pod → nslookup<br/>kubernetes.default.svc.cluster.local<br/>(FQDN — busybox skips search list)"]:::tut
+    T09["9/10 CLUSTER INFO<br/>kubectl cluster-info"]:::tut
+    T10["10/10 API RESOURCES<br/>kubectl api-resources (summary)"]:::tut
+    T_DONE["Tutorial complete<br/>try/finally cleanup:<br/>kubectl delete ... --ignore-not-found"]:::tut
+
+    T_INTRO --> T01 --> T02 --> T03 --> T04 --> T05 --> T06 --> T07 --> T08 --> T09 --> T10 --> T_DONE
+  end
+
+  UP_LAUNCH --> T_INTRO
+
+  %% ============================================================
+  %% KIND-DOWN.PS1
+  %% ============================================================
+  subgraph SDN ["kind-down.ps1"]
+    direction TB
+    DN_INIT["Dot-source lib/CkaLab.ps1<br/>Initialize-LabEncoding<br/>Initialize-LabPath"]:::down
+    DN_MODE{{"Shutdown mode<br/>[1] Cluster only<br/>[2] Full (stop DD + WSL2)"}}:::down
+    DN_PRUNE{{"Prune unused<br/>Docker images?<br/>y / N"}}:::down
+
+    DN_STEP1["Step 1: Delete KIND cluster<br/>kind delete cluster --name cka-lab"]:::down
+    DN_DOCKER_CHECK{{"Docker daemon<br/>responding?"}}:::down
+    DN_SKIP_DELETE["Containers already gone<br/>(skip delete)"]:::down
+    DN_DELETE_OK["kind delete exit 0<br/>cluster removed"]:::down
+    DN_FALLBACK["kind exit != 0 —<br/>force-remove:<br/>docker rm -f (filter label kind)"]:::err
+
+    DN_STEP2{{"Prune selected?"}}:::down
+    DN_PRUNE_RUN["docker system prune -af --volumes<br/>(extract 'Total reclaimed space')"]:::down
+    DN_PRUNE_SKIP["Skip prune"]:::down
+
+    DN_STEP3{{"Stop Docker Desktop?"}}:::down
+    DN_DD_STOP["Stop-DockerDesktop<br/>send quit signal"]:::down
+    DN_DD_KEEP["Leave DD running<br/>(ready for re-up)"]:::down
+
+    DN_STEP4{{"WSL shutdown<br/>pending?"}}:::down
+    DN_WSL_GUARD{{"Running inside<br/>WSL2?"}}:::down
+    DN_WSL_SKIP["Skip — would kill<br/>current shell<br/>(print manual hint)"]:::down
+    DN_WSL_RUN["Resolve wsl.exe on PATH<br/>then: wsl --shutdown"]:::down
+
+    DN_STEP5["Step 5: Verification<br/>Test-DockerReady<br/>Write-HostMemory"]:::down
+    DN_END_BANNER["Final banner:<br/>'CKA Lab Torn Down' /<br/>'CKA Lab Shut Down'"]:::down
+
+    DN_INIT --> DN_MODE
+    DN_MODE --> DN_PRUNE
+    DN_PRUNE --> DN_STEP1
+    DN_STEP1 --> DN_DOCKER_CHECK
+    DN_DOCKER_CHECK -- "no" --> DN_SKIP_DELETE --> DN_STEP2
+    DN_DOCKER_CHECK -- "yes" --> DN_DELETE_OK
+    DN_DELETE_OK -. "exit != 0" .-> DN_FALLBACK
+    DN_DELETE_OK --> DN_STEP2
+    DN_FALLBACK --> DN_STEP2
+    DN_STEP2 -- "yes" --> DN_PRUNE_RUN --> DN_STEP3
+    DN_STEP2 -- "no"  --> DN_PRUNE_SKIP --> DN_STEP3
+    DN_STEP3 -- "Full shutdown" --> DN_DD_STOP --> DN_STEP4
+    DN_STEP3 -- "Cluster only"  --> DN_DD_KEEP --> DN_STEP5
+    DN_STEP4 -- "yes" --> DN_WSL_GUARD
+    DN_WSL_GUARD -- "yes (WSL)" --> DN_WSL_SKIP --> DN_STEP5
+    DN_WSL_GUARD -- "no (Windows)" --> DN_WSL_RUN --> DN_STEP5
+    DN_STEP5 --> DN_END_BANNER
+  end
+
+  DN_BAD_MODE["Invalid choice<br/>exit 1"]:::err
+  DN_MODE -. "other input" .-> DN_BAD_MODE
+
+  T_DONE --> DN_INIT
+
+  END(["Back to clean host<br/>(re-run kind-up.ps1 anytime)"]):::entry
+  DN_END_BANNER --> END
+
+  %% ============================================================
+  %% CLASS DEFINITIONS
+  %% ============================================================
+  classDef up     fill:#D6EAF8,stroke:#2874A6,stroke-width:2px,color:#17202A;
+  classDef tut    fill:#D5F5E3,stroke:#1E8449,stroke-width:2px,color:#0E4D23;
+  classDef down   fill:#FDEBD0,stroke:#B9770E,stroke-width:2px,color:#5D3A01;
+  classDef err    fill:#FADBD8,stroke:#C0392B,stroke-width:2px,color:#641E16;
+  classDef entry  fill:#E8DAEF,stroke:#6C3483,stroke-width:3px,color:#3B1A53;
+    </div>
+  </main>
+
+  <footer>
+    src/cka-lab/diagrams/cka-lab-flow.html · Mermaid v10 (pinned) · edit the <code style="color:#e2e8f0">&lt;div class="mermaid"&gt;</code> block above to tweak the flow.
+  </footer>
+
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: "base",
+      fontFamily: '"Segoe UI", system-ui, -apple-system, Roboto, sans-serif',
+      themeVariables: {
+        fontSize: "20px",
+        primaryColor: "#ffffff",
+        primaryTextColor: "#0f172a",
+        lineColor: "#475569",
+        clusterBkg: "#f1f5f9",
+        clusterBorder: "#475569"
+      },
+      flowchart: {
+        curve: "basis",
+        nodeSpacing: 45,
+        rankSpacing: 60,
+        padding: 12,
+        useMaxWidth: true
+      }
+    });
+  </script>
+</body>
+</html>
