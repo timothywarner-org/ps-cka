@@ -41,7 +41,13 @@ function Write-TutorialSection {
     Write-Output "  ----------------------------------------------------------------"
     if (-not $NoRun) {
         Write-Output ""
-        Invoke-Expression $Command 2>&1 | ForEach-Object { Write-Output "  $_" }
+        # Output in Wong sky blue so cause (yellow Command:) → effect (blue
+        # output) reads instantly on camera. Write-Host so the ANSI escapes
+        # are honored. Tutorial output is interactive-only; nothing captures
+        # this stream (same rationale as the Command: line above).
+        Invoke-Expression $Command 2>&1 | ForEach-Object {
+            Write-Host "  $($Script:SkyBlue)$_$($Script:AnsiReset)"
+        }
     }
     if ($OutputFields) {
         Write-Output ""
