@@ -15,6 +15,8 @@ The CKA exam is **100% performance-based**: approximately 17 practical tasks in 
 
 Built for the **February 2025 CKA curriculum revision** -- the largest update in CKA history.
 
+> **Scope:** Cert Buddy is practice-focused (scenarios, lab walkthroughs, study plans). The runnable lab environment used throughout Tim Warner's CKA skill path -- KIND console app and Hyper-V Vagrant lab -- lives in [`../src/cka-lab/`](../src/cka-lab/).
+
 ## Prerequisites
 
 | Requirement | Details |
@@ -69,17 +71,11 @@ You can also type **hint** for a clue or **skip** to see the answer immediately.
 
 ## Skills
 
-### Scenario creator
-
-Generates exam-realistic practical tasks matching the CKA performance-based format. Each scenario includes a context-switch command, a specific task with measurable completion criteria, and (on request) a comprehensive solution. Scenarios cover all five CKA domains with calibrated difficulty levels.
-
-### Lab creator
-
-Creates guided hands-on labs (15-30 minutes) that run on kind clusters. Labs include inline explanations, validation gates after each step, troubleshooting tips, and cleanup commands. Designed for learning, not exam simulation.
-
-### Study planner
-
-Generates a personalized study plan based on your self-assessed confidence across the five CKA exam domains. Prioritizes weak areas by exam weight, provides estimated study hours, links to official documentation, and highlights February 2025 curriculum additions.
+| Skill | What it generates |
+| --- | --- |
+| **Scenario creator** | Exam-realistic practical tasks with context-switch command, specific task, measurable completion criteria, and on-request solution. Calibrated difficulty across all five CKA domains. |
+| **Lab creator** | 15-30 minute guided hands-on labs on kind clusters with inline explanations, validation gates, troubleshooting tips, and cleanup. Learning-focused, not exam simulation. |
+| **Study planner** | Personalized study plan based on self-assessed confidence across the five domains. Prioritizes weak areas by exam weight, estimates hours, and highlights February 2025 additions. |
 
 ## Reference Documentation
 
@@ -116,13 +112,7 @@ These topics are new to the CKA exam and represent approximately 50% of question
 
 ## Key Rules
 
-1. **No exam copying.** All scenarios are original. No braindumps, no leaked content.
-2. **Grounded in official docs.** Every answer is verifiable against kubernetes.io.
-3. **Context switching.** Every scenario starts with `kubectl config use-context`.
-4. **Imperative-first.** Prefer kubectl imperative commands for exam speed.
-5. **Namespace explicit.** Never rely on the default namespace.
-6. **Verification included.** Every solution includes commands to confirm correctness.
-7. **Cleanup included.** Every lab ends with resource deletion steps.
+All generated content is original (no braindumps), grounded in kubernetes.io, uses explicit contexts and namespaces, prefers imperative kubectl, and ships with verification and cleanup steps. Full authoring rules live in [CLAUDE.md](CLAUDE.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Exam Resources
 
@@ -135,55 +125,34 @@ These topics are new to the CKA exam and represent approximately 50% of question
 
 ## Troubleshooting
 
-### MCP server does not start
-
-The documentation MCP server is configured in `.vscode/mcp.json`. It is a free HTTP endpoint that requires no API key. If the server does not appear in Copilot Chat, restart VS Code and check the MCP server status in the output panel.
-
-### Agent not found
-
-Ensure you opened the `cka-cert-buddy/` folder (not the parent repository) as your VS Code workspace. The agent is defined in `.github/agents/cka-cert-buddy-agent.agent.md` and is only visible when this folder is the workspace root.
-
-### Slash commands not showing
-
-Slash commands are defined in `.github/prompts/`. They appear in Copilot Chat after the workspace loads. If they do not appear, reload VS Code (**Developer: Reload Window**).
+- **MCP server does not start** -- the server in `.vscode/mcp.json` is a free HTTP endpoint and requires no API key. Restart VS Code and check the MCP output panel.
+- **Agent not found** -- open the `cka-cert-buddy/` folder (not the parent repo) as your VS Code workspace. The agent at `.github/agents/cka-cert-buddy-agent.agent.md` is only visible when this folder is the workspace root.
+- **Slash commands not showing** -- slash commands live in `.github/prompts/`. Run **Developer: Reload Window** in VS Code if they do not appear.
 
 ## Repository Structure
 
 ```
 cka-cert-buddy/
   .github/
-    agents/
-      cka-cert-buddy-agent.agent.md
-    skills/
+    agents/cka-cert-buddy-agent.agent.md   # Copilot agent definition
+    skills/                                  # auto-discovered by name/description
       cka-scenario-creator/SKILL.md
       cka-lab-creator/SKILL.md
       cka-study-planner/SKILL.md
-    prompts/
+    prompts/                                 # slash-command entry points
       cka-practice-scenario.prompt.md
       cka-practice-lab.prompt.md
       cka-study-planner.prompt.md
-    copilot-instructions.md
-    workflows/
-      validate.yml
-      mlc-config.json
-  .vscode/
-    mcp.json
-    extensions.json
-  references/
-    cka-objectives.md
-    cka-command-guide.md
-    cka-exam-guide.md
-    cka-learning-resources.md
-    fictional-companies.md
-    style-guide.md
-  data/
-  images/
-  CLAUDE.md
-  README.md
-  CONTRIBUTING.md
-  SECURITY.md
-  LICENSE
+    copilot-instructions.md                  # repo-wide Copilot instructions
+    workflows/validate.yml                   # non-blocking content checks
+  .vscode/mcp.json                           # MCP server config (tracked)
+  references/                                # grounding docs (see table above)
+  data/                                      # placeholder for future learner data
+  images/banner.png
+  CLAUDE.md  CONTRIBUTING.md  SECURITY.md  LICENSE  README.md
 ```
+
+Internal architecture, authoring rules, and skill-discovery gotchas are documented in [CLAUDE.md](CLAUDE.md).
 
 ## Author
 
