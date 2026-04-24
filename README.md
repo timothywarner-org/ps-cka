@@ -75,6 +75,19 @@ cd src/cka-lab
 
 Walkthrough -> [`src/cka-lab/TUTORIAL-KIND.md`](src/cka-lab/TUTORIAL-KIND.md)
 
+#### Multi-cluster add-on for kubectl context practice
+
+For Course 1 Module 2 context drills, a second pair of scripts stands up two clusters side by side (`cka-dev` and `cka-prod`) so you can practice `kubectl config use-context`, `--context`, `rename-context`, and namespace switching.
+
+```powershell
+cd src/cka-lab
+.\kind-multi-up.ps1         # creates cka-dev (30100/30180) + cka-prod (30200/30280)
+.\Start-ContextPractice.ps1 # 8-drill interactive walkthrough
+.\kind-multi-down.ps1       # teardown (-ClearRenamed to drop renamed contexts)
+```
+
+All three scripts have `#!/usr/bin/env pwsh` shebangs, so `./kind-multi-up.ps1` also works from bash in WSL2.
+
 ### Exam-shaped path -- Hyper-V VMs with kubeadm
 
 Best for: Course 2, anything that needs real systemd, a real package manager, or node-level break/fix drills. Three Ubuntu 22.04 VMs (`control1`, `worker1`, `worker2`) on a dedicated `CKA-NAT` switch (`192.168.50.0/24`). Vagrant brings them up with all kubeadm v1.35 prereqs installed -- you run `kubeadm init` yourself. Native Hyper-V checkpoints give you the practice loop.
@@ -123,6 +136,14 @@ exercise-files/
 ```
 
 Each module folder contains Kubernetes YAML manifests, shell scripts, and configuration files for hands-on demos and exercises.
+
+## Recording Runbooks (Course 1)
+
+Per-module demo runbooks for the Foundations course live in [`dev/`](dev/). Each includes pre-flight, camera checklist, click path, timed demos mapped to [`src/cka-lab/lib/tutorials.ps1`](src/cka-lab/lib/tutorials.ps1) sections, reset-between-takes, and a recovery cheat sheet.
+
+- [`dev/m01-demo-runbook.md`](dev/m01-demo-runbook.md) -- Architecture & Lab Setup (~13 min)
+- [`dev/m02-demo-runbook.md`](dev/m02-demo-runbook.md) -- kubectl Workflows (~13 min; Demo 5 uses the multi-cluster lab)
+- [`dev/m03-demo-runbook.md`](dev/m03-demo-runbook.md) -- Core Resources & Diagnostic Ladder (~14 min)
 
 ## What's New in the February 2025 CKA Curriculum
 

@@ -1,10 +1,16 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for any AI assistant (Claude Code, Cursor, etc.) editing files in this subproject.
+
+The **primary runtime consumer is GitHub Copilot** -- the agent, skills, and prompts in `.github/` are loaded by Copilot Chat in VS Code, not by Claude Code. This file exists so code-touching assistants understand the structure and authoring rules before making changes.
 
 ## Repository Purpose
 
-Content-only repository for a CKA (Certified Kubernetes Administrator) certification study buddy powered by GitHub Copilot agents. No application code, no build system, no tests. Artifacts are agent definitions, skill specs, prompt templates, and MCP server configurations.
+Content-only subproject for a CKA (Certified Kubernetes Administrator) certification study buddy powered by GitHub Copilot agents. No application code, no build system, no tests. Artifacts are agent definitions, skill specs, prompt templates, reference documents, and MCP server configurations.
+
+## Scope Boundary
+
+This subproject is **practice-focused** -- scenarios, labs-on-paper, study plans. The actual runnable lab environment (KIND console app, Hyper-V Vagrant lab) lives in [`../src/cka-lab/`](../src/cka-lab/). Do not duplicate lab-runner tooling here.
 
 ## Architecture
 
@@ -28,6 +34,18 @@ When renaming anything, update all dependents:
 - Agent `name` field -> all `.github/prompts/*.prompt.md` `agent:` fields
 - Skill `name` field -> agent Markdown body references
 - MCP server ID in `.vscode/mcp.json` -> agent and prompt `tools:` lists
+
+## Top-Level Layout
+
+- `.github/agents/`, `.github/skills/`, `.github/prompts/` -- Copilot agent definition, auto-discovered skills, slash-command prompts
+- `.github/copilot-instructions.md` -- repository-wide instructions loaded by Copilot
+- `.github/workflows/validate.yml`, `.github/workflows/mlc-config.json` -- CI validation rules
+- `.vscode/mcp.json`, `.vscode/extensions.json` -- MCP server config and recommended extensions (both tracked; everything else in `.vscode/` is gitignored)
+- `references/` -- grounding documents (see below)
+- `data/` -- placeholder directory (`.gitkeep` only) reserved for future learner data sets such as saved study plans or confidence logs; do not add runtime code here
+- `images/banner.png` -- README banner
+- `CONTRIBUTING.md`, `SECURITY.md`, `LICENSE` -- contributor, vulnerability, and licensing policies
+- `.editorconfig`, `.markdownlint.json` -- editor and Markdown lint rules (ASCII-only, no contractions)
 
 ## Reference Documentation
 

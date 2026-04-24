@@ -26,6 +26,10 @@ cka-lab/
 ├── kind-down.ps1              # Entry point: destroy KIND cluster
 ├── Start-Tutorial.ps1         # Run tutorials against a running cluster
 │
+├── kind-multi-up.ps1          # Entry point: create cka-dev + cka-prod back-to-back
+├── kind-multi-down.ps1        # Entry point: destroy both clusters (-ClearRenamed removes dev/prod contexts)
+├── Start-ContextPractice.ps1  # 8-drill kubectl context walkthrough (Ctrl-C safe)
+│
 ├── lib/
 │   ├── CkaLab.ps1             # Shared module (helpers, Docker mgmt, prereqs)
 │   ├── tutorials.ps1          # Tutorial functions (dot-sourced by CkaLab.ps1)
@@ -35,7 +39,9 @@ cka-lab/
 │   ├── cka-simple.yaml        # 1 CP + 1 worker
 │   ├── cka-3node.yaml         # 1 CP + 2 workers (CKA exam topology)
 │   ├── cka-ha.yaml            # 3 CP + 2 workers (extraPortMappings on worker)
-│   └── cka-workloads.yaml     # 1 CP + 3 workers (scheduling, affinity)
+│   ├── cka-workloads.yaml     # 1 CP + 3 workers (scheduling, affinity)
+│   ├── cka-dev.yaml           # 1 CP + 1 worker, host ports 30100/30180 (multi-cluster lab)
+│   └── cka-prod.yaml          # 1 CP + 2 workers, host ports 30200/30280 (multi-cluster lab)
 │
 ├── Vagrantfile                # 3-VM Hyper-V cluster (control1/worker1/worker2)
 ├── bootstrap_cp.sh            # kubeadm init for Vagrant control plane
@@ -117,6 +123,27 @@ Tutorials use deterministic names for all commands:
 - Service names use `--name=` flag for determinism
 - System pods follow static naming: `etcd-{cluster}-control-plane`
 
+### Multi-Cluster Context Lab
+
+A second KIND subsystem that stands up **two** clusters (`cka-dev` and `cka-prod`) side by side so the learner can drill `kubectl config` context management -- a CKA Troubleshooting/Cluster Architecture topic that is hard to practice against a single cluster. Entry points:
+
+- [kind-multi-up.ps1](kind-multi-up.ps1) -- creates both clusters, preflights ports, optionally chains into the practice runner with `-Practice`
+- [kind-multi-down.ps1](kind-multi-down.ps1) -- tears both clusters down; `-ClearRenamed` also removes `dev`/`prod` contexts if the learner renamed them
+- [Start-ContextPractice.ps1](Start-ContextPractice.ps1) -- 8-drill walkthrough: list, current, switch-and-prove, `--context` one-shot, rename, per-context default namespace, `config view --minify`, restore
+
+Invariants you must preserve when editing any of the three:
+
+- **Disjoint host port ranges per cluster**: `cka-dev` owns 30100/30180, `cka-prod` owns 30200/30280. `kind create cluster` allocates ALL `extraPortMappings` at create time; a collision on either set kills the second cluster mid-flight. Do not reuse 30000/30080/30443 here -- those belong to the single-cluster configs and would collide if a learner forgot to `kind-down` first.
+- **Distinct topologies (2 vs 3 nodes)**: `cka-dev` is 1+1, `cka-prod` is 1+2. The asymmetry is intentional -- `kubectl get nodes` looks visibly different after every switch, so the learner self-confirms the context change with no extra command.
+- **Cross-platform port preflight**: probe via `[System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Any, $port)` + bind-then-stop. Do NOT use `Get-NetTCPConnection` -- it's Windows-only and silently no-ops under pwsh-in-WSL2, defeating the preflight.
+- **Fail-fast cluster creation**: if the first `kind create cluster` fails, exit BEFORE attempting the second. A half-built multi-cluster state is worse than a clean failure -- the learner would get a working dev with no prod and still hit 30200 collisions on retry.
+- **Single `$clusters` pscustomobject array**: both cluster definitions (name, config path, port list) live in one array in `kind-multi-up.ps1`. Adding a third cluster later should be a one-line change to that array, not a structural edit.
+- **Idempotent create**: `Test-ClusterExists` gates each `kind create` call. Re-running `./kind-multi-up.ps1` against an already-running pair is a no-op, not a failure. This matches the ergonomics of the single-cluster `kind-up.ps1`.
+- **Context rename cleanup**: `kind-multi-down.ps1 -ClearRenamed` runs `kubectl config delete-context dev` and `... prod` with errors suppressed. The practice runner teaches `rename-context`, so teardown must be able to unwind that state without noisy second-run errors.
+- **Practice runner Ctrl-C safety**: `Start-ContextPractice.ps1` captures `$startContext` at the top, wraps the drill body in `try { ... } finally { kubectl config use-context $startContext }`. The learner is guaranteed to land back on whatever context they launched from, even on Ctrl-C mid-drill. Same pattern as the tutorial system's cluster-object cleanup.
+- **Shared-module reuse**: all three scripts dot-source [lib/CkaLab.ps1](lib/CkaLab.ps1) and call `Initialize-LabEncoding`, `Initialize-LabPath`, `Wait-DockerReady`, `Test-Prerequisites`, `Test-ClusterExists`, `Get-KindClusters`. Do not duplicate those helpers into multi-cluster-specific copies -- any fix to the shared module must benefit both subsystems.
+- **Shebang + exec bit**: line 1 of all three scripts is `#!/usr/bin/env pwsh` and the POSIX exec bit is set. This lets `./kind-multi-up.ps1` run from bash under WSL2. The shebang is a comment to pwsh on Windows, so it's transparent to Windows Terminal / PowerShell ISE usage -- keep it on line 1.
+
 ### Vagrant / Hyper-V Path
 
 `Vagrantfile` provisions 3 Ubuntu 22.04 VMs (control1, worker1, worker2) on a dedicated NAT switch (`CKA-NAT`, 192.168.50.0/24) with static IPs. Key design points to preserve:
@@ -165,14 +192,18 @@ Tutorials rely on this deterministic naming for all kubectl commands.
 
 All configs are KIND `v1alpha4`. Name is set by CLI `--name`, not in YAML.
 
-| Config | Nodes | CKA Topics |
-|--------|-------|------------|
-| `configs/cka-simple.yaml` | 1 CP + 1 worker | Quick practice |
-| `configs/cka-3node.yaml` | 1 CP + 2 workers | CKA exam topology |
-| `configs/cka-ha.yaml` | 3 CP + 2 workers | etcd quorum, HA (port maps on worker) |
-| `configs/cka-workloads.yaml` | 1 CP + 3 workers | Scheduling, affinity, taints, DaemonSets |
+| Config | Nodes | Host Ports | CKA Topics |
+| --- | --- | --- | --- |
+| `configs/cka-simple.yaml` | 1 CP + 1 worker | 30000/30080/30443 | Quick practice |
+| `configs/cka-3node.yaml` | 1 CP + 2 workers | 30000/30080/30443 | CKA exam topology |
+| `configs/cka-ha.yaml` | 3 CP + 2 workers | 30000/30080/30443 | etcd quorum, HA (port maps on worker) |
+| `configs/cka-workloads.yaml` | 1 CP + 3 workers | 30000/30080/30443 | Scheduling, affinity, taints, DaemonSets |
+| `configs/cka-dev.yaml` | 1 CP + 1 worker | 30100/30180 | Multi-cluster context lab (dev side) |
+| `configs/cka-prod.yaml` | 1 CP + 2 workers | 30200/30280 | Multi-cluster context lab (prod side) |
 
-All configs include: PodSecurity + NodeRestriction admission plugins, NodePort mappings (30000, 30080, 30443), containerd runtime. The workloads topology auto-applies node labels (`zone=east/west`, `tier=frontend/backend`) and a taint (`dedicated=special:NoSchedule` on worker3) after creation -- via `Invoke-KubectlWithRetry`.
+The single-cluster configs (`cka-simple`, `cka-3node`, `cka-ha`, `cka-workloads`) include: PodSecurity + NodeRestriction admission plugins, NodePort mappings (30000, 30080, 30443), containerd runtime. The workloads topology auto-applies node labels (`zone=east/west`, `tier=frontend/backend`) and a taint (`dedicated=special:NoSchedule` on worker3) after creation -- via `Invoke-KubectlWithRetry`.
+
+The multi-cluster configs (`cka-dev`, `cka-prod`) use disjoint host port ranges so both clusters can coexist on one host -- see the Multi-Cluster Context Lab section for why this is non-negotiable.
 
 ## Platform Notes
 

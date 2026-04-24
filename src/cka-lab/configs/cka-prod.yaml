@@ -1,0 +1,20 @@
+# KIND "prod" cluster for context-management practice
+# 1 control-plane + 2 workers (visually distinct from cka-dev)
+#
+# Paired with cka-dev.yaml. Host port mappings are unique per cluster
+# (dev: 30100/30180, prod: 30200/30280) so both clusters can coexist.
+#
+# Created by kind-multi-up.ps1 -- name set via --name flag (cka-prod).
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30200
+        hostPort: 30200
+        protocol: TCP
+      - containerPort: 30280
+        hostPort: 30280
+        protocol: TCP
+  - role: worker
+  - role: worker

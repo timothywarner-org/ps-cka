@@ -6,6 +6,10 @@
 Two paths, same destination: pass the exam on the first try. Pick based on how much
 time you have and how close to the real thing you want the lab to feel.
 
+> **Cross-platform note:** every PS7 script in this folder carries a `#!/usr/bin/env pwsh`
+> shebang and the executable bit, so you can invoke them as `./kind-up.ps1` from bash
+> inside WSL2 *or* from pwsh in Windows Terminal. Pick whichever shell you already have open.
+
 ---
 
 ## 🍝 Pick Your Poison
@@ -29,26 +33,44 @@ Use **Hyper-V** for the 20% that do — and for the exam-shaped dress rehearsals
 
 ## 🚀 Quickstart
 
-### Path A — KIND
+### Path A — KIND (single cluster)
 
 ```powershell
-cd src\cka-lab
-.\kind-up.ps1                 # menu: pick topology, optional tutorial
+cd src/cka-lab
+./kind-up.ps1                 # menu: pick topology, optional tutorial
 # ... drill ...
-.\kind-down.ps1               # menu: cluster-only or full shutdown
+./kind-down.ps1               # menu: cluster-only or full shutdown
 ```
 
 Deep dive and guided walkthrough: **[TUTORIAL-KIND.md](TUTORIAL-KIND.md)**
 
+### Path A.2 — KIND (two clusters, kubectl context practice)
+
+Context-switching is worth ~5% of the CKA and shows up in nearly every task. This lab
+spins up **two** KIND clusters side-by-side (`cka-dev`: 1 CP + 1 worker, `cka-prod`:
+1 CP + 2 workers) on disjoint host ports so they don't collide, then drops you into an
+8-drill walkthrough covering `get-contexts`, `use-context`, `--context` one-shots,
+`rename-context`, `set-context --current --namespace=`, and `config view --minify`.
+
+```powershell
+cd src/cka-lab
+./kind-multi-up.ps1                 # creates both clusters, prints cheat sheet
+./kind-multi-up.ps1 -Practice       # same, then drops into the 8-drill walkthrough
+./Start-ContextPractice.ps1         # standalone drill runner against existing clusters
+./kind-multi-down.ps1 -ClearRenamed # clean teardown, also removes any renamed contexts
+```
+
 ### Path B — Hyper-V
 
 ```powershell
-# Admin PowerShell
-cd src\cka-lab
-vagrant up --provider=hyperv  # 3 Ubuntu VMs, prereqs installed, no cluster yet
-.\cka-validate.ps1            # confirms all 9 categories pass on every node
-.\cka-snapshot.ps1            # save the "pre-cluster" baseline
+# Admin PowerShell (Hyper-V cmdlets require elevation, every time)
+cd src/cka-lab
+./cka-up.ps1                  # boots all 3 VMs (or: vagrant up --provider=hyperv on first run)
+./cka-validate.ps1            # confirms all 9 categories pass on every node
+./cka-snapshot.ps1            # save the "pre-cluster" baseline
 vagrant ssh control1          # your canvas — kubeadm init is on you
+./cka-restore.ps1             # atomic rollback when you want to redrill
+./cka-down.ps1                # graceful shutdown of all 3 VMs
 ```
 
 Deep dive and the practice loop: **[TUTORIAL-HYPERV.md](TUTORIAL-HYPERV.md)**
@@ -70,10 +92,13 @@ Deep dive and the practice loop: **[TUTORIAL-HYPERV.md](TUTORIAL-HYPERV.md)**
 |------|-------------|
 | `kind-up.ps1` | Interactive menu → creates a KIND cluster (simple / 3-node / HA / workloads). NodePort preflight, topology-aware `--wait`, optional tutorial. |
 | `kind-down.ps1` | Interactive menu → cluster-only teardown or full Docker Desktop + WSL2 shutdown. |
-| `Start-Tutorial.ps1` | Runs guided tutorials against a cluster that's already up. |
+| `kind-multi-up.ps1` | Creates **both** `cka-dev` and `cka-prod` clusters for context-switching practice. `-Practice` drops straight into the 8-drill walkthrough. |
+| `kind-multi-down.ps1` | Teardown for both clusters. `-ClearRenamed` sweeps any contexts you renamed during the drills. |
+| `Start-Tutorial.ps1` | Runs guided Course 1 tutorials against a single cluster that's already up. |
+| `Start-ContextPractice.ps1` | Standalone 8-drill `kubectl config` walkthrough — assumes `cka-dev` and `cka-prod` are already up. |
 | `lib/CkaLab.ps1` | Shared module — output helpers, Docker mgmt, prereq checks, KIND cluster helpers. |
 | `lib/tutorials.ps1` | Tutorial content (Course 1, Modules 1-3 + component walkthrough). Wraps bodies in `try/finally` so Ctrl-C leaves a clean cluster. |
-| `configs/cka-*.yaml` | Four topologies — simple, 3-node (exam), HA (3 CPs, port maps on worker), workloads (labels/taints). |
+| `configs/cka-*.yaml` | Six topologies — simple, 3-node (exam), HA (3 CPs, port maps on worker), workloads (labels/taints), plus `cka-dev` / `cka-prod` for the multi-cluster context lab (disjoint host ports). |
 
 ### Hyper-V path
 | File | What It Does |
@@ -158,6 +183,10 @@ want you in a real shell, with real systemd, running real `kubeadm`. Muscle memo
 storage, scheduling). Use Hyper-V on weekends (cluster bootstrap, HA, upgrades, certificate renewal).
 That's the mix this lab was designed to support.
 
+**And before exam week:** run `./kind-multi-up.ps1 -Practice` at least twice. Every real CKA task
+starts with "given this context…" — fumbling `kubectl config use-context` on the clock is an
+unforced error, and the multi-cluster drill is how you stop making it.
+
 ---
 
 ## 🧠 CKA Exam Prep Tips
@@ -180,6 +209,7 @@ That's the mix this lab was designed to support.
 | `vagrant up` fails with a Hyper-V error | Not running as admin | Open a PowerShell session **as Administrator** — no workaround exists |
 | `kubelet` crashloops right after VM boot | Normal — it's waiting for cluster config until `kubeadm init` runs | Ignore it. It settles after init. |
 | HA cluster created but port 30080 doesn't resolve on failover | Old config had `extraPortMappings` on CP #1 | Current `cka-ha.yaml` puts mappings on a **worker** — pull latest |
+| `kind-multi-up.ps1` fails on the second cluster with port-in-use | Leftover `cka-lab` cluster from an earlier `kind-up.ps1` session is holding 30000/30080/30443 | `./kind-down.ps1` first, or run `./kind-multi-down.ps1` and start fresh — the multi lab expects its own ports (30100/30180/30200/30280) to be the only KIND ports bound |
 | `cka-restore.ps1` says "nothing restored" | Atomic preflight — one VM or checkpoint is missing | Check the per-VM summary; create missing checkpoints before retrying |
 | `cka-validate.ps1` exits 0 but a node actually failed | You're on an old version | Current version pipes validator over stdin; `$LASTEXITCODE` now reflects inner bash exit |
 

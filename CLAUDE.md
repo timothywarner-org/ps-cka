@@ -36,10 +36,20 @@ Both paths live under `src/cka-lab/`. Pick based on the module scenario:
 
 ### Fast path -- KIND console app
 
-PowerShell 7 interactive menus that spin up multi-node clusters as Docker containers on Windows/WSL2. Sub-30-second create, four topology configs (simple, 3-node, HA, workloads), four guided tutorials dot-sourced from `lib/tutorials.ps1`. Entry points: `kind-up.ps1`, `kind-down.ps1`, `Start-Tutorial.ps1`. Used for the vast majority of demos across all 11 courses.
+PowerShell 7 interactive menus that spin up multi-node clusters as Docker containers on Windows/WSL2. Sub-30-second create, four topology choices in the `kind-up.ps1` menu (simple, 3-node, HA, workloads), four guided tutorials dot-sourced from `lib/tutorials.ps1`. Entry points: `kind-up.ps1`, `kind-down.ps1`, `Start-Tutorial.ps1`. Used for the vast majority of demos across all 11 courses. See the multi-cluster add-on below for the separate context-practice pair (`cka-dev` + `cka-prod`).
 
 - Learner-facing walkthrough: `src/cka-lab/TUTORIAL-KIND.md`
 - Internal architecture: `src/cka-lab/CLAUDE.md`
+
+### Multi-cluster add-on -- kubectl context practice
+
+Layered on top of the KIND path for the Course 1, Module 2 context drills. Brings up TWO clusters side by side so learners can practice `kubectl config use-context`, `--context`, `rename-context`, and `set-context --current --namespace`.
+
+- `src/cka-lab/kind-multi-up.ps1` -- creates `cka-dev` (1 CP + 1 worker, host ports 30100/30180) and `cka-prod` (1 CP + 2 workers, host ports 30200/30280)
+- `src/cka-lab/kind-multi-down.ps1` -- teardown; `-ClearRenamed` also removes the `dev` / `prod` renamed contexts
+- `src/cka-lab/Start-ContextPractice.ps1` -- 8-drill interactive walkthrough
+- Configs: `src/cka-lab/configs/cka-dev.yaml`, `src/cka-lab/configs/cka-prod.yaml`
+- All three scripts carry `#!/usr/bin/env pwsh` shebangs, so `./kind-multi-up.ps1` works from bash in WSL2 -- not only `pwsh ./kind-multi-up.ps1`
 
 ### Exam-shaped path -- Hyper-V Vagrant lab
 
@@ -66,6 +76,16 @@ Exercise files are Kubernetes YAML manifests, shell scripts, and kind/Vagrant co
 2. Use descriptive filenames matching the demo scenario (e.g., `broken-deployment.yaml`, `networkpolicy-deny-all.yaml`)
 3. Include comments linking to CKA exam objectives where relevant
 4. Ensure manifests work on both lab paths with Kubernetes v1.35
+
+## Per-Module Demo Runbooks
+
+Recording runbooks for Course 1 (Foundations) live in `dev/`. Each runbook has pre-flight, camera checklist, exact click path (Enter-press sequence), timed demos mapped to section numbers in `src/cka-lab/lib/tutorials.ps1`, reset-between-takes, and a recovery cheat sheet.
+
+- `dev/m01-demo-runbook.md` -- Architecture & Lab Setup (~13 min)
+- `dev/m02-demo-runbook.md` -- kubectl Workflows (~13 min; Demo 5 uses the multi-cluster lab above)
+- `dev/m03-demo-runbook.md` -- Core Resources & Diagnostic Ladder (~14 min)
+
+Older drafts (`dev/olde/CKA-C01-M0N-Demo-Runbook.md`) are superseded -- kept around, not authoritative.
 
 ## February 2025 Curriculum Additions (High Priority)
 
