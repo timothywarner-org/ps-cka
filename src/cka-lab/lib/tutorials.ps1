@@ -30,7 +30,10 @@ function Write-TutorialSection {
     Write-Output ""
     Write-Output ("  " + $Explanation)
     Write-Output ""
-    Write-Output ("  Command:  " + $Command)
+    # Command line in bright yellow so it pops on camera. Write-Host bypasses
+    # the success stream, which is fine — tutorials are interactive-only and
+    # nothing in the repo captures or pipes this output.
+    Write-Host "  Command:  $($Script:BrightYellow)$Command$($Script:AnsiReset)"
     if ($CommandBreakdown) {
         Write-Output "  ---- What each part does -----------------------------------"
         Write-Output ("  " + $CommandBreakdown)
@@ -52,11 +55,15 @@ function Write-TutorialSection {
 function Write-TutorialBanner {
     param([string]$Title, [string[]]$Lines)
     Write-Output ""
+    # Border has 65 dashes between the corner '+' chars. Content lines render
+    # as '|' + 2 spaces + PadRight(N) + '|'. To make the right '|' line up
+    # with the right '+', N must be 65 - 2 = 63. PadRight(62) was off by one
+    # and rendered the right edge one column inside the border.
     Write-Output "  +-----------------------------------------------------------------+"
-    Write-Output "  |  $($Title.PadRight(62))|"
+    Write-Output "  |  $($Title.PadRight(63))|"
     Write-Output "  |                                                                 |"
     foreach ($line in $Lines) {
-        Write-Output "  |  $($line.PadRight(62))|"
+        Write-Output "  |  $($line.PadRight(63))|"
     }
     Write-Output "  +-----------------------------------------------------------------+"
     Write-Output ""

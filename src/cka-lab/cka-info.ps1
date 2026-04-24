@@ -15,7 +15,10 @@ Write-Host "  CKA LAB — CONNECTION GUIDE" -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host ("  {0,-12} {1,-18} {2,-8} {3}" -f "NODE", "IP", "STATUS", "SSH COMMAND") -ForegroundColor White
-Write-Host ("  " + "-" * 64) -ForegroundColor DarkGray
+# Separator spans the widest data row, not just the header labels: data rows
+# format as "  {NODE,-12} {IP,-18} {STATUS,-8} ssh vagrant@<13-char IP>" =
+# 2 + 12 + 1 + 18 + 1 + 8 + 1 + 25 = 68 chars total, so dashes = 68 - 2 = 66.
+Write-Host ("  " + "-" * 66) -ForegroundColor DarkGray
 
 foreach ($n in $Nodes) {
     # Quick ping test (1 packet, 1s timeout)

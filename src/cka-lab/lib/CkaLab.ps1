@@ -12,6 +12,10 @@
 # reserved for errors, not informational chatter. PS7-only (`#Requires 7.0`
 # at the entry points), so `` `e `` is always available.
 $Script:NeonGreen = "`e[38;2;57;255;20m"
+# Bright pop-yellow (#FFEA00) for the tutorial Command: line — distinct from
+# NeonGreen INFO chatter and from white explanation/output. 24-bit ANSI for
+# the same colorblind/dark-theme reasons as NeonGreen above. PS7-only.
+$Script:BrightYellow = "`e[38;2;255;234;0m"
 $Script:AnsiReset = "`e[0m"
 
 function Write-Step {
