@@ -16,6 +16,11 @@ $Script:NeonGreen = "`e[38;2;57;255;20m"
 # NeonGreen INFO chatter and from white explanation/output. 24-bit ANSI for
 # the same colorblind/dark-theme reasons as NeonGreen above. PS7-only.
 $Script:BrightYellow = "`e[38;2;255;234;0m"
+# Sky blue (#56B4E9) for kubectl/command OUTPUT — Wong colorblind-safe palette,
+# the canonical "distinguishable across deuteranopia/protanopia/tritanopia"
+# choice. Pairs with BrightYellow for instant cause→effect contrast on camera:
+# yellow = the command we ran, sky blue = what the cluster said back.
+$Script:SkyBlue = "`e[38;2;86;180;233m"
 $Script:AnsiReset = "`e[0m"
 
 function Write-Step {
