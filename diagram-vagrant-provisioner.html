@@ -130,6 +130,116 @@ flowchart TD
 <strong>Key insight:</strong> Every command on deck slides 7, 12, 13, and 15 corresponds to one of the <code>&gt;&gt;&gt;</code> steps inside the <code>cka-prereqs</code> provisioner. <strong>Slide 7</strong> = steps 2 + 3 (kernel modules + sysctl). <strong>Slide 12</strong> = steps 4 + 5 (containerd + cgroup driver). <strong>Slide 13</strong> = step 6 (crictl). <strong>Slide 15</strong> = steps 7 + 8 (apt repo + install + hold). That's the contract between the lecture and the lab — Vagrant runs them at boot; the demo verifies they landed.
 </div>
 
+<h2>How Vagrant works (the mental model)</h2>
+<p>Vagrant is <strong>a declarative wrapper around a hypervisor</strong>. You write a single file (<code>Vagrantfile</code>) that describes what VMs you want and what should be on them. Vagrant translates that into Hyper-V API calls, runs shell scripts inside each VM, and tracks which VMs belong to which project in a hidden <code>.vagrant/</code> directory. The diagram below shows the lifecycle, what files do what, and what state lives where.</p>
+
+<div class="diagram-container">
+<pre class="mermaid">
+flowchart TB
+    subgraph PROJECT ["<b>Your project directory</b><br/>(e.g. L:\cka-lab)"]
+        VFILE["<b>Vagrantfile</b><br/>(Ruby DSL — declarative)<br/>defines 3 VMs, network, provisioners"]
+        VAGDIR[".vagrant/<br/>Vagrant's tracking metadata<br/>per-machine VM IDs<br/>SSH keys, provider state"]
+        SCRIPTS["create-nat-switch.ps1<br/>cka-*.ps1 wrappers<br/>(your code, not Vagrant's)"]
+    end
+
+    subgraph CMDS ["<b>Vagrant CLI commands</b>"]
+        UP["vagrant up<br/>create + provision + boot"]
+        HALT["vagrant halt<br/>graceful shutdown"]
+        DESTROY["vagrant destroy<br/>delete VMs + clean .vagrant/"]
+        PROVISION["vagrant provision<br/>re-run provisioners only<br/>(idempotent)"]
+        SSH["vagrant ssh control1<br/>SSH using tracked key"]
+        STATUS["vagrant status<br/>show per-VM state"]
+    end
+
+    subgraph PROVIDER ["<b>Hyper-V provider</b><br/>(Vagrant talks to this)"]
+        API["Hyper-V PowerShell API<br/>New-VM, Start-VM, Stop-VM,<br/>Checkpoint-VM, Remove-VM"]
+    end
+
+    subgraph LIFECYCLE ["<b>Per-VM lifecycle state</b>"]
+        S1[("not_created")]
+        S2[("poweroff")]
+        S3[("running")]
+        S4[("saved")]
+        S1 -->|"vagrant up"| S3
+        S3 -->|"vagrant halt"| S2
+        S3 -->|"Hyper-V Save State"| S4
+        S2 -->|"vagrant up"| S3
+        S4 -->|"vagrant up"| S3
+        S3 -->|"vagrant destroy"| S1
+        S2 -->|"vagrant destroy"| S1
+    end
+
+    VFILE -.->|"read at every command"| UP
+    VFILE -.-> HALT
+    VFILE -.-> DESTROY
+    VFILE -.-> PROVISION
+    UP --> API
+    HALT --> API
+    DESTROY --> API
+    PROVISION --> API
+    SSH --> API
+    STATUS --> VAGDIR
+    API --> LIFECYCLE
+    VAGDIR <-.->|"writes VM IDs<br/>after create"| API
+
+    style PROJECT fill:#1e3a5f,stroke:#fff,color:#fff
+    style VFILE fill:#1e3a5f,stroke:#fff,color:#fff
+    style VAGDIR fill:#1e3a5f,stroke:#fff,color:#fff
+    style SCRIPTS fill:#1e3a5f,stroke:#fff,color:#fff
+    style CMDS fill:#5f4e1e,stroke:#fff,color:#fff
+    style UP fill:#5f4e1e,stroke:#fff,color:#fff
+    style HALT fill:#5f4e1e,stroke:#fff,color:#fff
+    style DESTROY fill:#5f4e1e,stroke:#fff,color:#fff
+    style PROVISION fill:#5f4e1e,stroke:#fff,color:#fff
+    style SSH fill:#5f4e1e,stroke:#fff,color:#fff
+    style STATUS fill:#5f4e1e,stroke:#fff,color:#fff
+    style PROVIDER fill:#5f1e3a,stroke:#fff,color:#fff
+    style API fill:#5f1e3a,stroke:#fff,color:#fff
+    style LIFECYCLE fill:#1e5f3a,stroke:#fff,color:#fff
+    style S1 fill:#1e5f3a,stroke:#fff,color:#fff
+    style S2 fill:#1e5f3a,stroke:#fff,color:#fff
+    style S3 fill:#1e5f3a,stroke:#fff,color:#fff
+    style S4 fill:#1e5f3a,stroke:#fff,color:#fff
+</pre>
+</div>
+
+<div class="key-insight">
+<strong>Three things that confuse everyone at first:</strong>
+<ol>
+<li><strong>The <code>Vagrantfile</code> is the source of truth.</strong> Vagrant re-reads it on every command. Edit the Vagrantfile, and the next <code>vagrant up</code> sees the new config — but <strong>provisioners don't re-run automatically</strong> on already-created VMs unless you explicitly say <code>vagrant provision</code>.</li>
+<li><strong><code>.vagrant/</code> is Vagrant's brain.</strong> Inside it, <code>machines/&lt;vm&gt;/&lt;provider&gt;/id</code> holds the Hyper-V VM ID — the link between "the line that says <code>control1</code> in your Vagrantfile" and "the actual VM running on Hyper-V." Delete <code>.vagrant/</code> and Vagrant forgets your VMs exist (the VMs themselves keep running; Vagrant just can't talk to them).</li>
+<li><strong>Provisioners run once at create, not on every boot.</strong> <code>vagrant up</code> on an existing VM is a fast boot. <code>vagrant up --provision</code> forces them to re-run. <code>vagrant up --no-provision</code> is explicit "don't even try" (used by <code>cka-up.ps1</code> for speed).</li>
+</ol>
+</div>
+
+<h2>File-by-file: what each piece does</h2>
+<table>
+  <thead><tr><th>File / Directory</th><th>Owner</th><th>Purpose</th><th>Edit it?</th></tr></thead>
+  <tbody>
+    <tr><td><code>Vagrantfile</code></td><td>You</td><td>Declarative VM config: how many VMs, what box, what network, what provisioners</td><td><strong>Yes</strong> — this is where you change topology</td></tr>
+    <tr><td><code>.vagrant/machines/&lt;vm&gt;/hyperv/id</code></td><td>Vagrant</td><td>Hyper-V VM GUID. Vagrant's link from the Vagrantfile to the running VM</td><td><strong>Never</strong> — corrupts the link</td></tr>
+    <tr><td><code>.vagrant/machines/&lt;vm&gt;/hyperv/private_key</code></td><td>Vagrant</td><td>Auto-generated SSH private key. <code>vagrant ssh</code> uses this</td><td><strong>Never</strong> — regenerate by destroy+up</td></tr>
+    <tr><td><code>~/.vagrant.d/boxes/</code></td><td>Vagrant</td><td>Cached base box images (e.g. <code>generic/ubuntu2204</code>). Shared across all your projects</td><td><strong>Rarely</strong> — only to free disk: <code>vagrant box prune</code></td></tr>
+    <tr><td><code>create-nat-switch.ps1</code></td><td>You</td><td>PowerShell script Vagrant invokes via a <code>config.trigger.before :up</code> block. Creates the <code>CKA-NAT</code> Hyper-V switch if missing</td><td><strong>Yes</strong> — change subnet here</td></tr>
+    <tr><td><code>cka-*.ps1</code> scripts</td><td>You</td><td>Convenience wrappers around <code>vagrant up</code>, <code>vagrant halt</code>, snapshots, validation. Not part of Vagrant; just shortcuts</td><td><strong>Yes</strong></td></tr>
+  </tbody>
+</table>
+
+<h2>Where the actual VMs and disks live</h2>
+<table>
+  <thead><tr><th>Thing</th><th>Location</th><th>Set by</th></tr></thead>
+  <tbody>
+    <tr><td>VM definition (config, generation, memory)</td><td>Hyper-V's VM config registry</td><td>Hyper-V default VM path (system-wide)</td></tr>
+    <tr><td>Virtual hard disks (<code>.vhdx</code>)</td><td><code>D:\VMS\</code> in your setup</td><td>Hyper-V default VHD path (system-wide)</td></tr>
+    <tr><td>Vagrant project tracking</td><td><code>L:\cka-lab\.vagrant\</code></td><td>The project directory you ran <code>vagrant up</code> from</td></tr>
+    <tr><td>Provisioner logs (per VM)</td><td><code>/var/log/cka-provision.log</code> inside the VM</td><td>The Vagrantfile shell provisioner</td></tr>
+  </tbody>
+</table>
+
+<div class="key-insight">
+<strong>That's the gotcha that bit us earlier:</strong> When the repo moved from <code>L:\cka-lab</code> to <code>C:\github\ps-cka\src\cka-lab</code>, the <code>.vagrant/</code> directory came with it — but the VHDX files in <code>D:\VMS\</code> didn't move, and Hyper-V kept seeing the VMs at their original IDs. Result: Vagrant prints a "this machine used to live in L:\cka-lab" warning, but the VMs are still findable because Hyper-V is the source of truth for actually-running VMs. <strong>Vagrant tracks; Hyper-V owns.</strong>
+</div>
+
 <h2>Slide-to-provisioner mapping</h2>
 <table>
   <thead>
@@ -142,6 +252,19 @@ flowchart TD
     <tr><td><strong>Slide 15</strong></td><td>Install + pin kubeadm/kubelet/kubectl</td><td>Step 7 (apt repo + GPG), Step 8 (install + apt-mark hold)</td><td><code>dpkg -l kubeadm kubelet kubectl</code>, <code>apt-mark showhold</code>, <code>swapon --show</code></td></tr>
   </tbody>
 </table>
+
+<h2>Inspect the provisioner state from inside a VM</h2>
+<pre style="background:#000;color:#f5d000;padding:20px;border-radius:6px;overflow-x:auto;font-family:'Consolas','Monaco',monospace;font-size:1.05em;font-weight:600;line-height:1.5;border:2px solid #f5d000;"><code style="background:transparent;color:#f5d000;font-size:1em;"># Inside the VM (vagrant ssh control1)
+
+# Step-by-step record of what the provisioner did, with timestamps
+sudo cat /var/log/cka-provision.log
+
+# Just the &gt;&gt;&gt; step headers (skim version)
+sudo grep '&gt;&gt;&gt;' /var/log/cka-provision.log
+
+# Re-run a single provisioner stage (from the Windows host)
+#   (idempotent — re-running on a clean VM is a no-op)
+vagrant provision control1</code></pre>
 
 <h2>Why this design</h2>
 <ul>
