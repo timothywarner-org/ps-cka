@@ -13,6 +13,18 @@
 #   -OutputFields:     multi-line string shown AFTER the run,
 #                      explaining the columns/fields the learner just saw.
 # Both accept `n for newlines (same convention as -Explanation).
+#
+# Multi-beat sections:
+#   -Steps  hashtable array. When present, the section header (title +
+#           explanation) renders once, then each beat fires its own
+#           Command/Breakdown/run/OutputFields/Press-Enter cycle. Use when
+#           a section teaches a cause/effect arc that needs an Enter press
+#           between cause and effect (e.g. delete -> watch resurrect, scale
+#           -> watch slice grow). Beat hashtable keys: Beat, Command,
+#           Breakdown, OutputFields. OutputFields may be empty for silent-
+#           setup beats — the "What you just saw" block is then skipped.
+#           When -Steps is provided, the legacy -Command/-CommandBreakdown/
+#           -OutputFields params are ignored.
 # ---------------------------------------------------------------
 function Write-TutorialSection {
     param(
@@ -21,6 +33,7 @@ function Write-TutorialSection {
         [string]$Command,
         [string]$CommandBreakdown,
         [string]$OutputFields,
+        [hashtable[]]$Steps,
         [switch]$NoRun
     )
     Write-Output ""
@@ -29,33 +42,108 @@ function Write-TutorialSection {
     Write-Output "  ================================================================"
     Write-Output ""
     Write-Output ("  " + $Explanation)
+
+    if ($Steps -and $Steps.Count -gt 0) {
+        # Multi-beat path: each beat is a self-contained cause/effect cycle.
+        # Section header already printed; loop over the beats.
+        foreach ($step in $Steps) {
+            Write-TutorialBeatBody `
+                -Beat $step.Beat `
+                -Command $step.Command `
+                -Breakdown $step.Breakdown `
+                -OutputFields $step.OutputFields `
+                -NoRun:$NoRun
+        }
+        return
+    }
+
+    # Single-command path: render as one unnamed beat so the visual rhythm
+    # (command -> output -> output-fields -> prompt) stays identical to the
+    # multi-beat path. Pre-refactor sections (M01/M02/Component-Walkthrough)
+    # render unchanged because they didn't have a beat header anyway.
+    Write-TutorialBeatBody `
+        -Command $Command `
+        -Breakdown $CommandBreakdown `
+        -OutputFields $OutputFields `
+        -NoRun:$NoRun
+}
+
+# ---------------------------------------------------------------
+# Helper for the inner-loop render. Both -Steps and the legacy single-
+# command path go through here so visual rhythm stays identical:
+#
+#   <blank>
+#   ---- Beat N.M: TITLE ----        (multi-beat only)
+#   <blank>
+#   Command:  <yellow>
+#   <blank>
+#   ---- What each part does ----    (only if Breakdown set)
+#   <breakdown>                      (only if Breakdown set)
+#   <blank>                          (only if Breakdown set)
+#   ---- Output ----                 (the run separator)
+#   <blank>
+#   <command output, sky blue>
+#   <blank>
+#   ---- What you just saw ----      (only if OutputFields set)
+#   <output fields>                  (only if OutputFields set)
+#   <blank>                          (only if OutputFields set)
+#   ---- (terminator) ----
+#   <blank>
+#   Press Enter to continue
+#   <blank>
+#
+# The blank lines around each visual block are the breathing room. The
+# terminator dashes after OutputFields (or after command output if no
+# OutputFields) close the beat visually before the prompt.
+# ---------------------------------------------------------------
+function Write-TutorialBeatBody {
+    param(
+        [string]$Beat,
+        [string]$Command,
+        [string]$Breakdown,
+        [string]$OutputFields,
+        [switch]$NoRun
+    )
     Write-Output ""
+    if ($Beat) {
+        # Beat header: "  ---- Beat 3.2: SCALE TO 4 ---..." padded so dashes
+        # align consistently across beats regardless of label length.
+        $beatHeader = "---- Beat $Beat "
+        $beatHeader = $beatHeader + ('-' * [Math]::Max(4, 60 - $beatHeader.Length))
+        Write-Output ("  " + $beatHeader)
+        Write-Output ""
+    }
     # Command line in bright yellow so it pops on camera. Write-Host bypasses
-    # the success stream, which is fine — tutorials are interactive-only and
+    # the success stream, which is fine -- tutorials are interactive-only and
     # nothing in the repo captures or pipes this output.
     Write-Host "  Command:  $($Script:BrightYellow)$Command$($Script:AnsiReset)"
-    if ($CommandBreakdown) {
+    Write-Output ""
+    if ($Breakdown) {
         Write-Output "  ---- What each part does -----------------------------------"
-        Write-Output ("  " + $CommandBreakdown)
+        Write-Output ("  " + $Breakdown)
+        Write-Output ""
     }
-    Write-Output "  ----------------------------------------------------------------"
+    Write-Output "  ---- Output -------------------------------------------------"
     if (-not $NoRun) {
         Write-Output ""
-        # Output in Wong sky blue so cause (yellow Command:) → effect (blue
+        # Output in Wong sky blue so cause (yellow Command:) -> effect (blue
         # output) reads instantly on camera. Write-Host so the ANSI escapes
         # are honored. Tutorial output is interactive-only; nothing captures
         # this stream (same rationale as the Command: line above).
         Invoke-Expression $Command 2>&1 | ForEach-Object {
             Write-Host "  $($Script:SkyBlue)$_$($Script:AnsiReset)"
         }
+        Write-Output ""
     }
     if ($OutputFields) {
-        Write-Output ""
         Write-Output "  ---- What you just saw -------------------------------------"
         Write-Output ("  " + $OutputFields)
+        Write-Output ""
     }
+    Write-Output "  -------------------------------------------------------------"
     Write-Output ""
     Read-Host "  Press Enter to continue"
+    Write-Output ""
 }
 
 function Write-TutorialBanner {
@@ -288,8 +376,8 @@ function Start-TutorialM02 {
 
     Write-TutorialBanner -Title "COURSE 1 / MODULE 2: kubectl Workflows" -Lines @(
         "Five critical kubectl skills for CKA speed:"
-        "imperative creation, dry-run YAML, kubectl explain,"
-        "resource querying, and context switching."
+        "imperative creation, dry-run YAML, declarative apply,"
+        "kubectl explain, resource querying, and context awareness."
     )
 
     # Wrap the body in try/finally so Ctrl-C (or any mid-tutorial exit) still
@@ -299,125 +387,84 @@ function Start-TutorialM02 {
 
     # --- Demo 1: Imperative Speed Run ---
     Write-TutorialSection `
-        -Title "1/16  IMPERATIVE: CREATE A POD" `
+        -Title "1/10  IMPERATIVE: CREATE A POD" `
         -Explanation "Pods are the atomic unit. This is the fastest way to get a container running.`n  No YAML, no files -- just one command." `
         -Command "kubectl run nginx --image=nginx" `
         -CommandBreakdown "kubectl run    = imperative pod creation (fastest path to a running container)`n  nginx          = pod name (also becomes the default container name)`n  --image=nginx  = container image; no tag means :latest from Docker Hub" `
         -OutputFields "pod/nginx created = confirmation the API server persisted the object`n  Next: the scheduler picks a node, kubelet pulls the image, container starts`n  Check progress with: kubectl get pods   (STATUS cycles Pending -> ContainerCreating -> Running)"
 
     Write-TutorialSection `
-        -Title "2/16  IMPERATIVE: CREATE A DEPLOYMENT" `
-        -Explanation "Deployments manage rollouts. Three things just happened:`n  a Deployment, a ReplicaSet, and 3 Pods. All from one command." `
-        -Command "kubectl create deployment web --image=nginx --replicas=3" `
-        -CommandBreakdown "kubectl create  = imperative create (vs apply, which is declarative from YAML)`n  deployment      = resource kind (short: deploy)`n  web             = Deployment name; becomes the label selector app=web`n  --image=nginx   = container image used in the pod template`n  --replicas=3    = desired pod count; ReplicaSet enforces this continuously" `
-        -OutputFields "deployment.apps/web created = Deployment object persisted`n  Chain spawned: Deployment -> ReplicaSet -> 3 Pods (all labeled app=web)`n  Pod names follow <deploy>-<rs-hash>-<pod-hash> (e.g. web-7d4b9c8f-xkl2m)`n  Verify the chain with: kubectl get deploy,rs,pods"
+        -Title "2/10  IMPERATIVE: DEPLOYMENT + EXPOSE" `
+        -Explanation "Two commands, five resources. Deployment spawns ReplicaSet + 3 Pods,`n  then expose adds a Service with auto-created DNS. The Service inherits`n  the selector app=web from the Deployment's labels." `
+        -Command "kubectl create deployment web --image=nginx --replicas=3; kubectl expose deployment web --port=80 --type=ClusterIP" `
+        -CommandBreakdown "--- Command 1: create the workload ----------------------------`n  kubectl create deployment = imperative create (vs apply, which is declarative from YAML)`n  web             = Deployment name; becomes the label app=web`n  --image=nginx   = container image used in the pod template`n  --replicas=3    = desired pod count; ReplicaSet enforces this continuously`n  --- Command 2: expose it on the network -----------------------`n  kubectl expose  = imperative Service creation from an existing workload`n  deployment web  = source resource (Service inherits its selector: app=web)`n  --port=80       = Service port (what clients connect to)`n  --type=ClusterIP = internal-only virtual IP (default; other options: NodePort, LoadBalancer)`n  ; (semicolon)   = PowerShell command separator; runs both commands in sequence" `
+        -OutputFields "deployment.apps/web created = Deployment object persisted`n    Chain spawned: Deployment -> ReplicaSet -> 3 Pods (all labeled app=web)`n    Pod names follow <deploy>-<rs-hash>-<pod-hash> (e.g. web-7d4b9c8f-xkl2m)`n  service/web exposed         = Service object created with a ClusterIP`n    Selector app=web tracks the 3 pods above`n    DNS auto-created: web.default.svc.cluster.local`n    Endpoints object populated with backend pod IPs (kubectl get endpoints web)`n  Verify the whole chain: kubectl get deploy,rs,pods,svc"
 
     Write-TutorialSection `
-        -Title "3/16  IMPERATIVE: EXPOSE AS A SERVICE" `
-        -Explanation "Services give Pods a stable network endpoint. DNS is auto-created:`n  web.default.svc.cluster.local now resolves to the ClusterIP." `
-        -Command "kubectl expose deployment web --port=80 --type=ClusterIP" `
-        -CommandBreakdown "kubectl expose  = imperative Service creation from an existing workload`n  deployment web  = source resource (Service inherits its selector: app=web)`n  --port=80       = Service port (what clients connect to)`n  --type=ClusterIP = internal-only virtual IP (default; other options: NodePort, LoadBalancer)" `
-        -OutputFields "service/web exposed = Service object created with a ClusterIP`n  Selector = app=web (Service tracks pods with this label)`n  DNS auto-created: web.default.svc.cluster.local`n  Endpoints object populated with backend pod IPs (check: kubectl get endpoints web)"
-
-    Write-TutorialSection `
-        -Title "4/16  IMPERATIVE: CONFIGMAP + SECRET + RBAC" `
-        -Explanation "Three more resources in three commands. That's 7 resources total`n  with zero YAML files. Speed wins on the exam." `
+        -Title "3/10  IMPERATIVE: CONFIGMAP + SECRET + RBAC" `
+        -Explanation "Four more resources in four commands. That's 9 resources total`n  with zero YAML files. Speed wins on the exam." `
         -Command "kubectl create configmap app-config --from-literal=env=prod; kubectl create secret generic db-pass --from-literal=password=s3cret; kubectl create role pod-reader --verb=get,list,watch --resource=pods; kubectl create rolebinding pod-reader-binding --role=pod-reader --user=jane" `
         -CommandBreakdown "create configmap     = non-secret key/value config (--from-literal for inline, --from-file for files)`n  create secret generic = base64-encoded secret (generic = opaque; other types: tls, docker-registry)`n  --from-literal=K=V   = inline key/value data (repeat for multiple)`n  create role          = namespaced permissions (--verb=what, --resource=on-what)`n  create rolebinding   = binds a Role to a subject (--user, --group, or --serviceaccount)`n  ; (semicolon)        = PowerShell command separator; runs four commands in sequence" `
         -OutputFields "Four 'created' confirmations -- one per resource`n  configmap/app-config       = plain config (not encrypted at rest without KMS)`n  secret/db-pass             = base64-encoded (NOT encrypted -- use kubectl get secret -o yaml to see)`n  role.rbac.../pod-reader    = allows get/list/watch pods in current namespace only`n  rolebinding/...-binding    = grants that Role to user 'jane'"
 
-    Write-TutorialSection `
-        -Title "5/16  SEE EVERYTHING" `
-        -Explanation "Let's see the full picture -- Pods, Services, Deployments, ReplicaSets." `
-        -Command "kubectl get all" `
-        -CommandBreakdown "kubectl get   = list resources from the API server`n  all           = shortcut alias for pods,services,deployments,replicasets,statefulsets,daemonsets,jobs,cronjobs`n  (note: 'all' does NOT include configmaps, secrets, ingresses, PVCs, RBAC -- misleading name)" `
-        -OutputFields "NAME          = <kind>/<name> (e.g. pod/nginx, service/web, deployment.apps/web)`n  READY         = pods: containers ready/total; deploys/rs: ready-replicas/desired`n  STATUS        = pod phase (Running, Pending, CrashLoopBackOff)`n  RESTARTS      = container restart count`n  AGE           = time since creation`n  For Services: TYPE, CLUSTER-IP, EXTERNAL-IP, PORT(S) columns appear"
-
     # --- Demo 2: Dry-Run YAML Pipeline ---
     Write-TutorialSection `
-        -Title "6/16  DRY-RUN: GENERATE YAML WITHOUT CREATING" `
-        -Explanation "--dry-run=client validates and generates a manifest WITHOUT persisting.`n  This is the professional way: generate, edit, apply. GitOps-ready." `
-        -Command "kubectl run temp --image=busybox --restart=Never --dry-run=client -o yaml" `
-        -CommandBreakdown "kubectl run        = imperative pod creation (same as before)`n  temp               = pod name`n  --image=busybox    = tiny image useful for scratch pods / debug`n  --restart=Never    = sets spec.restartPolicy (Never = bare pod, not managed by a controller)`n  --dry-run=client   = render the object locally; do NOT send to the API server`n  -o yaml            = output format; perfect for redirecting to a file with > pod.yaml" `
-        -OutputFields "apiVersion: v1       = API group+version the resource belongs to (core group for Pod)`n  kind: Pod            = resource type`n  metadata:            = name, labels, annotations, namespace (object identity)`n  spec:                = desired state (containers, image, restartPolicy, resources)`n  status:              = omitted in dry-run output (populated by the cluster at runtime)`n  Pipe this to kubectl apply -f - to actually create it, or save with > pod.yaml and edit"
-
-    Write-TutorialSection `
-        -Title "7/16  DRY-RUN: DEPLOYMENT YAML" `
-        -Explanation "Works for any resource type. Notice the nested structure:`n  spec.replicas, spec.selector.matchLabels, spec.template.spec.containers." `
+        -Title "4/10  DRY-RUN: GENERATE YAML WITHOUT CREATING" `
+        -Explanation "--dry-run=client validates and generates a manifest WITHOUT persisting.`n  This is the professional way: generate, edit, apply. GitOps-ready.`n  Notice the nested structure -- spec.replicas, spec.selector.matchLabels,`n  spec.template.spec.containers." `
         -Command "kubectl create deployment limited --image=nginx --replicas=2 --dry-run=client -o yaml | Select-Object -First 25" `
-        -CommandBreakdown "kubectl create deployment = imperative Deployment generator`n  limited                   = Deployment name (and default label: app=limited)`n  --image=nginx             = container image for the pod template`n  --replicas=2              = desired pod count`n  --dry-run=client          = generate locally; do NOT hit the API`n  -o yaml                   = emit as YAML`n  | Select-Object -First 25 = PowerShell pipeline: keep first 25 lines (trim output for display)" `
-        -OutputFields "apiVersion: apps/v1         = Deployments live in the 'apps' API group`n  kind: Deployment`n  spec.replicas: 2            = desired pod count`n  spec.selector.matchLabels   = which pods this Deployment manages (app=limited)`n  spec.template               = the pod template; everything under this = one pod`n  spec.template.spec.containers = the container list (image, ports, resources, probes)`n  strategy, revisionHistoryLimit, progressDeadlineSeconds = rollout behavior (cut off by -First 25)"
+        -CommandBreakdown "kubectl create deployment = imperative Deployment generator`n  limited                   = Deployment name (and default label app=limited)`n  --image=nginx             = container image for the pod template`n  --replicas=2              = desired pod count`n  --dry-run=client          = render the object locally; do NOT send to the API server`n  -o yaml                   = emit as YAML (perfect for redirecting with > deploy.yaml)`n  | Select-Object -First 25 = PowerShell pipeline: keep first 25 lines (trim output for display)`n  Same flag works for kubectl run -- swap 'create deployment' for 'run <pod>'" `
+        -OutputFields "apiVersion: apps/v1         = Deployments live in the 'apps' API group`n  kind: Deployment`n  metadata.name: limited      = object identity (name, labels, annotations, namespace)`n  spec.replicas: 2            = desired pod count`n  spec.selector.matchLabels   = which pods this Deployment manages (app=limited)`n  spec.template               = the pod template; everything under this = one pod`n  spec.template.spec.containers = the container list (image, ports, resources, probes)`n  status: omitted in dry-run output (populated by the cluster at runtime)`n  strategy, revisionHistoryLimit, progressDeadlineSeconds = rollout behavior (cut off by -First 25)"
 
-    # --- Demo 3: kubectl explain ---
+    # --- Demo 3: Declarative Apply (round-trip) + see everything ---
     Write-TutorialSection `
-        -Title "8/16  EXPLAIN: POD CONTAINER SPEC" `
-        -Explanation "kubectl explain is your in-terminal API reference. You don't need to`n  memorize field names -- just ask Kubernetes what's available." `
-        -Command "kubectl explain pod.spec.containers.resources" `
-        -CommandBreakdown "kubectl explain   = pull OpenAPI schema from the live cluster (no internet needed)`n  pod               = starting resource`n  .spec.containers  = walk into the containers array (dot-path into the schema)`n  .resources        = land on the resources field (requests / limits)" `
-        -OutputFields "KIND         = resource kind (Pod)`n  VERSION      = API group/version (v1 for core Pod)`n  FIELD        = the field you asked about (resources)`n  DESCRIPTION  = human-readable docs for the field`n  FIELDS:      = sub-fields available (claims, limits, requests) -- walk deeper with a longer dot-path`n  Exam tip: use 'kubectl explain pod.spec --recursive' to dump the whole tree"
+        -Title "5/10  APPLY: ROUND-TRIP + SEE EVERYTHING" `
+        -Explanation "Close the loop: render -> save -> read back -> apply -> apply again -> get all.`n  Declarative apply is idempotent -- re-applying an unchanged manifest is a no-op.`n  Then 'kubectl get all' verifies the apply landed alongside everything else.`n  Watch out: 'all' is a misleading alias -- it does NOT include ConfigMaps,`n  Secrets, or RBAC objects you created in section 3." `
+        -Command "kubectl create deployment apply-demo --image=nginx --replicas=2 --dry-run=client -o yaml | Set-Content `$HOME/web-apply.yaml; Get-Content `$HOME/web-apply.yaml | Select-Object -First 20; kubectl apply -f `$HOME/web-apply.yaml; kubectl apply -f `$HOME/web-apply.yaml; kubectl get all" `
+        -CommandBreakdown "kubectl create deployment ... --dry-run=client -o yaml = render the manifest`n    apply-demo                = Deployment name (and default label app=apply-demo)`n    --replicas=2              = desired pod count`n  | Set-Content `$HOME/web-apply.yaml = PowerShell: write the YAML stream to a file in `$HOME`n    (`$HOME is always writable on Windows + WSL2; safe even if pwd is read-only)`n  Get-Content `$HOME/web-apply.yaml | Select-Object -First 20 = read the saved file back, trim to 20 lines`n  kubectl apply -f `$HOME/web-apply.yaml = first apply: server-side create from the manifest`n  kubectl apply -f `$HOME/web-apply.yaml = second apply: same manifest, no diff -> no-op`n  kubectl get all = list pods,services,deployments,replicasets,statefulsets,daemonsets,jobs,cronjobs`n    (NOT configmaps, secrets, ingresses, PVCs, RBAC -- 'all' is a misleading alias)" `
+        -OutputFields "First chunk = the YAML preview (apiVersion, kind, metadata, spec.replicas, spec.selector, spec.template)`n  deployment.apps/apply-demo created   = first apply: API server persisted the Deployment`n  deployment.apps/apply-demo unchanged = second apply: server-side diff was empty -> idempotency`n    (this is the teaching point -- re-applying is safe; no rollout, no churn)`n  Then 'get all' shows: pod/nginx, pod/web-*, pod/apply-demo-*, service/web, service/kubernetes,`n    deployment.apps/web, deployment.apps/apply-demo, replicaset.apps/* for each Deployment`n  app-config, db-pass, pod-reader, pod-reader-binding are HIDDEN -- 'all' lies`n  Exam tip: when the question says 'apply this manifest', use 'kubectl apply -f' -- generated YAML is editable, versionable, idempotent"
 
+    # --- Demo 4: kubectl explain ---
     Write-TutorialSection `
-        -Title "9/16  EXPLAIN: DEPLOYMENT STRATEGY (RECURSIVE)" `
-        -Explanation "--recursive shows the entire tree. This is gold for complex resources`n  like Deployment rollout strategies (RollingUpdate, maxSurge, maxUnavailable)." `
+        -Title "6/10  EXPLAIN: RECURSIVE FIELD TREE" `
+        -Explanation "kubectl explain is your in-terminal API reference -- pulled from the live`n  cluster's OpenAPI schema, no internet needed. --recursive expands the whole`n  subtree, perfect for finding nested fields like rollout strategy options.`n  Drop --recursive for a single-level view of one field." `
         -Command "kubectl explain deployment.spec.strategy --recursive" `
-        -CommandBreakdown "kubectl explain           = OpenAPI schema lookup`n  deployment.spec.strategy  = dot-path into the Deployment rollout strategy field`n  --recursive               = expand every nested sub-field (no need to keep re-running explain)" `
-        -OutputFields "KIND / VERSION / FIELD   = same headers as before (Deployment, apps/v1, strategy)`n  FIELDS (tree):`n    rollingUpdate          = struct for rolling rollout tuning`n      maxSurge             = extra pods allowed above replicas during rollout (int or %)`n      maxUnavailable       = pods allowed to be down during rollout (int or %)`n    type                   = 'RollingUpdate' (default) or 'Recreate' (kill-all-then-create)`n  Exam tip: know the defaults -- maxSurge=25%, maxUnavailable=25%"
+        -CommandBreakdown "kubectl explain           = OpenAPI schema lookup against the API server`n  deployment.spec.strategy  = dot-path into the Deployment rollout strategy field`n  --recursive               = expand every nested sub-field (no need to keep re-running explain)`n  Without --recursive: shows only the immediate sub-fields + their descriptions`n  Other useful paths: pod.spec.containers.resources, pod.spec.affinity, pod.spec.tolerations" `
+        -OutputFields "KIND          = resource kind (Deployment)`n  VERSION       = API group/version (apps/v1)`n  FIELD         = the field you asked about (strategy)`n  DESCRIPTION   = human-readable docs for the field`n  FIELDS (tree):`n    rollingUpdate          = struct for rolling rollout tuning`n      maxSurge             = extra pods allowed above replicas during rollout (int or %)`n      maxUnavailable       = pods allowed to be down during rollout (int or %)`n    type                   = 'RollingUpdate' (default) or 'Recreate' (kill-all-then-create)`n  Exam tip: know the defaults -- maxSurge=25%, maxUnavailable=25%"
+
+    # --- Demo 5: Querying ---
+    Write-TutorialSection `
+        -Title "7/10  QUERY: LABEL SELECTOR + SHOW LABELS" `
+        -Explanation "Labels are how Kubernetes organizes resources. -l filters; --show-labels`n  reveals what you're filtering against. Together they're the full label loop." `
+        -Command "kubectl get pods -l app=web --show-labels" `
+        -CommandBreakdown "kubectl get pods = list Pod resources`n  -l app=web       = label selector (short for --selector); matches pods labeled app=web`n  --show-labels    = append a LABELS column listing every label on each pod`n  (other -l syntax: -l 'env in (prod,staging)', -l '!disabled', -l app=web,tier=frontend)`n  Field-side cousin: --field-selector status.phase=Running filters by built-in fields, not labels" `
+        -OutputFields "NAME      = pod name (Deployment-owned pods carry the <deploy>-<rs>-<pod> suffix pattern)`n  READY     = ready containers / total containers`n  STATUS    = phase (Running / Pending / CrashLoopBackOff / ...)`n  RESTARTS  = container restart count`n  AGE       = pod uptime`n  LABELS    = the gold column -- every label key=value on the pod`n              (you'll see app=web, pod-template-hash=<rs-hash>, and any others)`n  No matching pods = empty result (not an error); selector excluded everything"
 
     Write-TutorialSection `
-        -Title "10/16  API RESOURCES: SHORTNAMES" `
-        -Explanation "Can't remember if it's 'svc' or 'service'? This is the source of truth.`n  Shortnames save real time: po, svc, deploy, cm, ns, sa, pv, pvc." `
-        -Command "kubectl api-resources | Select-String -Pattern '(^NAME|\bpods?\b|\bservices?\b|\bdeploy\w*|\bconfigmap\w*|\bsecrets?\b|\broles?\b|\brolebindings?\b)' | Select-Object -First 10" `
-        -CommandBreakdown "kubectl api-resources = lists every resource kind the API server knows`n  | Select-String       = PowerShell grep (filters matching lines)`n  -Pattern '(...)'      = regex: header line + pod/service/deploy/configmap/secret/role/rolebinding rows`n  \b...\b               = word boundaries so 'role' doesn't match 'rolebinding' etc.`n  | Select-Object -First 10 = keep first 10 lines for a clean view" `
-        -OutputFields "NAME         = canonical resource name (pods, services, deployments, configmaps, secrets, roles, rolebindings)`n  SHORTNAMES   = the gold column -- po, svc, deploy, cm, (none), (none), (none)`n  APIVERSION   = group/version (v1 for core; apps/v1 for deployments; rbac.authorization.k8s.io/v1 for roles)`n  NAMESPACED   = true (scoped to a namespace) or false (cluster-scoped)`n  KIND         = CamelCase kind name used in YAML (Pod, Service, Deployment, ...)"
-
-    # --- Demo 4: Querying ---
-    Write-TutorialSection `
-        -Title "11/16  QUERY: LABEL SELECTOR" `
-        -Explanation "Labels are how Kubernetes organizes resources. This returns only`n  Pods with the label app=web -- filtering out everything else." `
-        -Command "kubectl get pods -l app=web" `
-        -CommandBreakdown "kubectl get pods = list Pod resources`n  -l app=web       = label selector (short for --selector); matches pods labeled app=web`n  (other syntax: -l 'env in (prod,staging)', -l '!disabled', -l app=web,tier=frontend)" `
-        -OutputFields "NAME      = pod name (Deployment-owned pods carry the <deploy>-<rs>-<pod> suffix pattern)`n  READY     = ready containers / total containers`n  STATUS    = phase (Running / Pending / CrashLoopBackOff / ...)`n  RESTARTS  = container restart count`n  AGE       = pod uptime`n  No matching pods = empty result (not an error); selector excluded everything"
+        -Title "8/10  QUERY: JSONPATH + CUSTOM COLUMNS" `
+        -Explanation "Two output shapers, same JSONPath syntax under the hood. JSONPath gives`n  you raw extracted values; custom-columns wraps the same paths in a table.`n  The 'aha': .items[*].metadata.name and .metadata.name are the SAME path --`n  one is a list-context expression, one is a per-item expression." `
+        -Command "kubectl get pods -o jsonpath='{.items[*].metadata.name}'; Write-Output ''; Write-Output '---'; kubectl get pods -o custom-columns=NAME:.metadata.name,NODE:.spec.nodeName,STATUS:.status.phase" `
+        -CommandBreakdown "--- Part 1: raw JSONPath extraction ---------------------------`n  kubectl get pods   = list pods (returns a List object with an .items array)`n  -o jsonpath='...'  = extract fields using JSONPath expressions`n  {.items[*]}        = iterate over every element of the items array`n  [*]                = wildcard index (all elements)`n  .metadata.name     = pick the metadata.name field from each`n  Result: space-separated pod names (no headers, no columns -- raw strings)`n  --- Part 2: same paths, table form ----------------------------`n  -o custom-columns=HEADER:jsonpath,...   = render as a table you design`n  NAME:.metadata.name       = column 1 = pod name`n  NODE:.spec.nodeName       = column 2 = which node the scheduler placed it on`n  STATUS:.status.phase      = column 3 = pod phase`n  Notice: per-item paths in custom-columns; list-context [*] paths in jsonpath" `
+        -OutputFields "Part 1 (jsonpath): nginx web-xxxx-aaa web-xxxx-bbb web-xxxx-ccc apply-demo-xxx`n    Space-separated, no headers -- perfect for: for p in `$(...); do kubectl logs `$p; done`n  Part 2 (custom-columns):`n    NAME     = pod name`n    NODE     = the node the scheduler picked (empty if Pending / unscheduled = instant debug signal)`n    STATUS   = Pod phase (Running, Pending, Succeeded, Failed, Unknown)`n    Only these three columns -- no AGE, no READY, no RESTARTS`n  Related: -o jsonpath-as-json='{...}' emits JSON; -o go-template= for Go templates"
 
     Write-TutorialSection `
-        -Title "12/16  QUERY: FIELD SELECTOR" `
-        -Explanation "Field selectors filter by built-in fields (not labels).`n  status.phase=Running shows only active pods, hiding Pending or Failed." `
-        -Command "kubectl get pods --field-selector status.phase=Running" `
-        -CommandBreakdown "kubectl get pods      = list Pods`n  --field-selector K=V  = server-side filter on built-in object FIELDS (not labels)`n  status.phase=Running  = match only pods whose .status.phase == Running`n  (supported fields are resource-specific; Pod supports status.phase, spec.nodeName, metadata.name/namespace)" `
-        -OutputFields "Same columns as 'kubectl get pods' (NAME, READY, STATUS, RESTARTS, AGE)`n  But every row's STATUS column will be 'Running'`n  Pending, Failed, Succeeded, Unknown pods are hidden`n  Exam tip: combine with -l for label + field filtering in one call"
-
-    Write-TutorialSection `
-        -Title "13/16  QUERY: JSONPATH EXTRACTION" `
-        -Explanation "JSONPath pulls out exactly the data you need for scripting.`n  No wasted columns -- just pod names, ready for piping to xargs." `
-        -Command "kubectl get pods -o jsonpath='{.items[*].metadata.name}'" `
-        -CommandBreakdown "kubectl get pods   = list pods (returns a List object with an .items array)`n  -o jsonpath='...'  = extract fields using JSONPath expressions`n  {.items[*]}        = iterate over every element of the items array`n  [*]                = wildcard index (all elements)`n  .metadata.name     = pick the metadata.name field from each`n  Result: space-separated pod names (NOT a table, no headers)" `
-        -OutputFields "Space-separated list: nginx web-xxxx-aaa web-xxxx-bbb web-xxxx-ccc`n  No column headers, no STATUS, no AGE -- just the raw strings you asked for`n  Perfect for: for p in `$(...); do kubectl logs `$p; done`n  Related: -o jsonpath-as-json='{...}' emits JSON; -o go-template= for Go templates"
-
-    Write-TutorialSection `
-        -Title "14/16  QUERY: CUSTOM COLUMNS" `
-        -Explanation "Custom columns let you see Pod name, which Node it's on, and status`n  in one clean view. Super useful for debugging scheduling issues." `
-        -Command "kubectl get pods -o custom-columns=NAME:.metadata.name,NODE:.spec.nodeName,STATUS:.status.phase" `
-        -CommandBreakdown "kubectl get pods          = list pods`n  -o custom-columns=...     = render as a table you design`n  Format: HEADER:jsonpath,HEADER:jsonpath,...`n  NAME:.metadata.name       = column 1 header=NAME, value=pod name`n  NODE:.spec.nodeName       = column 2 header=NODE, value=which node the scheduler placed it on`n  STATUS:.status.phase      = column 3 header=STATUS, value=pod phase`n  (variant: -o custom-columns-file=cols.txt to load from a file)" `
-        -OutputFields "NAME     = pod name`n  NODE     = the node the scheduler picked (empty if still Pending / unscheduled)`n  STATUS   = Pod phase (Running, Pending, Succeeded, Failed, Unknown)`n  Only these three columns -- no AGE, no READY, no RESTARTS`n  Exam tip: use this to quickly spot scheduling failures (NODE column empty)"
-
-    Write-TutorialSection `
-        -Title "15/16  QUERY: SORTED EVENTS" `
+        -Title "9/10  QUERY: SORTED EVENTS" `
         -Explanation "Events are notifications -- Pod created, image pulled, container restarted.`n  Sorting by timestamp shows WHEN things happened. Debugging gold." `
         -Command "kubectl get events --sort-by=.metadata.creationTimestamp | Select-Object -Last 10" `
         -CommandBreakdown "kubectl get events                     = list Event objects (default sort is unstable)`n  --sort-by=.metadata.creationTimestamp  = sort ascending by when the event was created`n  | Select-Object -Last 10               = PowerShell: keep the most recent 10 rows`n  (default behavior shows events from current namespace; add -A for all namespaces)" `
         -OutputFields "LAST SEEN  = how long ago the event last fired (events can repeat; count tracks repetitions)`n  TYPE       = Normal (informational) or Warning (trouble -- ImagePullBackOff, FailedScheduling, etc.)`n  REASON     = short code (Scheduled, Pulled, Created, Started, Killing, BackOff, Failed)`n  OBJECT     = what the event is about (pod/nginx, deployment.apps/web, ...)`n  MESSAGE    = human-readable detail (the actual story)`n  Exam tip: Warning events at the bottom = your most recent problem"
 
-    # --- Demo 5: Context Switching ---
+    # --- Demo 6: Context Awareness ---
     Write-TutorialSection `
-        -Title "16/16  CONTEXT: VERIFY CURRENT CONTEXT" `
-        -Explanation "The CKA exam has 17 questions across 4 clusters. One wrong context`n  = zero points. Always verify before ANY destructive command.`n  The asterisk (*) marks your current context." `
+        -Title "10/10  CONTEXT: VERIFY CURRENT CONTEXT" `
+        -Explanation "The CKA exam has 17 questions across multiple clusters. One wrong context`n  = zero points, no error, no warning. Always verify before ANY destructive`n  command. The asterisk (*) marks your current context. Module 3 drills`n  switching between live clusters; this is the single-cluster sanity check." `
         -Command "kubectl config get-contexts" `
-        -CommandBreakdown "kubectl config = read/write the active kubeconfig file (~/.kube/config by default)`n  get-contexts   = list every context defined in kubeconfig`n  (A 'context' = named triple of CLUSTER + USER + NAMESPACE -- switches all three at once)`n  (Related: 'use-context <name>' switches; 'current-context' prints just the active one)" `
+        -CommandBreakdown "kubectl config = read/write the active kubeconfig file (~/.kube/config by default)`n  get-contexts   = list every context defined in kubeconfig`n  (A 'context' = named triple of CLUSTER + USER + NAMESPACE -- switches all three at once)`n  Companions: 'use-context <name>' switches; 'current-context' prints just the active one`n              'set-context --current --namespace=<ns>' changes the default namespace" `
         -OutputFields "CURRENT    = asterisk (*) marks the active context`n  NAME       = context name (e.g. kind-cka-lab) -- this is what 'use-context' takes`n  CLUSTER    = cluster identity (API server endpoint + CA cert)`n  AUTHINFO   = credentials (user/token/cert used to authenticate)`n  NAMESPACE  = default namespace for this context (blank = 'default')`n  Exam tip: on exam, always 'kubectl config use-context <target>' before each question -- wrong cluster = 0 pts"
 
     Write-Output ""
     Write-Output "  Module 2 walkthrough complete."
-    Write-Output "  You practiced: imperative commands, dry-run YAML, kubectl explain,"
-    Write-Output "  resource querying, and context switching."
+    Write-Output "  You practiced: imperative commands, dry-run YAML, declarative apply,"
+    Write-Output "  kubectl explain, resource querying, and context awareness."
     Write-Output ""
 
     } finally {
@@ -432,6 +479,8 @@ function Start-TutorialM02 {
         kubectl delete secret db-pass --ignore-not-found 2>&1 | Out-Null
         kubectl delete role pod-reader --ignore-not-found 2>&1 | Out-Null
         kubectl delete rolebinding pod-reader-binding --ignore-not-found 2>&1 | Out-Null
+        kubectl delete deployment apply-demo --ignore-not-found 2>&1 | Out-Null
+        Remove-Item $HOME/web-apply.yaml -ErrorAction SilentlyContinue
         Write-Output "  Done."
     }
 }
@@ -444,8 +493,8 @@ function Start-TutorialM03 {
 
     Write-TutorialBanner -Title "COURSE 1 / MODULE 3: Core Resources & Diagnostics" -Lines @(
         "Five demos covering the most important CKA patterns:"
-        "self-healing, services, namespaces, DNS, and the"
-        "diagnostic ladder (30% of the CKA exam)."
+        "self-healing, services + EndpointSlices, namespaces, DNS,"
+        "and the diagnostic ladder (30% of the CKA exam)."
     )
 
     # Wrap the body in try/finally so Ctrl-C (or any mid-tutorial exit) still
@@ -454,150 +503,190 @@ function Start-TutorialM03 {
     try {
 
     # ==========================================================
-    # Demo 1: Bare Pod vs. Managed Deployment
+    # Demo 1: Bare Pod vs. Managed Deployment (self-healing setup)
     # ==========================================================
     Write-TutorialSection `
-        -Title "1/18  CREATE A BARE POD" `
-        -Explanation "This pod has no controller. If it dies, nobody brings it back.`n  That's what 'bare pod' means -- ephemeral, unmanaged, alone." `
-        -Command "kubectl run standalone --image=nginx --restart=Never" `
-        -CommandBreakdown "kubectl run       = imperative create of a single Pod`n  standalone        = pod name (metadata.name)`n  --image=nginx     = container image (defaults to :latest tag)`n  --restart=Never   = makes it a bare Pod (Always=default for 'run', OnFailure=Job-like)" `
-        -OutputFields "'pod/standalone created' = API server accepted the object and wrote it to etcd`n  No controller owns it -- nothing will recreate it if it dies or is deleted"
+        -Title "1/10  BARE POD vs MANAGED DEPLOYMENT" `
+        -Explanation "Two ways to get pods running. 'standalone' is a bare Pod with no`n  controller -- ephemeral, fire-and-forget. 'managed' is a Deployment`n  that owns a ReplicaSet that owns 2 Pods. Side-by-side, ownership is`n  the only thing that matters: bare = unmanaged, managed = self-healing." `
+        -Steps @(
+            @{
+                Beat = '1.1: CREATE BOTH'
+                Command = "kubectl run standalone --image=nginx --restart=Never; kubectl create deployment managed --image=nginx --replicas=2; Start-Sleep 4"
+                Breakdown = "--- Bare Pod ---------------------------------------------------`n  kubectl run standalone        = imperative single-Pod creation`n  --image=nginx                 = container image (defaults to :latest)`n  --restart=Never               = makes it BARE (no controller; Always=default for run)`n  --- Managed Deployment ----------------------------------------`n  kubectl create deployment managed = imperative Deployment creation`n  --replicas=2                  = desired replica count (the reconciliation target)`n  Auto-seeds label app=managed and ownerReferences chain`n  --- Pause for steady state ------------------------------------`n  Start-Sleep 4                 = let pods reach Running before we list them in beat 1.2"
+                OutputFields = ''
+            }
+            @{
+                Beat = '1.2: VERIFY OWNERSHIP'
+                Command = "kubectl get pods -o wide"
+                Breakdown = "kubectl get pods -o wide      = LIST + IP/NODE columns; ownership reads from NAME suffix`n  No label selector              = show ALL pods in default ns (standalone + 2 managed)`n  -o wide                        = adds IP and NODE columns (vs the default summary view)"
+                OutputFields = "NAME      = 'standalone' vs 'managed-<rs-hash>-<pod-hash>' -- the suffix IS the ownership clue`n  READY     = 1/1 across all three`n  STATUS    = Running`n  IP        = Pod IP on the CNI overlay (NOT the Service IP)`n  NODE      = which worker the scheduler placed each Pod on`n  ownerReferences (visible via -o yaml) chain Pod -> ReplicaSet -> Deployment for managed only`n  Bare pod 'standalone' has NO ownerReferences -- it is parentless and will not self-heal"
+            }
+        )
 
     Write-TutorialSection `
-        -Title "2/18  CREATE A MANAGED DEPLOYMENT" `
-        -Explanation "A Deployment owns a ReplicaSet, which owns the Pods.`n  This chain enables self-healing: desired=2, so the controller`n  will always maintain 2 running Pods." `
-        -Command "kubectl create deployment managed --image=nginx --replicas=2" `
-        -CommandBreakdown "kubectl create deployment = imperative Deployment creation`n  managed                   = Deployment name (also seeds app=managed label)`n  --image=nginx             = container image for the Pod template`n  --replicas=2              = desired replica count -- the reconciliation target" `
-        -OutputFields "'deployment.apps/managed created' = 3 objects actually exist now:`n    Deployment (you) -> ReplicaSet (auto) -> 2 Pods (auto)`n  Ownership is visible via metadata.ownerReferences on each child"
-
-    Write-TutorialSection `
-        -Title "3/18  SEE BOTH SIDE BY SIDE" `
-        -Explanation "Notice the standalone pod and the two managed pods.`n  The managed pods have a hash suffix -- that's the ReplicaSet's fingerprint." `
-        -Command "kubectl get pods -o wide" `
-        -CommandBreakdown "kubectl get  = LIST (first rung of the diagnostic ladder)`n  pods         = resource type (short: po)`n  -o wide      = add NODE, IP, NOMINATED NODE, READINESS GATES columns" `
-        -OutputFields "NAME     = 'standalone' vs 'managed-<rs-hash>-<pod-hash>' reveals ownership`n  READY    = containers ready / total (e.g. 1/1)`n  STATUS   = Running / Pending / ContainerCreating / Error / CrashLoopBackOff`n  RESTARTS = restart count -- non-zero is a clue worth chasing`n  IP       = Pod IP on the CNI overlay (not the Service IP)`n  NODE     = which worker the scheduler placed it on"
-
-    Write-TutorialSection `
-        -Title "4/18  DELETE THE BARE POD" `
-        -Explanation "Gone forever. No controller, no comeback. This is why you almost never`n  use bare pods in production -- they're fire-and-forget." `
-        -Command "kubectl delete pod standalone --grace-period=1; Start-Sleep 3; kubectl get pods" `
-        -CommandBreakdown "kubectl delete pod = remove a Pod object`n  standalone         = target name`n  --grace-period=1   = override default 30s SIGTERM window (speeds the demo)`n  Start-Sleep 3      = let the API server finish tombstoning`n  kubectl get pods   = confirm it's gone (no resurrection)" `
-        -OutputFields "'pod standalone deleted' = tombstoned; finalizers cleared; object removed`n  Post-delete list shows ONLY managed-<hash> pods -- bare pod is history"
-
-    Write-TutorialSection `
-        -Title "5/18  SELF-HEALING: DELETE A MANAGED POD" `
-        -Explanation "Watch the magic. We'll delete one managed pod and the ReplicaSet will`n  immediately create a replacement. The name changes but the count stays at 2.`n  This IS the reconciliation loop." `
-        -Command "`$pod = (kubectl get pods -l app=managed -o jsonpath='{.items[0].metadata.name}'); kubectl delete pod `$pod --grace-period=1; Start-Sleep 5; kubectl get pods -l app=managed" `
-        -CommandBreakdown "`$pod = ...                           = capture the first managed Pod name into a PS var`n  -l app=managed                        = label selector (only Pods labeled app=managed)`n  jsonpath='{.items[0].metadata.name}'  = pick first result's name`n  kubectl delete pod `$pod             = kill the captured Pod`n  --grace-period=1                      = fast SIGTERM for the demo`n  Start-Sleep 5                         = give the ReplicaSet controller time to reconcile`n  kubectl get pods -l app=managed       = confirm replica count bounced back to 2" `
-        -OutputFields "One Pod name DIFFERS from before -- the replacement has a new <pod-hash> suffix`n  Count stays at desired=2 -- the ReplicaSet controller reconciled`n  AGE column: one Pod is seconds old (the replacement), the other is minutes old"
-
-    Write-TutorialSection `
-        -Title "6/18  THE REPLICASET" `
-        -Explanation "The ReplicaSet is the controller that owns these pods.`n  Desired=2, Current=2, Ready=2. The reconciliation loop is satisfied." `
-        -Command "kubectl get replicasets" `
-        -CommandBreakdown "kubectl get    = list resources`n  replicasets    = resource type (short: rs) -- the controller that enforces replica count" `
-        -OutputFields "NAME     = managed-<hash>  (hash = pod-template-hash; new one appears on rolling update)`n  DESIRED  = replicas field from the Deployment spec`n  CURRENT  = Pods the RS actually created`n  READY    = Pods passing readiness probes (what Service endpoints use)`n  AGE      = time since the ReplicaSet was created"
+        -Title "2/10  SELF-HEALING: BARE DIES, MANAGED RESURRECTS" `
+        -Explanation "Delete both. Watch what comes back. The bare pod is gone forever.`n  The managed pod gets a new replacement with a different name --`n  ReplicaSet's reconciliation loop in action. Then we'll inspect the`n  ReplicaSet itself: desired=2, current=2, ready=2 -- the loop is satisfied." `
+        -Steps @(
+            @{
+                Beat = '2.1: KILL BOTH'
+                Command = "kubectl delete pod standalone --grace-period=1; `$pod = (kubectl get pods -l app=managed -o jsonpath='{.items[0].metadata.name}'); kubectl delete pod `$pod --grace-period=1; Start-Sleep 6"
+                Breakdown = "--- Kill the bare pod (no comeback) ---------------------------`n  kubectl delete pod standalone = remove the bare Pod`n  --grace-period=1              = override default 30s SIGTERM (speeds the demo)`n  --- Kill one managed pod (watch it return) --------------------`n  `$pod = (kubectl get ... jsonpath ...) = capture first managed Pod's name`n  -l app=managed                = label selector (only Pods labeled app=managed)`n  jsonpath='{.items[0].metadata.name}' = pick first match`n  kubectl delete pod `$pod      = kill the captured Pod`n  --- Pause for the controller to reconcile ---------------------`n  Start-Sleep 6                 = give the ReplicaSet controller time to detect actual<desired and create a replacement"
+                OutputFields = ''
+            }
+            @{
+                Beat = '2.2: WATCH IT RESURRECT'
+                Command = "kubectl get pods -l app=managed; Write-Output '---'; kubectl get replicasets"
+                Breakdown = "--- Verify the replacement -------------------------------------`n  kubectl get pods -l app=managed = should show 2 Pods, one with brand-new AGE`n  -l app=managed                = label selector; only Pods carrying app=managed (skips system pods)`n  --- Inspect the controller that did it ------------------------`n  kubectl get replicasets       = the controller that did the resurrection (short: rs)`n  Compare DESIRED / CURRENT / READY columns -- when all three match, the loop is quiet"
+                OutputFields = "pods -l app=managed shows 2 Pods, one with AGE in seconds (the replacement)`n  new Pod has a DIFFERENT <pod-hash> suffix from the deleted one -- proof the RS recreated it`n  --- (divider)`n  ReplicaSet output:`n    NAME      = managed-<rs-hash> (rs-hash = pod-template-hash; new RS on every rolling update)`n    DESIRED   = 2 (from spec.replicas)`n    CURRENT   = 2 (Pods the RS actually created)`n    READY     = 2 (Pods passing readiness probes -- what Service endpoints use)`n    AGE       = unchanged -- the RS itself wasn't touched, just one of its Pods`n  When DESIRED != CURRENT, the loop is in flight (or stuck). First diagnostic signal."
+            }
+        )
 
     # ==========================================================
-    # Demo 2: Services & the Selector-Label Contract
+    # Demo 2: Services & EndpointSlices (the v1.35 way)
     # ==========================================================
     Write-TutorialSection `
-        -Title "7/18  CREATE A CLUSTERIP SERVICE" `
-        -Explanation "Services are Kubernetes' internal load balancer. This Service targets`n  pods with the label app=managed and gives them a stable ClusterIP." `
-        -Command "kubectl expose deployment managed --port=80 --type=ClusterIP --name=managed-svc" `
-        -CommandBreakdown "kubectl expose deployment = create a Service from a Deployment's selector`n  managed                   = source Deployment (copies its selector: app=managed)`n  --port=80                 = Service port (what clients connect to)`n  --type=ClusterIP          = in-cluster only (NodePort adds host port 30000-32767; LoadBalancer adds cloud LB)`n  --name=managed-svc        = Service name (deterministic for the demo)" `
-        -OutputFields "'service/managed-svc exposed' = Service object created`n  A ClusterIP is allocated from the service CIDR (e.g. 10.96.x.x)`n  DNS entry managed-svc.default.svc.cluster.local is auto-registered in CoreDNS`n  An Endpoints object with the same name is auto-created from pod IPs"
+        -Title "3/10  SERVICE + ENDPOINTSLICE: SCALE AND WATCH IT GROW" `
+        -Explanation "Services give Pods a stable ClusterIP and DNS. EndpointSlices are`n  the v1.35 mechanism that maps Service -> Pod IPs (the legacy Endpoints`n  object still exists for back-compat, but kube-proxy reads slices).`n  Expose, inspect the slice, scale to 4, watch the slice grow in real time." `
+        -Steps @(
+            @{
+                Beat = '3.1: BASELINE SLICE (2 endpoints)'
+                Command = "kubectl expose deployment managed --port=80 --type=ClusterIP --name=managed-svc; Start-Sleep 3; kubectl get endpointslices -l kubernetes.io/service-name=managed-svc -o wide"
+                Breakdown = "--- Create the Service ----------------------------------------`n  kubectl expose deployment managed = create a Service from the Deployment's selector`n  --port=80                         = Service port (what clients connect to)`n  --type=ClusterIP                  = in-cluster only (NodePort/LoadBalancer = external)`n  --name=managed-svc                = explicit Service name (deterministic)`n  Auto-creates: ClusterIP, DNS entry managed-svc.default.svc.cluster.local, EndpointSlice(s)`n  --- Pause for slice registration ------------------------------`n  Start-Sleep 3                 = let the EndpointSlice controller observe and write the slice`n  --- Inspect the EndpointSlice ---------------------------------`n  kubectl get endpointslices    = v1.35 endpoint mechanism (replaces legacy Endpoints)`n  -l kubernetes.io/service-name=managed-svc = the canonical label slices carry`n  -o wide                       = adds ENDPOINTS, PORTS, NODE columns inline (vs default summary)"
+                OutputFields = "service/managed-svc exposed = Service object; ClusterIP allocated from service CIDR`n  EndpointSlice initial state:`n    NAME        = managed-svc-<hash> (slice name; one or more per Service)`n    ADDRESSTYPE = IPv4 (or IPv6 / FQDN; slices are dual-stack-aware)`n    PORTS       = 80`n    ENDPOINTS   = comma-separated Pod IPs -- TWO entries, matches the Deployment's --replicas=2`n  Empty ENDPOINTS would mean: selector matches no Ready Pods = classic 'Service is broken' clue`n  Legacy: 'kubectl get endpoints managed-svc' still works for back-compat but slices is what you want"
+            }
+            @{
+                Beat = '3.2: SCALE THE DEPLOYMENT TO 4'
+                Command = "kubectl scale deployment managed --replicas=4"
+                Breakdown = "kubectl scale deployment managed = edit spec.replicas in-place on the Deployment`n  --replicas=4                  = new desired count (was 2 from beat 1.1)`n  This patches the Deployment, which patches its ReplicaSet, which creates 2 new Pods.`n  The output you see is just the API ack -- the slice has NOT yet refreshed.`n  Beat 3.3 will wait for the new Pods to reach Ready and re-inspect the slice."
+                OutputFields = ''
+            }
+            @{
+                Beat = '3.3: GROWN SLICE (4 endpoints) -- the money shot'
+                Command = "Start-Sleep 8; kubectl get endpointslices -l kubernetes.io/service-name=managed-svc -o wide"
+                Breakdown = "--- Pause for new Pods to become Ready ------------------------`n  Start-Sleep 8                 = let kubelet pull image (cached) + container start + readiness pass`n  --- Re-inspect the SAME slice ---------------------------------`n  kubectl get endpointslices -l kubernetes.io/service-name=managed-svc -o wide`n  Same command as beat 3.1 -- the comparison IS the lesson.`n  Why slices? Endpoints API is frozen (no dual-stack, no topology hints).`n  EndpointSlices support up to 1000 endpoints per slice + topology-aware routing."
+                OutputFields = "ENDPOINTS column now lists FOUR Pod IPs (was 2 in beat 3.1)`n  Only READY Pods appear -- Pending/ContainerCreating Pods are excluded automatically`n  This is the reconciliation loop running in the network plane:`n    Deployment spec changed -> ReplicaSet created Pods -> kubelet ran them ->`n    EndpointSlice controller observed Ready=True -> slice grew -> kube-proxy reprogrammed iptables`n  All without you touching the Service. THIS is what 'declarative' means in practice."
+            }
+        )
 
     Write-TutorialSection `
-        -Title "8/18  ENDPOINTS: THE SELECTOR-LABEL CONTRACT" `
-        -Explanation "Endpoints are the glue. The Service selector finds pods with app=managed`n  and populates this list with their IPs. When a pod disappears, its IP is removed.`n  When a new pod appears with the right label, its IP is added. Real-time." `
-        -Command "kubectl get endpoints managed-svc" `
-        -CommandBreakdown "kubectl get    = list resources`n  endpoints      = resource type (short: ep) -- Pod IPs behind a Service`n  managed-svc    = filter to the single Endpoints object we care about" `
-        -OutputFields "NAME       = managed-svc (matches the Service name 1:1)`n  ENDPOINTS  = comma-separated <podIP>:<port> list (e.g. 10.244.1.5:80,10.244.2.7:80)`n  AGE        = when the Endpoints object was created`n  Empty ENDPOINTS = selector matches NO ready Pods -- classic 'Service is broken' clue"
-
-    Write-TutorialSection `
-        -Title "9/18  SCALE UP AND WATCH ENDPOINTS GROW" `
-        -Explanation "Scaling to 4 replicas creates 2 new pods. The Service controller`n  watches them appear and auto-adds their IPs to Endpoints." `
-        -Command "kubectl scale deployment managed --replicas=4; Start-Sleep 8; kubectl get endpoints managed-svc" `
-        -CommandBreakdown "kubectl scale deployment = imperative replica count change`n  managed                  = target Deployment`n  --replicas=4             = new desired count (edits spec.replicas in-place)`n  Start-Sleep 8            = let new Pods reach Ready and get added to Endpoints`n  kubectl get endpoints    = verify the Endpoints list grew" `
-        -OutputFields "ENDPOINTS column now lists 4 <podIP>:<port> entries (was 2)`n  Only READY Pods are included -- Pods stuck in Pending/ContainerCreating won't appear yet`n  This happens automatically -- no manual Endpoints editing ever"
-
-    Write-TutorialSection `
-        -Title "10/18  TEST THE SERVICE FROM INSIDE THE CLUSTER" `
-        -Explanation "ClusterIPs are NOT routable from your laptop -- you must test from inside.`n  We'll spin up a debug pod and wget the Service name. If you see the nginx`n  welcome page, the Service is working." `
+        -Title "4/10  TEST THE SERVICE END-TO-END" `
+        -Explanation "ClusterIPs aren't routable from your laptop -- you must test from inside.`n  Spin up a debug pod and wget the Service NAME (not IP). If you see the`n  nginx welcome page, the full path works: DNS -> ClusterIP -> kube-proxy ->`n  Pod IP. One failure mode at every layer; this command exercises them all." `
         -Command "kubectl run debug --image=busybox:1.36 --rm --restart=Never --attach -- wget -qO- managed-svc | Select-Object -First 5" `
-        -CommandBreakdown "kubectl run debug          = create a throwaway Pod named 'debug'`n  --image=busybox:1.36       = tiny image with wget/nslookup (pinned tag = reproducible)`n  --rm                       = delete the Pod after it exits`n  --restart=Never            = run-once Pod (no controller, no retries)`n  --attach                   = stream stdout back to your terminal (no -it = no TTY, CI-safe)`n  -- wget -qO- managed-svc   = command run in the container (quiet, write to stdout)`n  Select-Object -First 5     = PS-side trim so we don't flood with the full nginx page" `
-        -OutputFields "'<html>' / '<title>Welcome to nginx!</title>' = Service routing works end-to-end`n  DNS 'managed-svc' resolved (CoreDNS), ClusterIP answered, kube-proxy DNATed to a Pod IP`n  'wget: bad address' = DNS broken; 'connection refused' = Endpoints list was empty`n  --attach vs kubectl exec: attach streams the FIRST process in a freshly-created pod;`n    exec -it opens a NEW process inside an existing running pod (different use case)"
+        -CommandBreakdown "kubectl run debug          = throwaway Pod named 'debug'`n  --image=busybox:1.36       = tiny image with wget/nslookup (pinned tag = reproducible)`n  --rm                       = delete the Pod after it exits (auto-cleanup)`n  --restart=Never            = run-once Pod (no controller, no retries)`n  --attach                   = stream stdout back (no -it = no TTY required, CI/recording-safe)`n  --                         = end-of-kubectl-flags; everything after goes to the CONTAINER`n  wget -qO- managed-svc      = quiet mode, write to stdout, target = Service short name`n  | Select-Object -First 5   = PS-side trim so we don't flood with the full nginx page`n  Why short name? /etc/resolv.conf has 'search default.svc.cluster.local ...' -- next demo proves it" `
+        -OutputFields "'<html>' / '<title>Welcome to nginx!</title>' = full path works end-to-end:`n    1. DNS 'managed-svc' resolved by CoreDNS via the search list`n    2. ClusterIP answered (kube-proxy iptables/IPVS rules in place)`n    3. DNAT to a Pod IP from the EndpointSlice`n    4. Pod served the response`n  'wget: bad address'         = layer 1 broken; CoreDNS can't resolve the name`n  'connection refused'        = layer 3 broken; EndpointSlice was empty`n  'wget: server returned ...' = layer 4 broken; Pod was unhealthy`n  Different errors point at different rungs -- this command is a 4-in-1 diagnostic"
 
     # ==========================================================
-    # Demo 3: Namespaces & Labels
+    # Demo 3: Namespaces + Labels
     # ==========================================================
     Write-TutorialSection `
-        -Title "11/18  CREATE A NAMESPACE" `
-        -Explanation "Namespaces partition cluster resources. Resources in one namespace`n  are invisible from another by default. Let's create 'staging'." `
-        -Command "kubectl create namespace staging" `
-        -CommandBreakdown "kubectl create   = imperative creation of a cluster-scoped object`n  namespace        = resource type (short: ns)`n  staging          = name of the new namespace" `
-        -OutputFields "'namespace/staging created' = API server accepted the object`n  Namespace is cluster-scoped (no -n flag used when creating it)`n  Most resources (Pods, Deployments, Services) are namespace-scoped`n  Cluster-scoped examples: Nodes, PersistentVolumes, ClusterRoles, StorageClasses"
-
-    Write-TutorialSection `
-        -Title "12/18  DEPLOY INTO THE NAMESPACE" `
-        -Explanation "Use -n staging to target the namespace. These pods won't show up in`n  'kubectl get pods' (which defaults to the 'default' namespace)." `
-        -Command "kubectl -n staging create deployment catalog --image=nginx --replicas=2; Start-Sleep 5; kubectl get pods -A | Select-String -Pattern '(NAMESPACE|default|staging)'" `
-        -CommandBreakdown "kubectl -n staging       = target namespace for THIS command (overrides current context)`n  create deployment catalog = new Deployment named 'catalog' in staging`n  --image=nginx            = container image`n  --replicas=2             = desired replica count`n  Start-Sleep 5            = let Pods spin up before listing`n  kubectl get pods -A      = list ALL namespaces (-A == --all-namespaces)`n  Select-String -Pattern   = PS filter to show header + relevant namespaces" `
-        -OutputFields "NAMESPACE = first column when -A is used (tells you which namespace each Pod lives in)`n  NAME      = pod name; catalog-<hash> Pods appear in 'staging' only`n  managed-* Pods show in 'default'; catalog-* Pods show in 'staging' -- proof of isolation`n  Without -A, 'kubectl get pods' would ONLY show default namespace (invisible != nonexistent)"
-
-    # ==========================================================
-    # Demo 4: DNS
-    # ==========================================================
-    Write-TutorialSection `
-        -Title "13/18  DNS: SHORT NAME RESOLUTION" `
-        -Explanation "Pods can reach Services by name within the same namespace.`n  'managed-svc' resolves to the ClusterIP because both are in 'default'.`n  NOTE: busybox's nslookup skips the search list, so we use 'getent hosts'`n  which drives the full resolver -- that's the honest proof ndots+search work." `
-        -Command "kubectl run dns-short --image=busybox:1.36 --rm --restart=Never --attach -- getent hosts managed-svc" `
-        -CommandBreakdown "kubectl run dns-short     = throwaway Pod named 'dns-short'`n  --image=busybox:1.36      = ships getent, nslookup, wget, sh`n  --rm --restart=Never      = run-once, auto-delete when done`n  --attach                  = stream stdout back (no TTY -- safe in CI / recordings)`n  -- getent hosts managed-svc = NSS resolver lookup; honors /etc/resolv.conf`n                                search list + ndots (unlike busybox nslookup)" `
-        -OutputFields "Single output line: '<ClusterIP>  managed-svc' -- IP first, then the name queried`n  Short-name resolution works because /etc/resolv.conf has 'search default.svc.cluster.local ...'`n  getent returns exit 0 on success, 2 on NXDOMAIN -- scriptable in exam break/fix work`n  From another namespace, 'managed-svc' alone would FAIL to resolve"
-
-    Write-TutorialSection `
-        -Title "14/18  DNS: FQDN FOR CROSS-NAMESPACE" `
-        -Explanation "The Fully Qualified Domain Name works from ANY namespace:`n  <service>.<namespace>.svc.cluster.local`n  Use this when crossing namespace boundaries. FQDN is unambiguous,`n  so busybox's nslookup handles it fine here -- no search list needed." `
-        -Command "kubectl run dns-fqdn --image=busybox:1.36 --rm --restart=Never --attach -- nslookup managed-svc.default.svc.cluster.local" `
-        -CommandBreakdown "kubectl run dns-fqdn          = throwaway Pod named 'dns-fqdn'`n  --image=busybox:1.36          = includes nslookup`n  --rm --restart=Never --attach = run-once, auto-delete, stream stdout`n  -- nslookup <fqdn>            = lookup the fully qualified name:`n    managed-svc                 = service name`n    default                     = namespace`n    svc                         = type marker (services)`n    cluster.local               = cluster DNS suffix (default)" `
-        -OutputFields "Server:    = CoreDNS Service IP (10.96.0.10)`n  Address:   = same ClusterIP returned by the getent lookup above -- proves FQDN == short+search`n  FQDN is unambiguous from ANY namespace -- short names only work within same NS`n  Pod-to-Pod DNS also exists: <pod-ip-with-dashes>.<ns>.pod.cluster.local"
+        -Title "5/10  NAMESPACES + COMPOUND LABEL SELECTORS" `
+        -Explanation "Namespaces partition cluster resources. We'll create 'staging', deploy`n  catalog into it with TWO labels (app=catalog, env=staging), then use a`n  COMPOUND selector to filter on both. Compound selectors are exam-frequent --`n  the syntax is 'key1=value1,key2=value2' (comma = AND)." `
+        -Steps @(
+            @{
+                Beat = '5.1: SET UP STAGING'
+                Command = "kubectl create namespace staging; kubectl -n staging create deployment catalog --image=nginx --replicas=2; kubectl -n staging label deployment catalog env=staging --overwrite; Start-Sleep 5"
+                Breakdown = "--- Create the namespace --------------------------------------`n  kubectl create namespace staging = cluster-scoped object (no -n flag when CREATING a ns)`n  --- Deploy + apply a second label -----------------------------`n  kubectl -n staging create deployment catalog = Deployment in staging (app=catalog default)`n  --replicas=2                  = desired replica count`n  kubectl -n staging label deployment catalog env=staging --overwrite = add second label`n  --overwrite                   = required if the key already exists (safe to repeat)`n  --- Pause for label propagation -------------------------------`n  Start-Sleep 5                 = let Pods inherit the new label and become Ready before beat 5.2 filters"
+                OutputFields = ''
+            }
+            @{
+                Beat = '5.2: ISOLATION + COMPOUND SELECTOR'
+                Command = "kubectl get pods -A | Select-String -Pattern '(NAMESPACE|default|staging)'; Write-Output '---'; kubectl -n staging get pods -l app=catalog,env=staging"
+                Breakdown = "--- Prove namespace isolation ---------------------------------`n  kubectl get pods -A           = -A == --all-namespaces (NAMESPACE column appears)`n  Select-String -Pattern '(NAMESPACE|default|staging)' = PS filter for clean output`n  --- Compound label selector -----------------------------------`n  kubectl -n staging get pods   = scoped to staging`n  -l app=catalog,env=staging    = COMPOUND selector; comma = AND (both must match)`n  Other syntax: -l 'env in (prod,staging)', -l '!disabled', -l 'key!=value'"
+                OutputFields = "-A output:`n    NAMESPACE column shows where each Pod lives`n    managed-* Pods in 'default'; catalog-* Pods in 'staging' -- proof of isolation`n    Without -A, 'kubectl get pods' would ONLY show default (invisible != nonexistent)`n  --- (divider)`n  Compound selector output:`n    Lists exactly the 2 catalog Pods that carry BOTH app=catalog AND env=staging`n    Empty result = at least one label is missing on every pod (zero AND-matches)`n  Cluster-scoped objects (Namespaces, Nodes, PVs, ClusterRoles, StorageClasses) ignore -n entirely"
+            }
+        )
 
     # ==========================================================
-    # Demo 5: The Diagnostic Ladder
+    # Demo 4: DNS (short name + FQDN, same beat)
     # ==========================================================
     Write-TutorialSection `
-        -Title "15/18  DIAGNOSTIC LADDER: CREATE A BROKEN POD" `
-        -Explanation "This pod uses an image tag that doesn't exist: nginx:doesnotexist.`n  The container runtime will fail to pull it. Let's watch the diagnostic`n  ladder solve it." `
+        -Title "6/10  DNS: SHORT NAME + FQDN" `
+        -Explanation "Two forms of the same query. SHORT name only resolves within the same`n  namespace -- relies on /etc/resolv.conf's search list. FQDN works from`n  ANY namespace -- unambiguous, no search list needed. Use short for in-ns,`n  FQDN when you cross namespace boundaries. Same query, two scopes." `
+        -Command "kubectl run dns-test --image=busybox:1.36 --rm --restart=Never --attach -- sh -c 'getent hosts managed-svc; echo ---; nslookup managed-svc.default.svc.cluster.local'" `
+        -CommandBreakdown "kubectl run dns-test          = throwaway Pod named 'dns-test'`n  --image=busybox:1.36          = ships getent, nslookup, sh, wget`n  --rm --restart=Never --attach = run-once, auto-delete, stream stdout (no TTY)`n  -- sh -c '<two commands>'     = run BOTH lookups in one Pod (vs two separate run calls)`n  --- Part 1: SHORT name via getent -----------------------------`n  getent hosts managed-svc      = NSS resolver lookup (drives /etc/resolv.conf search list)`n                                   We use getent NOT busybox-nslookup because nslookup`n                                   skips the search list -- getent is the honest test.`n  --- Part 2: FQDN via nslookup ---------------------------------`n  nslookup <fqdn>               = full name -- search list irrelevant, busybox handles it fine`n  managed-svc.default.svc.cluster.local breakdown:`n    managed-svc                 = service name`n    default                     = namespace`n    svc                         = type marker (Services)`n    cluster.local               = cluster DNS suffix (default; configurable on cluster install)" `
+        -OutputFields "Part 1 (getent / SHORT):`n    Single line: '<ClusterIP>  managed-svc' -- IP first, then the queried name`n    Works because /etc/resolv.conf has 'search default.svc.cluster.local svc.cluster.local cluster.local'`n    From another namespace, 'managed-svc' alone would FAIL (no entry in search path)`n    getent returns exit 0 on success, 2 on NXDOMAIN -- scriptable`n  --- (divider)`n  Part 2 (nslookup / FQDN):`n    Server:    = CoreDNS Service IP (typically 10.96.0.10)`n    Address:   = same ClusterIP that getent returned (proves FQDN == short+search)`n    FQDN is unambiguous from ANY namespace -- safe default for cross-ns lookups`n  Pod-to-Pod DNS also exists: <pod-ip-with-dashes>.<ns>.pod.cluster.local"
+
+    # ==========================================================
+    # Demo 5: The Diagnostic Ladder (the headline -- 30% of the exam)
+    # ==========================================================
+    Write-TutorialSection `
+        -Title "7/10  LADDER: BREAK IT ON PURPOSE" `
+        -Explanation "30% of the CKA exam is troubleshooting. Now we break a pod and walk`n  the diagnostic ladder: GET -> DESCRIBE -> LOGS -> EVENTS. This pod uses`n  an image tag that doesn't exist. The container runtime will fail to`n  pull it. Status is your first clue -- read it, don't describe yet." `
         -Command "kubectl run broken --image=nginx:doesnotexist --restart=Never; Start-Sleep 8; kubectl get pods broken" `
-        -CommandBreakdown "kubectl run broken          = create a Pod named 'broken'`n  --image=nginx:doesnotexist  = intentionally bad tag (triggers ErrImagePull)`n  --restart=Never             = bare Pod; no controller will retry or replace it`n  Start-Sleep 8               = let kubelet try to pull, fail, and enter backoff`n  kubectl get pods broken     = RUNG 1 of the diagnostic ladder -- see STATUS`n`n  Note: imagePullPolicy defaults to IfNotPresent for pinned tags, Always for :latest.`n  The 3 policies: Always (pull every time), IfNotPresent (use cache), Never (cache only)." `
-        -OutputFields "STATUS will be one of: ErrImagePull -> ImagePullBackOff (after retries)`n  READY = 0/1 -- the container never started`n  RESTARTS = 0 (kubelet's backoff isn't counted as restarts)`n  The STATUS column is your FIRST CLUE -- don't describe yet, just read the status"
+        -CommandBreakdown "kubectl run broken            = create a Pod named 'broken'`n  --image=nginx:doesnotexist    = intentionally bad tag (triggers ErrImagePull)`n  --restart=Never               = bare Pod; no controller will retry or replace it`n  Start-Sleep 8                 = let kubelet try to pull, fail, and enter backoff`n  kubectl get pods broken       = RUNG 1 of the diagnostic ladder -- read STATUS`n`n  imagePullPolicy defaults: IfNotPresent for pinned tags, Always for :latest, Never = cache only`n  Why this fails fast: kubelet attempts pull, registry returns 404/manifest-not-found,`n  kubelet flips status to ErrImagePull -> ImagePullBackOff (exponential backoff up to 5 min)" `
+        -OutputFields "STATUS column = ErrImagePull -> ImagePullBackOff (after retries)`n    ErrImagePull       = first attempt failed; kubelet will retry`n    ImagePullBackOff   = after retries failed; kubelet is backing off (5s -> 10s -> 20s -> ...)`n  READY = 0/1 -- the container never started`n  RESTARTS = 0 (the pull never produced a container, so 'restarts' doesn't apply)`n  AGE = pod uptime (the API object exists, the container does not)`n  THE STATUS COLUMN IS YOUR FIRST CLUE -- don't describe yet, just read it"
 
     Write-TutorialSection `
-        -Title "16/18  STEP 1: GET (status clue) + STEP 2: DESCRIBE (events)" `
-        -Explanation "GET shows ImagePullBackOff -- the image couldn't be pulled.`n  DESCRIBE shows the Events timeline: Scheduled, then 'Failed to pull image'.`n  The events tell the story. Read them top to bottom." `
+        -Title "8/10  LADDER: GET (status) + DESCRIBE (events)" `
+        -Explanation "Rungs 1+2 of the ladder. GET gave you ImagePullBackOff. DESCRIBE shows`n  the Events timeline at the bottom of the output: Scheduled, then`n  'Failed to pull image'. The events tell the story. Read them top-to-bottom`n  -- chronological order is the cluster's narrative." `
         -Command "kubectl describe pod broken | Select-String -Pattern '(Status:|Events:|Normal|Warning|Failed|Back-off)' -Context 0,1" `
-        -CommandBreakdown "kubectl describe pod    = RUNG 2 of the diagnostic ladder -- human-readable deep-dive`n  broken                  = Pod name`n  | Select-String ...     = PS filter to surface the high-signal lines only`n  -Pattern '(Status:|Events:|Normal|Warning|Failed|Back-off)' = regex of interesting fields`n  -Context 0,1            = include 1 line AFTER each match for readability" `
-        -OutputFields "THE DIAGNOSTIC LADDER -- rung 2 of 4 (get > DESCRIBE > logs > events).`n  Status:       = current phase (Pending while waiting on image)`n  Containers:   = per-container State, LastState, Ready, Restart Count`n  State:        = what's happening NOW (Waiting: ImagePullBackOff)`n  LastState:    = what happened PREVIOUSLY (Terminated/Error with exit code + reason)`n  Conditions:   = PodScheduled / Initialized / ContainersReady / Ready booleans`n  Events:       = chronological timeline at the BOTTOM -- ALWAYS read this first`n    Warning 'Failed to pull image' = the smoking gun for this scenario"
+        -CommandBreakdown "kubectl describe pod          = RUNG 2 of the diagnostic ladder -- human-readable deep-dive`n  broken                        = Pod name`n  | Select-String -Pattern '...' = PS regex filter for high-signal lines only`n  Pattern matches: Status:, Events:, Normal, Warning, Failed, Back-off`n  -Context 0,1                  = include 1 line AFTER each match for readability`n  (Without the filter, describe output is ~80 lines; this surfaces ~10)" `
+        -OutputFields "THE DIAGNOSTIC LADDER -- rung 2 of 4 (GET -> DESCRIBE -> LOGS -> EVENTS).`n  Status:       = current phase (Pending while waiting on image)`n  Containers:   = per-container State, LastState, Ready, Restart Count`n  State:        = what's happening NOW -- here: Waiting: ImagePullBackOff`n  LastState:    = what happened PREVIOUSLY (Terminated/Error with exit code + reason)`n                  This field is gold for crash debugging -- shows the LAST exit code`n  Conditions:   = PodScheduled / Initialized / ContainersReady / Ready booleans`n  Events:       = chronological timeline at the BOTTOM of describe -- ALWAYS read this first`n    Normal Scheduled       = pod assigned to a node (always first event)`n    Normal Pulling         = kubelet attempting image pull`n    Warning Failed         = the smoking gun: 'Failed to pull image nginx:doesnotexist'`n    Warning BackOff        = kubelet backing off retries"
 
     Write-TutorialSection `
-        -Title "17/18  STEP 3: LOGS + STEP 4: CLUSTER EVENTS" `
-        -Explanation "No logs -- the container never started (the image pull failed first).`n  That absence IS a clue: the problem is image-related, not app-related.`n  Cluster events confirm the timeline." `
-        -Command "kubectl logs broken 2>&1; Write-Output '---'; kubectl get events --sort-by=.metadata.creationTimestamp --field-selector involvedObject.name=broken" `
-        -CommandBreakdown "kubectl logs broken                 = RUNG 3 of the ladder -- container stdout/stderr`n  2>&1                                = merge stderr so the error message is captured`n  ---                                 = visual divider between rung 3 and rung 4`n  kubectl get events                  = RUNG 4 -- cluster-wide event stream`n  --sort-by=.metadata.creationTimestamp = oldest first, newest at the bottom (timeline)`n  --field-selector involvedObject.name=broken = only events about our Pod`n`n  Why sort? Events default to unsorted. Why age-off? Events have a TTL (default 1h) --`n  if a problem happened hours ago, the events may already be gone. Act fast." `
-        -OutputFields "THE DIAGNOSTIC LADDER -- rungs 3 and 4 of 4.`n  LOGS output: 'Error from server (BadRequest): container broken is waiting to start'`n    -- absence of app logs MEANS the app never ran; narrows cause to image/scheduling`n  EVENTS columns:`n    TYPE    = Normal (informational) or Warning (something is wrong)`n    REASON  = short code: Scheduled, Pulling, Pulled, Failed, BackOff, Killing`n    AGE     = how long ago; events older than ~1h may be garbage-collected`n    MESSAGE = human-readable detail (e.g. 'Failed to pull image nginx:doesnotexist')"
+        -Title "9/10  LADDER: LOGS + EVENTS" `
+        -Explanation "Rungs 3+4. No app logs -- the container never started, so kubectl logs`n  fails with 'waiting to start'. That ABSENCE is itself a clue: the problem`n  is image-related, not app-related. Cluster events confirm the timeline.`n  After a CRASH (CrashLoopBackOff), use 'kubectl logs --previous' to read`n  the dead container's stdout -- only way to see what it said before dying." `
+        -Steps @(
+            @{
+                Beat = '9.1: RUNG 3 -- LOGS (absence-as-clue)'
+                Command = "kubectl logs broken 2>&1"
+                Breakdown = "--- Rung 3: container logs ------------------------------------`n  kubectl logs broken           = RUNG 3 of the ladder -- container stdout/stderr`n  2>&1                          = merge stderr so the error message is captured to the same stream`n  Add --previous (or -p) to read the LAST terminated container's logs --`n  this is the ONLY way to debug CrashLoopBackOff after the container has restarted.`n  Pinned-tag never-started case: --previous won't help (no prior container existed)."
+                OutputFields = "LOGS output: 'Error from server (BadRequest): container broken is waiting to start'`n  Absence of app logs MEANS the app never ran -- narrows cause to image/scheduling`n  For CrashLoopBackOff: kubectl logs --previous (or -p) reveals what the dead container said`n  EXAM TIP: when you see CrashLoopBackOff, your hand goes to --previous automatically"
+            }
+            @{
+                Beat = '9.2: RUNG 4 -- EVENTS (the timeline)'
+                Command = "kubectl get events --sort-by=.metadata.creationTimestamp --field-selector involvedObject.name=broken"
+                Breakdown = "--- Rung 4: cluster-wide events -------------------------------`n  kubectl get events            = RUNG 4 -- cluster event stream`n  --sort-by=.metadata.creationTimestamp = oldest first; newest at the bottom`n  --field-selector involvedObject.name=broken = filter to events about THIS Pod`n  Events have a TTL (default 1h) -- if the problem happened hours ago, evidence may be gone"
+                OutputFields = "EVENTS columns:`n    LAST SEEN = how long ago the event last fired (events can repeat; count tracks repetitions)`n    TYPE    = Normal (informational) or Warning (something is wrong)`n    REASON  = short code: Scheduled, Pulling, Pulled, Failed, BackOff, Killing, Created, Started`n    OBJECT  = pod/broken (matches the field-selector filter)`n    MESSAGE = human-readable detail (e.g. 'Failed to pull image nginx:doesnotexist')`n  THE LADDER LIVES IN MUSCLE MEMORY: GET -> DESCRIBE -> LOGS -> EVENTS, every time`n  Sections 7-9 just walked all four rungs. That sequence solves 95% of CKA troubleshooting."
+            }
+        )
 
-    Write-TutorialSection `
-        -Title "18/18  THE DIAGNOSTIC LADDER SUMMARY" `
-        -Explanation "GET -> DESCRIBE -> LOGS -> EVENTS. Every time. This pattern solves`n  95% of Kubernetes troubleshooting. The status is your first clue, the`n  events tell the story, logs show what the app said, and cluster events`n  give the global timeline.`n`n  On the CKA, you'll be given broken pods and asked what's wrong.`n  Follow the ladder. Don't guess -- diagnose." `
-        -Command "echo 'The diagnostic ladder: GET -> DESCRIBE -> LOGS -> EVENTS'" -NoRun `
-        -CommandBreakdown "echo                  = print the summary string (no cluster interaction)`n  -NoRun on the helper  = skip execution; this slide is a flashcard, not a demo" `
-        -OutputFields "MEMORIZE THIS LADDER for the CKA exam (30% troubleshooting weight):`n  1. GET       = fast status snapshot (STATUS, READY, RESTARTS columns)`n  2. DESCRIBE  = deep-dive; read EVENTS section first, then State/LastState`n  3. LOGS      = what the container itself said (use -p for previous container on crash)`n  4. EVENTS    = cluster-wide timeline; sort by creationTimestamp; age off after ~1h`n  Add --previous to logs after a crash. Add kubectl debug for advanced scenarios (Course 10)."
+    # ==========================================================
+    # Demo 6: Same Ladder, Any Cluster (multi-cluster only, gated)
+    # ==========================================================
+    # Graceful-degrade guard: only run section 10/10 when both
+    # cka-dev and cka-prod are up. Single-cluster runs print a hint and skip.
+    $multiClusterReady = (Test-ClusterExists -ClusterName 'cka-dev') -and (Test-ClusterExists -ClusterName 'cka-prod')
+
+    if ($multiClusterReady) {
+        Write-TutorialSection `
+            -Title "10/10  SAME LADDER, ANY CLUSTER" `
+            -Explanation "The ladder is context-agnostic. Switch to cka-dev (sticky), break a pod,`n  re-prove rungs 1+2 there. Then read cka-prod nodes via --context (one-shot,`n  no state mutation). Finish back on kind-${ClusterName} -- session discipline.`n  EXAM RULE: every question starts with 'use-context <name>'. Skip = 0 points." `
+            -Steps @(
+                @{
+                    Beat = '10.1: STICKY SWITCH + LADDER ON cka-dev'
+                    Command = "kubectl config use-context kind-cka-dev; kubectl get nodes; kubectl run broken-dev --image=nginx:doesnotexist --restart=Never; Start-Sleep 8; kubectl get pod broken-dev; kubectl describe pod broken-dev | Select-String -Pattern '(Status:|Events:|Failed)' -Context 0,1"
+                    Breakdown = "--- STICKY switch to cka-dev ----------------------------------`n  kubectl config use-context kind-cka-dev = STICKY switch; future commands target cka-dev`n  kubectl get nodes                       = different node count proves the switch landed`n  --- Re-prove the ladder on cka-dev ----------------------------`n  kubectl run broken-dev --image=nginx:doesnotexist --restart=Never = same break, new cluster`n  Start-Sleep 8                           = let kubelet enter ImagePullBackOff`n  kubectl get pod broken-dev              = RUNG 1 (status snapshot) on cka-dev`n  kubectl describe pod broken-dev | ...   = RUNG 2 (events deep-dive) on cka-dev`n  Same image, same break, same diagnostic ladder -- only the cluster changed."
+                    OutputFields = "Switched to context kind-cka-dev = sticky; current-context now reads kind-cka-dev`n  NODES output (cka-dev)            = 1 CP + 1 worker -- different topology proves the switch`n  pod/broken-dev created            = same break pattern, different cluster`n  STATUS                            = ErrImagePull or ImagePullBackOff (identical to section 7)`n  Status: / Events: / Failed lines  = same diagnostic shape on a fresh cluster`n  THE LESSON: use-context is STICKY; the diagnostic ladder is UNIVERSAL."
+                }
+                @{
+                    Beat = '10.2: ONE-SHOT --context (no state mutation)'
+                    Command = "kubectl --context kind-cka-prod get nodes; kubectl config current-context"
+                    Breakdown = "--- ONE-SHOT --context override -------------------------------`n  kubectl --context kind-cka-prod get nodes = read cka-prod WITHOUT switching to it`n  --context <name>              = per-command override; bypasses kubeconfig's current-context`n  kubectl config current-context = sanity check; should STILL print kind-cka-dev`n  Use --context for verification queries when you don't want to lose your place."
+                    OutputFields = "cka-prod NODES                    = 1 CP + 2 workers (cka-prod topology) returned via one-shot`n  current-context                   = STILL kind-cka-dev -- proves --context did NOT mutate state`n  THE LESSON: --context is a ONE-SHOT override. Sticky context is unchanged.`n  Sticky (use-context) = working session. One-shot (--context) = quick read."
+                }
+                @{
+                    Beat = '10.3: CLEANUP + RETURN HOME'
+                    Command = "kubectl --context kind-cka-dev delete pod broken-dev --ignore-not-found; kubectl config use-context kind-${ClusterName}; kubectl config current-context"
+                    Breakdown = "--- Cross-cluster cleanup -------------------------------------`n  kubectl --context kind-cka-dev delete pod broken-dev --ignore-not-found`n    --context kind-cka-dev      = one-shot delete on cka-dev`n    --ignore-not-found          = no error if the pod was already gone (idempotent)`n  --- Sticky switch home ----------------------------------------`n  kubectl config use-context kind-${ClusterName} = STICKY switch home to the recording cluster`n  kubectl config current-context = final sanity check"
+                    OutputFields = "pod broken-dev deleted            = cross-cluster cleanup via --context override`n  Switched to context kind-${ClusterName} = sticky switch home`n  Final current-context             = kind-${ClusterName} -- session lands clean for the next run`n  THE LESSON: ALWAYS land back on the cluster you started on. Session discipline = exam discipline.`n  MONEY SHOT: the diagnostic ladder is universal; ONLY the context changes between clusters."
+                }
+            )
+    } else {
+        Write-Output ""
+        Write-Output "  ----------------------------------------------------------------"
+        Write-Output "  Section 10/10 (multi-cluster ladder) skipped."
+        Write-Output "  Bring up cka-dev + cka-prod with: ./kind-multi-up.ps1"
+        Write-Output "  Then re-run this tutorial to see the context-switching demo."
+        Write-Output "  ----------------------------------------------------------------"
+        Write-Output ""
+    }
 
     Write-Output ""
     Write-Output "  Module 3 walkthrough complete."
-    Write-Output "  You practiced: self-healing, services, namespaces, DNS,"
-    Write-Output "  and the diagnostic ladder (GET -> DESCRIBE -> LOGS -> EVENTS)."
+    Write-Output "  You practiced: self-healing, services + EndpointSlices, namespaces,"
+    Write-Output "  DNS, and the diagnostic ladder: GET -> DESCRIBE -> LOGS -> EVENTS."
+    Write-Output "  That ladder is 30% of the CKA exam. Drill it until it's automatic."
     Write-Output ""
 
     } finally {
@@ -610,6 +699,17 @@ function Start-TutorialM03 {
         kubectl delete svc managed-svc --ignore-not-found 2>&1 | Out-Null
         kubectl delete deployment managed --ignore-not-found 2>&1 | Out-Null
         kubectl delete namespace staging --ignore-not-found --wait=false 2>&1 | Out-Null
+        # Demo 6 leftover: broken-dev lives on cka-dev (NOT the default cluster).
+        # Belt and suspenders -- the section 21/21 command chain already deletes it,
+        # but a Ctrl-C mid-section-20 would leave it behind. Guarded so we only call
+        # kubectl when cka-dev exists (avoids context errors on single-cluster runs).
+        if (Test-ClusterExists -ClusterName 'cka-dev') {
+            kubectl --context kind-cka-dev delete pod broken-dev --ignore-not-found 2>&1 | Out-Null
+        }
+        # If a Ctrl-C landed mid-section-20, the active context is kind-cka-dev.
+        # Force the session back to the M03 default so the next tutorial run starts
+        # on the correct cluster.
+        kubectl config use-context "kind-$ClusterName" 2>&1 | Out-Null
         Write-Output "  Done."
     }
 }

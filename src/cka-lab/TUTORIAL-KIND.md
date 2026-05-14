@@ -154,22 +154,22 @@ steps. No slides. No markdown. Just kubectl output and context.
 |---|----------|-------|----------------|
 | 1 | **Component Walkthrough** | 12 | Verify every K8s component — etcd, API server, controller-manager, scheduler, kubelet, kube-proxy, CoreDNS, CNI. |
 | 2 | **Course 1, Module 1** | 10 | Cluster architecture + kubeconfig anatomy (the Course 1 intro module). |
-| 3 | **Course 1, Module 2** | 16 | kubectl workflows — imperative vs. declarative, `--dry-run=client -o yaml`, `explain`. |
-| 4 | **Course 1, Module 3** | 18 | Core resources + the **diagnostic ladder**: `get → describe → logs → events`. |
+| 3 | **Course 1, Module 2** | 10 | kubectl workflows — imperative vs. declarative, `--dry-run=client -o yaml`, `explain`. |
+| 4 | **Course 1, Module 3** | 10 sections / 14 beats | Core resources + the **diagnostic ladder**: `get → describe → logs → events`. Cause/effect sections split into beats so you press Enter between cause and effect (delete → resurrect, scale → slice grows). Section 10/10 is gated multi-cluster — three beats: sticky switch + ladder on cka-dev, one-shot `--context` read of cka-prod, cleanup + return home. |
 
 ### What each step looks like
 
-Every one of the 57 steps is rendered as a consistent 4-block pattern:
+Every one of the 42 steps is rendered as a consistent 4-block pattern:
 
 ```
 ================================================================
-  2/16  IMPERATIVE: CREATE A DEPLOYMENT
+  2/10  IMPERATIVE: DEPLOYMENT + EXPOSE
 ================================================================
 
-  Deployments manage rollouts. Three things just happened:
-  a Deployment, a ReplicaSet, and 3 Pods. All from one command.
+  Two commands, five resources. Deployment spawns ReplicaSet + 3 Pods,
+  then expose adds a Service with auto-created DNS.
 
-  Command:  kubectl create deployment web --image=nginx --replicas=3
+  Command:  kubectl create deployment web --image=nginx --replicas=3; kubectl expose deployment web --port=80 --type=ClusterIP
   ---- What each part does -----------------------------------
   kubectl create  = imperative create (vs apply, which is declarative from YAML)
   deployment      = resource kind (short: deploy)
@@ -193,6 +193,16 @@ The **"What each part does"** block explains every flag and argument before the
 command runs. The **"What you just saw"** block explains the columns and fields
 of the output after it runs. You can skip both by hitting Enter fast — they're
 there for the first pass, not to slow down reps two and three.
+
+**Module 3 has multi-beat sections.** Cause/effect demos (delete → resurrect,
+scale → slice grows, switch context → ladder on the other cluster) split a
+single section into 2-3 beats. The section header (Title + Explanation) renders
+once; then each beat fires its own `Command` → output → "What you just saw" →
+`Press Enter` cycle. Setup-only beats (e.g. `Start-Sleep` while the cluster
+reconciles) skip the "What you just saw" block — the Enter press always lands
+in front of a teaching output, never in front of setup. Total Enter presses
+for M03: 19 with the multi-cluster lab up, 16 with it down (section 10
+gracefully skips).
 
 ### Launching a tutorial
 

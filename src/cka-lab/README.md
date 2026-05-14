@@ -96,8 +96,10 @@ Deep dive and the practice loop: **[TUTORIAL-HYPERV.md](TUTORIAL-HYPERV.md)**
 | `kind-multi-down.ps1` | Teardown for both clusters. `-ClearRenamed` sweeps any contexts you renamed during the drills. |
 | `Start-Tutorial.ps1` | Runs guided Course 1 tutorials against a single cluster that's already up. |
 | `Start-ContextPractice.ps1` | Standalone 8-drill `kubectl config` walkthrough — assumes `cka-dev` and `cka-prod` are already up. |
+| `kind-status.ps1` | Read-only health probe — reports KIND cluster state (Docker daemon, named clusters, current context) and offers teardown if anything is up. CI-safe with `-Quiet`. |
+| `kind-multi-status.ps1` | Read-only — focused state probe for `cka-dev` / `cka-prod` plus any renamed `dev` / `prod` contexts left from rename-context drills. |
 | `lib/CkaLab.ps1` | Shared module — output helpers, Docker mgmt, prereq checks, KIND cluster helpers. |
-| `lib/tutorials.ps1` | Tutorial content (Course 1, Modules 1-3 + component walkthrough). Wraps bodies in `try/finally` so Ctrl-C leaves a clean cluster. |
+| `lib/tutorials.ps1` | Tutorial content (Course 1, Modules 1-3 + component walkthrough). Wraps bodies in `try/finally` so Ctrl-C leaves a clean cluster. M03 uses multi-beat sections so cause/effect arcs (delete → resurrect, scale → slice grows) pause between cause and effect. |
 | `configs/cka-*.yaml` | Six topologies — simple, 3-node (exam), HA (3 CPs, port maps on worker), workloads (labels/taints), plus `cka-dev` / `cka-prod` for the multi-cluster context lab (disjoint host ports). |
 
 ### Hyper-V path
@@ -110,6 +112,7 @@ Deep dive and the practice loop: **[TUTORIAL-HYPERV.md](TUTORIAL-HYPERV.md)**
 | `cka-snapshot.ps1` / `cka-restore.ps1` | Atomic, all-or-nothing Hyper-V checkpoints. Preflight every VM and every checkpoint before writing anything. |
 | `cka-validate.ps1` | 9-category health check across all 3 VMs. Pipes `lib/validate-node.sh` over stdin so `$LASTEXITCODE` reflects the inner bash exit. |
 | `cka-info.ps1` | Live UP/DOWN table + SSH cheat sheet. |
+| `cka-status.ps1` | Read-only Hyper-V state probe — reports per-VM Running/Off/Saved/Missing plus IP reachability, offers `cka-down.ps1` if anything is Running. CI-safe with `-Quiet`. |
 | `cka-up.ps1` / `cka-down.ps1` | Boot / graceful shutdown for all VMs. |
 
 ### Housekeeping

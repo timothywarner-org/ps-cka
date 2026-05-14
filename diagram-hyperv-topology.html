@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hyper-V Topology — CKA Lab</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 1400px;
+    margin: 40px auto;
+    padding: 0 24px;
+    background: #f7f7f7;
+    color: #1a1a1a;
+    line-height: 1.6;
+  }
+  h1 {
+    border-bottom: 3px solid #1e3a5f;
+    padding-bottom: 8px;
+  }
+  .diagram-container {
+    background: white;
+    border-radius: 8px;
+    padding: 32px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin: 24px 0;
+    overflow-x: auto;
+  }
+  .key-insight {
+    background: #fff8dc;
+    border-left: 4px solid #d4a017;
+    padding: 16px 24px;
+    margin: 24px 0;
+    border-radius: 4px;
+  }
+  .key-insight strong {
+    color: #8b6914;
+  }
+  code {
+    background: #eee;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: "Consolas", "Monaco", monospace;
+    font-size: 0.92em;
+  }
+  .legend {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin: 16px 0;
+    font-size: 0.9em;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: 1px solid #333;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+  }
+  th, td {
+    border: 1px solid #ccc;
+    padding: 10px 12px;
+    text-align: left;
+  }
+  th {
+    background: #1e3a5f;
+    color: white;
+  }
+  tr:nth-child(even) {
+    background: #f0f0f0;
+  }
+</style>
+</head>
+<body>
+
+<h1>Hyper-V Topology — CKA Lab</h1>
+<p>Three Ubuntu 22.04 VMs, one isolated Hyper-V internal switch with NAT to the host, three static IPs on a <code>/24</code> subnet. <strong>Internet works (outbound NAT), but nothing from the outside world can reach the VMs.</strong> That's exactly what the CKA exam environment looks like.</p>
+
+<div class="legend">
+  <div class="legend-item"><div class="swatch" style="background:#5f1e3a"></div><span>Windows host</span></div>
+  <div class="legend-item"><div class="swatch" style="background:#1e3a5f"></div><span>Hyper-V switch</span></div>
+  <div class="legend-item"><div class="swatch" style="background:#1e5f3a"></div><span>Control plane VM</span></div>
+  <div class="legend-item"><div class="swatch" style="background:#5f4e1e"></div><span>Worker VMs</span></div>
+</div>
+
+<div class="diagram-container">
+<pre class="mermaid">
+flowchart LR
+    INET((Internet)) -.->|"Outbound NAT only"| HOST
+
+    subgraph HOST ["<b>Windows 11 host</b><br/>OFFICE-DESKTOP"]
+        direction TB
+        PWSH["admin pwsh 7<br/>cka-*.ps1 scripts"]
+        HYPERV["Hyper-V<br/>(VMM service)"]
+        SWITCH["<b>CKA-NAT switch</b><br/>internal type<br/>192.168.50.0/24<br/>gateway: 192.168.50.1"]
+        PWSH --> HYPERV
+        HYPERV --> SWITCH
+    end
+
+    SWITCH --> CP
+    SWITCH --> W1
+    SWITCH --> W2
+
+    subgraph CP ["<b>control1</b><br/>192.168.50.10"]
+        direction TB
+        CP1["Ubuntu 22.04<br/>2 vCPU / 2 GB RAM"]
+        CP2["containerd + CRI<br/>kubelet (will host etcd,<br/>apiserver, scheduler, CM<br/>after Module 2 kubeadm init)"]
+        CP1 --> CP2
+    end
+
+    subgraph W1 ["<b>worker1</b><br/>192.168.50.11"]
+        direction TB
+        W1A["Ubuntu 22.04<br/>2 vCPU / 2 GB RAM"]
+        W1B["containerd + CRI<br/>kubelet (will join cluster<br/>via kubeadm join in M2)"]
+        W1A --> W1B
+    end
+
+    subgraph W2 ["<b>worker2</b><br/>192.168.50.12"]
+        direction TB
+        W2A["Ubuntu 22.04<br/>2 vCPU / 2 GB RAM"]
+        W2B["containerd + CRI<br/>kubelet (will join cluster<br/>via kubeadm join in M2)"]
+        W2A --> W2B
+    end
+
+    style HOST fill:#5f1e3a,stroke:#fff,color:#fff
+    style PWSH fill:#5f1e3a,stroke:#fff,color:#fff
+    style HYPERV fill:#5f1e3a,stroke:#fff,color:#fff
+    style SWITCH fill:#1e3a5f,stroke:#fff,color:#fff
+    style CP fill:#1e5f3a,stroke:#fff,color:#fff
+    style CP1 fill:#1e5f3a,stroke:#fff,color:#fff
+    style CP2 fill:#1e5f3a,stroke:#fff,color:#fff
+    style W1 fill:#5f4e1e,stroke:#fff,color:#fff
+    style W1A fill:#5f4e1e,stroke:#fff,color:#fff
+    style W1B fill:#5f4e1e,stroke:#fff,color:#fff
+    style W2 fill:#5f4e1e,stroke:#fff,color:#fff
+    style W2A fill:#5f4e1e,stroke:#fff,color:#fff
+    style W2B fill:#5f4e1e,stroke:#fff,color:#fff
+</pre>
+</div>
+
+<div class="key-insight">
+<strong>Key insight:</strong> The <code>CKA-NAT</code> switch is an <em>internal</em> Hyper-V switch — NOT external, NOT private. <strong>Internal</strong> means: VMs talk to each other and to the host (via the <code>vEthernet (CKA-NAT)</code> adapter on the host at <code>192.168.50.1</code>), and a Windows NAT rule lets them reach the internet outbound. But nothing on your LAN can SSH to <code>192.168.50.10</code> — only the host can. That isolation is by design: the lab can't accidentally collide with your LAN's DHCP range, and your spouse's laptop can't accidentally land a CIDR conflict.
+</div>
+
+<h2>Node specs</h2>
+<table>
+  <thead>
+    <tr><th>Node</th><th>IP</th><th>vCPU</th><th>RAM</th><th>Role</th><th>Future role (Module 2+)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>control1</code></td><td>192.168.50.10</td><td>2</td><td>2 GB</td><td>Control plane</td><td>Hosts etcd, kube-apiserver, kube-scheduler, kube-controller-manager (as static pods), plus kubelet + kube-proxy</td></tr>
+    <tr><td><code>worker1</code></td><td>192.168.50.11</td><td>2</td><td>2 GB</td><td>Worker</td><td>Joins via <code>kubeadm join</code>; runs kubelet + kube-proxy + workload pods</td></tr>
+    <tr><td><code>worker2</code></td><td>192.168.50.12</td><td>2</td><td>2 GB</td><td>Worker</td><td>Same as worker1</td></tr>
+  </tbody>
+</table>
+
+<h2>Network specs</h2>
+<table>
+  <thead><tr><th>Setting</th><th>Value</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td>Switch type</td><td>Internal</td><td>Isolates VMs from LAN; only the host can reach them</td></tr>
+    <tr><td>Switch name</td><td><code>CKA-NAT</code></td><td>Distinguishes from any other Hyper-V switches you might have (Default Switch, etc.)</td></tr>
+    <tr><td>Subnet</td><td>192.168.50.0/24</td><td>Unlikely to collide with home LAN ranges (usually 192.168.1.x or 192.168.0.x)</td></tr>
+    <tr><td>Host gateway IP</td><td>192.168.50.1</td><td>Assigned to <code>vEthernet (CKA-NAT)</code> adapter on Windows; provides NAT exit</td></tr>
+    <tr><td>NAT rule name</td><td><code>CKA-NAT-Network</code></td><td>Windows NAT (<code>Get-NetNat</code>) translates VM outbound traffic via the host's external NIC</td></tr>
+    <tr><td>DNS</td><td>8.8.8.8 / 8.8.4.4</td><td>Set by netplan on each VM; lets <code>apt</code> reach <code>pkgs.k8s.io</code></td></tr>
+  </tbody>
+</table>
+
+<h2>How to inspect each layer from the host</h2>
+<pre style="background:#1e1e1e;color:#dcdcdc;padding:16px;border-radius:6px;overflow-x:auto;"><code># See the Hyper-V switch
+Get-VMSwitch -Name "CKA-NAT"
+
+# See the host adapter for the switch (your gateway end)
+Get-NetAdapter -Name "vEthernet (CKA-NAT)"
+
+# See the NAT rule that bridges VMs to the internet
+Get-NetNat -Name "CKA-NAT-Network"
+
+# See the 3 VMs themselves
+Get-VM | Where-Object { $_.Name -match "control1|worker1|worker2" }
+
+# See where the VHDX files actually live (yours: D:\VMS\)
+Get-VMHardDiskDrive -VMName control1, worker1, worker2 | Select-Object VMName, Path
+
+# Quick reachability test
+.\cka-info.ps1
+</code></pre>
+
+<h2>Disk layout</h2>
+<ul>
+  <li><strong>VHDX storage:</strong> <code>D:\VMS\</code> (set globally via Hyper-V's default VM path; verify with <code>Get-VMHost | Select VirtualMachinePath, VirtualHardDiskPath</code>)</li>
+  <li><strong>Vagrant metadata:</strong> <code>&lt;project&gt;\.vagrant\machines\&lt;vm&gt;\hyperv\</code> — Vagrant's tracking of which Hyper-V VM belongs to which line in the Vagrantfile</li>
+  <li><strong>Provisioner logs:</strong> on each VM at <code>/var/log/cka-provision.log</code> — timestamped <code>&gt;&gt;&gt;</code> step record</li>
+</ul>
+
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose', flowchart: { useMaxWidth: true, htmlLabels: true } });
+</script>
+
+</body>
+</html>

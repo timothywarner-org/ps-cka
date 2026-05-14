@@ -137,6 +137,10 @@ exercise-files/
 
 Each module folder contains Kubernetes YAML manifests, shell scripts, and configuration files for hands-on demos and exercises.
 
+## Pluralsight Course 1 Download
+
+If you arrived here from the Pluralsight Course 1 ("Kubernetes Foundations") **Exercise Files** download, the file you grabbed (`k8s-foundations-exercise-files.md`) is a pointer back to this repo. All manifests, lab scripts, and recording runbooks live here -- clone the repo and keep it open while you watch the videos.
+
 ## Recording Runbooks (Course 1)
 
 Per-module demo runbooks for the Foundations course live in [`dev/`](dev/). Each includes pre-flight, camera checklist, click path, timed demos mapped to [`src/cka-lab/lib/tutorials.ps1`](src/cka-lab/lib/tutorials.ps1) sections, reset-between-takes, and a recovery cheat sheet.

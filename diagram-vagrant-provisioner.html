@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Vagrant Provisioner Pipeline — CKA Lab</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 1400px;
+    margin: 40px auto;
+    padding: 0 24px;
+    background: #f7f7f7;
+    color: #1a1a1a;
+    line-height: 1.6;
+  }
+  h1 {
+    border-bottom: 3px solid #1e3a5f;
+    padding-bottom: 8px;
+  }
+  .diagram-container {
+    background: white;
+    border-radius: 8px;
+    padding: 32px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin: 24px 0;
+    overflow-x: auto;
+  }
+  .key-insight {
+    background: #fff8dc;
+    border-left: 4px solid #d4a017;
+    padding: 16px 24px;
+    margin: 24px 0;
+    border-radius: 4px;
+  }
+  .key-insight strong {
+    color: #8b6914;
+  }
+  code {
+    background: #eee;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: "Consolas", "Monaco", monospace;
+    font-size: 0.92em;
+  }
+  .legend {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin: 16px 0;
+    font-size: 0.9em;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: 1px solid #333;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+  }
+  th, td {
+    border: 1px solid #ccc;
+    padding: 10px 12px;
+    text-align: left;
+  }
+  th {
+    background: #1e3a5f;
+    color: white;
+  }
+  tr:nth-child(even) {
+    background: #f0f0f0;
+  }
+</style>
+</head>
+<body>
+
+<h1>What <code>vagrant up</code> Actually Does</h1>
+<p>The Vagrantfile defines three Ubuntu 22.04 VMs and runs them through a <strong>three-stage provisioner pipeline</strong>. Stage 3 (<code>cka-prereqs</code>) is the big one — nine named <code>&gt;&gt;&gt;</code> steps that map directly to the install commands on deck slides 7, 12, 13, and 15.</p>
+
+<div class="legend">
+  <div class="legend-item"><div class="swatch" style="background:#1e3a5f"></div><span>Vagrant lifecycle</span></div>
+  <div class="legend-item"><div class="swatch" style="background:#5f4e1e"></div><span>The big provisioner</span></div>
+  <div class="legend-item"><div class="swatch" style="background:#5f1e1e"></div><span>Critical steps (don't skip)</span></div>
+  <div class="legend-item"><div class="swatch" style="background:#1e5f3a"></div><span>Success exit</span></div>
+</div>
+
+<div class="diagram-container">
+<pre class="mermaid">
+flowchart TD
+    A["<b>vagrant up --provider=hyperv</b>"] --> B["Trigger: BEFORE up<br/>create-nat-switch.ps1<br/>creates CKA-NAT switch<br/>192.168.50.0/24 + NAT route"]
+    B --> C["Import generic/ubuntu2204 box<br/>~1.5 GB download first time only<br/>cached afterwards"]
+    C --> D["Boot 3 VMs sequentially:<br/>control1 → worker1 → worker2"]
+    D --> E["<b>Provisioner #1: static-ip</b><br/>netplan writes:<br/>192.168.50.10 / .11 / .12<br/>(netplan try with 30 sec auto-revert)"]
+    E --> F["<b>Provisioner #2: hosts-file</b><br/>writes /etc/hosts entries<br/>for all 3 nodes"]
+    F --> G["<b>Provisioner #3: cka-prereqs</b><br/>9 named steps<br/>logged to /var/log/cka-provision.log"]
+    G --> H["Trigger: AFTER up<br/>print connection summary"]
+
+    G --> G1[">>> 1. Disable swap<br/>swapoff -a + fix /etc/fstab"]
+    G --> G2[">>> 2. Load kernel modules<br/>overlay + br_netfilter<br/>persist to /etc/modules-load.d/k8s.conf"]
+    G --> G3[">>> 3. Configure sysctl<br/>3 net.* values = 1<br/>persist to /etc/sysctl.d/k8s.conf"]
+    G --> G4[">>> 4. Install containerd<br/>apt-get install"]
+    G --> G5[">>> 5. Configure containerd<br/><b>SystemdCgroup = true</b><br/>systemctl restart + enable"]
+    G --> G6[">>> 6. Configure crictl<br/>/etc/crictl.yaml<br/>→ containerd socket"]
+    G --> G7[">>> 7. Add Kubernetes apt repo<br/>pkgs.k8s.io v1.35 + GPG key"]
+    G --> G8[">>> 8. Install + pin packages<br/>kubeadm/kubelet/kubectl=1.35.x-1.1<br/><b>apt-mark hold</b> all three"]
+    G --> G9[">>> 9. Final verification<br/>all 4 binaries OK<br/>NODE READY banner"]
+
+    style A fill:#1e3a5f,stroke:#fff,color:#fff
+    style B fill:#1e3a5f,stroke:#fff,color:#fff
+    style C fill:#1e3a5f,stroke:#fff,color:#fff
+    style D fill:#1e3a5f,stroke:#fff,color:#fff
+    style E fill:#3a3a3a,stroke:#fff,color:#fff
+    style F fill:#3a3a3a,stroke:#fff,color:#fff
+    style G fill:#5f4e1e,stroke:#fff,color:#fff
+    style G5 fill:#5f1e1e,stroke:#fff,color:#fff
+    style G8 fill:#5f1e1e,stroke:#fff,color:#fff
+    style H fill:#1e5f3a,stroke:#fff,color:#fff
+</pre>
+</div>
+
+<div class="key-insight">
+<strong>Key insight:</strong> Every command on deck slides 7, 12, 13, and 15 corresponds to one of the <code>&gt;&gt;&gt;</code> steps inside the <code>cka-prereqs</code> provisioner. <strong>Slide 7</strong> = steps 2 + 3 (kernel modules + sysctl). <strong>Slide 12</strong> = steps 4 + 5 (containerd + cgroup driver). <strong>Slide 13</strong> = step 6 (crictl). <strong>Slide 15</strong> = steps 7 + 8 (apt repo + install + hold). That's the contract between the lecture and the lab — Vagrant runs them at boot; the demo verifies they landed.
+</div>
+
+<h2>Slide-to-provisioner mapping</h2>
+<table>
+  <thead>
+    <tr><th>Deck slide</th><th>Topic</th><th>Provisioner step(s)</th><th>Verifies on camera with</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Slide 7</strong></td><td>Kernel modules + sysctl</td><td>Step 2 (modprobe + persist), Step 3 (sysctl + persist)</td><td><code>lsmod</code>, <code>cat /etc/modules-load.d/k8s.conf</code>, <code>sysctl &lt;3 keys&gt;</code>, <code>cat /etc/sysctl.d/k8s.conf</code></td></tr>
+    <tr><td><strong>Slide 12</strong></td><td>containerd + cgroup driver</td><td>Step 4 (install containerd), Step 5 (SystemdCgroup = true)</td><td><code>systemctl status containerd</code>, <code>crictl info</code>, <code>grep SystemdCgroup /etc/containerd/config.toml</code></td></tr>
+    <tr><td><strong>Slide 13</strong></td><td>Pin crictl to socket</td><td>Step 6 (write /etc/crictl.yaml)</td><td><code>cat /etc/crictl.yaml</code>, <code>crictl ps</code>, <code>crictl images</code></td></tr>
+    <tr><td><strong>Slide 15</strong></td><td>Install + pin kubeadm/kubelet/kubectl</td><td>Step 7 (apt repo + GPG), Step 8 (install + apt-mark hold)</td><td><code>dpkg -l kubeadm kubelet kubectl</code>, <code>apt-mark showhold</code>, <code>swapon --show</code></td></tr>
+  </tbody>
+</table>
+
+<h2>Why this design</h2>
+<ul>
+  <li><strong>Provisioners are idempotent.</strong> Every step detects "already done" and no-ops on re-run. <code>vagrant provision &lt;vm&gt;</code> can be run any time without breaking state.</li>
+  <li><strong>Each step is logged.</strong> <code>/var/log/cka-provision.log</code> on each VM is a step-by-step record with timestamps. If SSH drops mid-provision (a known Hyper-V + <code>br_netfilter</code> issue), you can SSH back in and read the log to see how far the script got on the guest.</li>
+  <li><strong>The two red steps are the high-stakes ones.</strong> Step 5 (SystemdCgroup = true) is the single most common cause of <code>kubeadm init</code> failures in the wild. Step 8 (<code>apt-mark hold</code>) is what prevents a future <code>apt upgrade</code> from silently breaking the cluster.</li>
+</ul>
+
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose', flowchart: { useMaxWidth: true, htmlLabels: true } });
+</script>
+
+</body>
+</html>

@@ -30,6 +30,10 @@ cka-lab/
 ├── kind-multi-down.ps1        # Entry point: destroy both clusters (-ClearRenamed removes dev/prod contexts)
 ├── Start-ContextPractice.ps1  # 8-drill kubectl context walkthrough (Ctrl-C safe)
 │
+├── kind-status.ps1            # Read-only: report KIND cluster state, optional teardown prompt
+├── kind-multi-status.ps1      # Read-only: report cka-dev/cka-prod state, optional teardown prompt
+├── cka-status.ps1             # Read-only: report Hyper-V VM state, optional teardown prompt
+│
 ├── lib/
 │   ├── CkaLab.ps1             # Shared module (helpers, Docker mgmt, prereqs)
 │   ├── tutorials.ps1          # Tutorial functions (dot-sourced by CkaLab.ps1)
@@ -94,19 +98,18 @@ There is no `$Script:CkaLabRoot`. Earlier revisions exposed one; it's been remov
 `lib/tutorials.ps1` contains four tutorial functions:
 
 - `Start-ComponentWalkthrough` -- 12-step verification of all K8s components
-- `Start-TutorialM01` -- Course 1 Module 1: architecture & lab setup (10 steps)
-- `Start-TutorialM02` -- Course 1 Module 2: kubectl workflows (16 steps)
-- `Start-TutorialM03` -- Course 1 Module 3: core resources & diagnostics (18 steps)
+- `Start-TutorialM01` -- Course 1 Module 1: architecture & lab setup (10 sections)
+- `Start-TutorialM02` -- Course 1 Module 2: kubectl workflows (10 sections)
+- `Start-TutorialM03` -- Course 1 Module 3: core resources & diagnostics (10 sections, 14 beats; section 10/10 gated behind multi-cluster, EndpointSlices not legacy Endpoints). Sections 1, 2, 5, 9 split into 2 beats; sections 3, 10 split into 3 beats; sections 4, 6, 7, 8 stay atomic. Total Enter presses: 19 with multi-cluster lab up, 16 with it down (graceful skip on section 10).
 
-All 57 steps are rendered through `Write-TutorialSection`, which accepts five content params:
+All sections are rendered through `Write-TutorialSection`. The helper has two modes:
 
-- `-Title` -- section header (e.g. `"2/16  IMPERATIVE: CREATE A DEPLOYMENT"`)
-- `-Explanation` -- the "why" shown before the command runs
-- `-Command` -- the literal string passed to `Invoke-Expression`
-- `-CommandBreakdown` -- pre-run flag-by-flag dissection, one line per token (`flag = what it does`)
-- `-OutputFields` -- post-run column/field explainer for the output the learner just saw
+- **Legacy (atomic) mode** -- pass `-Title`, `-Explanation`, `-Command`, `-CommandBreakdown`, `-OutputFields`. The section header (title + explanation) renders, then a single Command/Breakdown/run/OutputFields/Press-Enter cycle. M01, M02, `Start-ComponentWalkthrough`, and the atomic sections of M03 use this path.
+- **Multi-beat mode** -- pass `-Title`, `-Explanation`, and `-Steps` (a `[hashtable[]]`). Each beat hashtable carries `Beat`, `Command`, `Breakdown`, `OutputFields`. The section header renders ONCE, then each beat fires its own Command/Breakdown/run/OutputFields/Press-Enter cycle. `OutputFields` may be empty for silent-setup beats (e.g. "create both objects, no narration") -- the "What you just saw" block is then skipped. When `-Steps` is provided, the legacy `-Command/-CommandBreakdown/-OutputFields` params are ignored.
 
-`-CommandBreakdown` and `-OutputFields` are optional but populated on every step. If you add a new section, fill both -- the enrichment is uniform across all 57 calls and the helper is the only place that renders them.
+Both modes funnel through `Write-TutorialBeatBody`, the inner-loop renderer. That helper is the single place that emits the command-in-yellow / output-in-sky-blue / Press-Enter cycle, so visual rhythm is identical between legacy and multi-beat sections.
+
+**Breathing-room render rule**: every visual block (beat header, command, breakdown separator, output, output-fields, terminator dashes) is framed with blank lines. The render rhythm is documented in a long comment block above `Write-TutorialBeatBody` -- if you add a new visual element to that helper, keep the blank-line framing or the on-camera pacing breaks.
 
 Invariants the tutorial code relies on (do not regress these):
 
@@ -114,7 +117,9 @@ Invariants the tutorial code relies on (do not regress these):
 - **No TTY dependency**: `kubectl run -it` is banned. All interactive pod runs use `--restart=Never --attach --rm` so tutorials work over SSH, in CI, and inside recording sessions where a TTY isn't guaranteed.
 - **Topology-agnostic narration**: tutorial copy never hard-codes node counts. Functions query `kubectl get nodes --no-headers | Measure-Object` into `$nodeCount` and interpolate that into output. A tutorial should read correctly against 2, 3, 4, or 5 nodes.
 - **Word-boundary regex**: tutorial output matchers use `\broles?\b`, `\brolebindings?\b`, `\bconfigmap\w*` so that `rolebinding` doesn't match `role` and `configmaps` matches `configmap`.
-- **Breakdown + OutputFields parity**: when adding or editing a section, both `-CommandBreakdown` and `-OutputFields` must stay in sync with the command. Silent drift (command changed, breakdown not updated) is the top regression risk here.
+- **Breakdown + OutputFields parity**: when adding or editing a section, both `-CommandBreakdown` and `-OutputFields` (or the per-beat `Breakdown` and `OutputFields` in `-Steps`) must stay in sync with the command. Silent drift (command changed, breakdown not updated) is the top regression risk here.
+- **Beat-level pacing**: an Enter press belongs in front of a teaching output, never in front of setup or `Start-Sleep`. When a section teaches a cause/effect arc (delete -> resurrect, scale -> slice grows, switch context -> ladder on the other cluster), use `-Steps` to split it into beats so the learner can pause between cause and effect. Setup-only beats use empty `OutputFields` so the prompt fires after the silent setup but before the next teaching beat -- never inside it.
+- **Backward-compatible helper**: the legacy `-Command/-CommandBreakdown/-OutputFields` path is preserved for sections that are already atomic. M01, M02, `Start-ComponentWalkthrough`, and the atomic sections of M03 use it unchanged. Don't pass `-Steps` to a section unless you're actually splitting it -- the legacy path renders a single beat through the same `Write-TutorialBeatBody` so visual output is identical.
 
 Tutorials use deterministic names for all commands:
 

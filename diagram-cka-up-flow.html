@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>How cka-up.ps1 Works — CKA Lab</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 1200px;
+    margin: 40px auto;
+    padding: 0 24px;
+    background: #f7f7f7;
+    color: #1a1a1a;
+    line-height: 1.6;
+  }
+  h1 {
+    border-bottom: 3px solid #1e3a5f;
+    padding-bottom: 8px;
+  }
+  .diagram-container {
+    background: white;
+    border-radius: 8px;
+    padding: 32px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin: 24px 0;
+    overflow-x: auto;
+  }
+  .key-insight {
+    background: #fff8dc;
+    border-left: 4px solid #d4a017;
+    padding: 16px 24px;
+    margin: 24px 0;
+    border-radius: 4px;
+  }
+  .key-insight strong {
+    color: #8b6914;
+  }
+  code {
+    background: #eee;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: "Consolas", "Monaco", monospace;
+    font-size: 0.92em;
+  }
+  .legend {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin: 16px 0;
+    font-size: 0.9em;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: 1px solid #333;
+  }
+</style>
+</head>
+<body>
+
+<h1>How <code>cka-up.ps1</code> Works</h1>
+<p><strong>Two-line PowerShell wrapper around <code>vagrant up --no-provision</code>.</strong> The interesting behavior is what happens when VMs are missing — <code>--no-provision</code> silently falls through to a full provision because Vagrant can't skip provisioning on a VM that doesn't exist yet.</p>
+
+<div class="legend">
+  <div class="legend-item"><div class="swatch" style="background:#1e3a5f"></div><span>Entry point</span></div>
+  <div class="legend-item"><div class="swatch" style="background:#1e5f3a"></div><span>Fast path (warm boot)</span></div>
+  <div class="legend-item"><div class="swatch" style="background:#5f1e1e"></div><span>Slow path (full provision)</span></div>
+  <div class="legend-item"><div class="swatch" style="background:#3a3a3a"></div><span>Output / completion</span></div>
+</div>
+
+<div class="diagram-container">
+<pre class="mermaid">
+flowchart TD
+    A["<b>.\cka-up.ps1</b><br/>admin pwsh required<br/>#Requires -RunAsAdministrator"] --> B["vagrant up --no-provision"]
+    B --> C{"VMs already<br/>exist in Hyper-V?"}
+    C -->|Yes, all 3| D["Warm boot existing VMs<br/>~30 sec"]
+    C -->|No / partial| E["Vagrant falls through to<br/>FULL provision<br/>~10-15 min cold<br/>~5 min on box cache"]
+    D --> F[".\cka-info.ps1"]
+    E --> F
+    F --> G["Print connection table:<br/>control1, worker1, worker2<br/>IPs + UP/DOWN status"]
+    G --> H["Return to admin pwsh"]
+
+    style A fill:#1e3a5f,stroke:#fff,color:#fff
+    style E fill:#5f1e1e,stroke:#fff,color:#fff
+    style D fill:#1e5f3a,stroke:#fff,color:#fff
+    style G fill:#3a3a3a,stroke:#fff,color:#fff
+    style H fill:#3a3a3a,stroke:#fff,color:#fff
+</pre>
+</div>
+
+<div class="key-insight">
+<strong>Key insight:</strong> <code>--no-provision</code> only saves time when VMs already exist. On missing or half-built VMs, Vagrant ignores the flag and runs the full provisioner anyway. That's why the first <code>cka-up</code> after a <code>vagrant destroy</code> takes 10-15 minutes — it's secretly a full <code>vagrant up</code> with provisioning, not a warm boot.
+</div>
+
+<h2>What the script actually contains</h2>
+<pre style="background:#1e1e1e;color:#dcdcdc;padding:16px;border-radius:6px;overflow-x:auto;"><code># cka-up.ps1 — Boot all CKA lab VMs (no re-provisioning)
+#Requires -RunAsAdministrator
+
+Write-Host "`n=== Starting CKA lab VMs ===" -ForegroundColor Cyan
+vagrant up --no-provision
+Write-Host ""
+.\cka-info.ps1</code></pre>
+
+<h2>When to use it</h2>
+<ul>
+  <li><strong>Every morning</strong> — VMs are <code>Off</code> from <code>cka-down.ps1</code> the night before; <code>cka-up</code> brings them back in ~30 sec</li>
+  <li><strong>After Hyper-V Manager → Save State</strong> — same warm-boot use case</li>
+  <li><strong>NOT after <code>vagrant destroy</code></strong> — you'll think you're warm-booting and watch the screen for 15 minutes wondering what's wrong</li>
+</ul>
+
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose', flowchart: { useMaxWidth: true, htmlLabels: true } });
+</script>
+
+</body>
+</html>
