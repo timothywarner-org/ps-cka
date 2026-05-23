@@ -4,11 +4,11 @@
 **Environment:** Admin pwsh 7 on Windows 11 → `vagrant ssh control1` (Ubuntu 22.04)
 **Lab:** **Hyper-V + Vagrant** — `src/cka-lab` with control1, worker1, worker2 on `192.168.50.10/.11/.12`
 **Starting state:** `post-init-join` snapshot from Module 2 (control plane up, both workers joined, every node NotReady, CoreDNS Pending).
-**Authoritative command source:** Deck slide 11 (Helm install + DNS smoke test), slide 13 (diagnostic ladder).
+**Authoritative command source:** Deck slide 11 (YAML two-liner + DNS smoke test), slide 12 (Helm sidebar, if present), slide 13 (diagnostic ladder).
 **Validator:** Six-point cluster validation checklist (slides 8 + 9) run end-to-end on camera.
 **Cleanup between takes:** `cka-restore.ps1 post-init-join` rewinds in 60-90 sec. Snapshot to `post-cni-validation` at the end so the course closes from a known-good baseline.
 
-> **Helm-first, not `kubectl apply`-spaghetti.** For years every Calico tutorial said `kubectl apply -f calico.yaml`. That works and ships an unmanaged blob of resources. The v1.35 CKA curriculum expects Helm or Kustomize for cluster components, so we use Helm with the Tigera operator. Slide 11 is the canonical command source.
+> **YAML-first, with Helm as the production sidebar.** The CKA exam still tests `kubectl create -f` against the upstream Calico/Tigera manifests far more often than it tests Helm. So on camera, the primary command path is **two `kubectl create -f` lines** -- the same two lines the exam expects. Helm gets a focused 60-second sidebar showing the production-grade alternative (operator-managed, version-pinned, upgradeable cleanly), because v1.35 added Helm/Kustomize as a curriculum objective. **Slide 11 is the YAML command source. Slide 12 (if present) covers Helm.**
 
 > **Lab path reminder:** This module uses the **Vagrant / Hyper-V** lab. The `cka-*.ps1` scripts (`cka-up`, `cka-status`, `cka-snapshot`, `cka-restore`, `cka-info`) are the Vagrant entry points. The `kind-*.ps1` scripts are for Course 1 only.
 
@@ -22,7 +22,7 @@
 |---|---|---|---|
 | 1-3 | Open + Globomantics frame | Module 2 recap, four framing questions, Robert's "CIDR or die" warning | ~75 sec |
 | 4-6 | LO 1 → **Demo 1** (CNI rationale + plugin comparison) | Why NotReady, why Calico, what a CNI does | ~2 min |
-| 7-11 | LO 2 → **Demo 2** (Helm install + manifest sidebar + six-point validation) | helm install (primary), kubectl create manifest pair (sidebar — both exam vectors), NotReady → Ready, busybox:1.28 DNS test, explicit cross-node pod ping | ~5.5 min |
+| 7-11 | LO 2 → **Demo 2** (YAML install + Helm sidebar + six-point validation) | `kubectl create -f` two-liner (primary, exam path), `helm install` (60-sec production sidebar), NotReady → Ready, busybox:1.28 DNS test, explicit cross-node pod ping | ~5.5 min |
 | 12-13 | LO 3 → **Demo 3** (break-and-fix) | Stop kubelet, walk the diagnostic ladder, recover | ~2-3 min |
 | 14 | Demo transition | "Time to put it into practice" | 10 sec |
 | 15 | Globomantics checkout | Robert signs off — cluster green, workload serving | ~30 sec |
@@ -82,7 +82,7 @@ Inside control1, walk Demos 1-3. Confirm Helm is installed (`helm version` shoul
 - [ ] `helm version` returns v3.x+ on control1 (the Vagrantfile provisioner installed it)
 - [ ] Only one terminal window visible — no chat apps, no notifications
 - [ ] Screen recorder set to 1080p, no HiDPI blur, no taskbar
-- [ ] Deck slides 8, 9, 11 (validation checklist + Helm install) open on second monitor
+- [ ] Deck slides 8, 9, 11, 12 (validation checklist + YAML install + Helm sidebar) open on second monitor
 
 ---
 
@@ -90,7 +90,7 @@ Inside control1, walk Demos 1-3. Confirm Helm is installed (`helm version` shoul
 
 1. `vagrant ssh control1` → ENTER → land at `vagrant@control1:~$`
 2. **Demo 1** — `kubectl describe node control1 | grep -A5 Conditions` (show NetworkPluginNotReady)
-3. **Demo 2a** — `helm repo add` + `helm install calico` (4 commands); 30-sec on-camera sidebar showing the `kubectl create -f` manifest equivalent (don't run, just narrate)
+3. **Demo 2a** — `kubectl create -f tigera-operator.yaml` + `kubectl create -f custom-resources.yaml` (the exam path, primary on camera); then 60-sec on-camera Helm sidebar showing the production alternative (don't run, just narrate)
 4. **Demo 2b** — `kubectl get nodes -w` (watch NotReady → Ready, ~30 sec) → Ctrl+C
 5. **Demo 2c** — Six-point validation: `kubectl get nodes` / `kubectl get pods -A` / busybox:1.28 nslookup / cross-node ping / `kubectl cluster-info`
 6. **Demo 3a** — `exit` → `vagrant ssh worker1` → `sudo systemctl stop kubelet` → `exit`
@@ -104,7 +104,7 @@ Inside control1, walk Demos 1-3. Confirm Helm is installed (`helm version` shoul
 
 **Why kubectl as the vagrant user (no `sudo -i`):** kubectl reads `~/.kube/config`, which Module 2 already chowned to the vagrant user. Adding `sudo -i` here would point kubectl at root's empty config.
 
-**Pedagogical frame for the open:** "Module 2 left us with three NotReady nodes and a Pending CoreDNS. Robert's monitoring dashboard is on fire and nothing is actually broken — we just haven't installed a CNI yet. The fix is one Helm release plus thirty seconds of patience. Then we validate every layer, deliberately break one node to practice the diagnostic ladder the CKA exam grades you on, and deploy our first real workload."
+**Pedagogical frame for the open:** "Module 2 left us with three NotReady nodes and a Pending CoreDNS. Robert's monitoring dashboard is on fire and nothing is actually broken — we just haven't installed a CNI yet. The fix is two `kubectl create -f` lines against the upstream Tigera manifests, plus thirty seconds of patience. Then we validate every layer, deliberately break one node to practice the diagnostic ladder the CKA exam grades you on, and deploy our first real workload."
 
 ---
 
@@ -112,7 +112,7 @@ Inside control1, walk Demos 1-3. Confirm Helm is installed (`helm version` shoul
 
 **Verbatim talk track:**
 
-> "Three nodes from Module 2, all NotReady. CoreDNS Pending. Robert at Globomantics is watching every alert in his dashboard go red. **None of this is actually broken** — we just haven't installed the CNI plugin yet. The fix is a `helm install`. The risk is the same risk Diana flagged in Module 2: pod CIDR mismatch. Our `init.yaml` set `192.168.0.0/16` — Calico's default — so we're aligned. **The CKA exam loves to trap candidates on the CIDR alignment question, so we're going to prove it on camera.**"
+> "Three nodes from Module 2, all NotReady. CoreDNS Pending. Robert at Globomantics is watching every alert in his dashboard go red. **None of this is actually broken** — we just haven't installed the CNI plugin yet. The fix is two `kubectl create -f` lines against the upstream Tigera manifests — the same path the CKA exam typically hands you. The risk is the same risk Diana flagged in Module 2: pod CIDR mismatch. Our `init.yaml` set `192.168.0.0/16` — Calico's default — so we're aligned. **The CKA exam loves to trap candidates on the CIDR alignment question, so we're going to prove it on camera.**"
 
 **Slide 2 — Four framing questions:** read each beat-by-beat, don't pre-answer.
 **Slide 3 — Globomantics check-in:** read Robert's quote in character. Monitoring team lead. The CIDR warning lands hardest.
@@ -122,6 +122,22 @@ Inside control1, walk Demos 1-3. Confirm Helm is installed (`helm version` shoul
 ## Demo 1 — Show why the cluster is NotReady (1 min)
 
 **Goal:** Prove that NotReady is not random. It's a specific kubelet condition we can read, name, and resolve.
+
+### Step 1.0 — Prove the pod CIDR alignment on camera (15 sec)
+
+```bash
+sudo grep -E "podSubnet|serviceSubnet" /etc/kubernetes/manifests/kube-apiserver.yaml 2>/dev/null \
+  || kubectl -n kube-system get cm kubeadm-config -o yaml | grep -E "podSubnet|serviceSubnet"
+```
+
+**Expected** (one of these surfaces; either is sufficient proof):
+
+```text
+podSubnet: 192.168.0.0/16
+serviceSubnet: 10.96.0.0/12
+```
+
+**Narrate:** "**Diana's CIDR warning, now proven on camera.** kubeadm wrote `192.168.0.0/16` into the cluster config -- that's the pod CIDR. Calico's default Installation custom resource uses the same `192.168.0.0/16`. **Aligned.** If these two values ever disagreed, pods would get IPs from one range and Calico would route the other range, and you'd spend an exam-stressed hour chasing the wrong fault. **One grep, fifteen seconds, exam insurance.**"
 
 ### Step 1.1 — Show the node condition that's blocking Ready
 
@@ -159,62 +175,77 @@ kubectl get pods -n kube-system -l k8s-app=kube-dns
 
 **Goal:** Install Calico via Helm + Tigera operator, watch the transition, then run the six-point validation checklist.
 
-### Step 2.1 — Add the Tigera Helm repo
+### Step 2.1 — Confirm the manifest URLs are reachable (5 sec)
 
 ```bash
-helm repo add projectcalico https://docs.tigera.io/calico/charts
-helm repo update
+curl -sI https://raw.githubusercontent.com/projectcalico/calico/v3.32.0/manifests/tigera-operator.yaml | head -1
 ```
 
-**Windows lens:** Helm is the Kubernetes package manager. The closest Windows analog is `winget` or `Chocolatey` — a CLI that fetches versioned application bundles from a remote index and installs them with one command. `helm repo add` is the equivalent of `winget source add`.
+**Expected:** `HTTP/2 200`. The Tigera v3.32.0 manifests are reachable. Helm repo refresh is moved to the sidebar (Step 2.2b).
 
-**Narrate:** "Two commands. The first tells Helm where the Tigera chart repo lives. The second pulls the current index — same pattern as `apt-get update` in Module 1."
+**Narrate:** "**One curl headers check.** Two manifest URLs, both pinned to Tigera v3.32.0. Reproducible across every recording, every learner, every exam VM."
 
-### Step 2.2 — Install Calico via the Tigera operator (pinned chart version)
+### Step 2.2a — Install Calico via the upstream manifests (the exam path)
+
+**This is the primary on-camera command path. The CKA exam typically hands you the upstream `kubectl create -f` URLs, so this is the muscle memory you actually need.**
 
 ```bash
-helm install calico projectcalico/tigera-operator --version v3.32.0 \
-  --namespace tigera-operator --create-namespace
+# Step 1: install the Tigera operator + every CRD it manages
+kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.32.0/manifests/tigera-operator.yaml
+
+# Step 2: declare the Installation custom resource (this is what the operator watches for)
+# Default custom-resources.yaml ships with calicoNetwork.ipPools[0].cidr = 192.168.0.0/16,
+# which exactly matches the kubeadm init podSubnet we proved in Step 1.0.
+kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.32.0/manifests/custom-resources.yaml
 ```
 
 **Windows lens - what is an "operator"?:** A Kubernetes operator is a long-running pod that watches for a specific custom resource and reconciles cluster state to match it. The closest Windows analog is a **watchdog Windows Service** (think the WMI provider host) that exists only to manage other things, not to do work itself. Concretely: the **Tigera operator pod** sits in the `tigera-operator` namespace, watches for an `Installation` custom resource named `default`, and when that CR exists it rolls out the `calico-node` DaemonSet, `calico-kube-controllers` Deployment, and `calico-typha` Deployment on your behalf. You declare *what* you want (the CR). The operator figures out *how* to get there. **This is the same pattern Course 11 covers for CRDs and operators in depth.**
 
-**Narrate — slow down on the version pin:** "**`--version v3.32.0` is the exam-day discipline.** A bare `helm install` grabs whatever is latest, which means tomorrow's recording uses a different Calico version than today's. Pin the chart version. Reproducibility is worth ten characters of typing."
+**Windows lens on `kubectl create -f <url>`:** This is the Linux/Kubernetes equivalent of `Install-Package -Source <url>` on Windows -- fetch the manifest, apply it, no package manager in the middle. **Use `create` not `apply` here** because the operator manifest declares CRDs that must be created before any CR that references them; `apply` works too but `create` is the documented Tigera path.
 
-### Step 2.2a — Exam-day sidebar: the manifest equivalent (~30 sec on camera)
+**Narrate -- slow down on the version pin:** "**`v3.32.0` in the URL is the exam-day discipline.** A bare `latest` URL grabs whatever ships today, which means tomorrow's recording uses a different Calico version than today's. Pin the manifest version in the path. Reproducibility is worth ten characters of typing."
 
-**Don't run this on camera — just show it on the second-monitor reference and read the narrate beat.** Helm is the primary path because the v1.35 curriculum and your slides ship that way, but the exam may hand you a manifest URL instead, and you need both vectors in your back pocket. The two paths install the **same Tigera operator** — Helm just wraps the manifests.
+### Demo 2a money shot (verbatim — say this)
+
+> "**Two `kubectl create -f` lines. That's the install.** The first line drops the Tigera operator and its CRDs into the cluster. The second line declares the Installation custom resource the operator is watching for. The operator reconciles -- rolls out `calico-node` as a DaemonSet, `calico-kube-controllers` as a Deployment -- and every node ticks the last unticked box on its readiness checklist. **This is the path the CKA exam grades you on. Memorize the two URLs.**"
+
+### Step 2.2b — Helm sidebar: the production-grade alternative (~60 sec on camera)
+
+**Don't run this on camera -- just show it on the second-monitor reference and read the narrate beat.** The exam path is the YAML two-liner above. Helm is what you reach for in production at Globomantics: operator-managed, version-pinned in a values file, upgradeable cleanly, rollback-friendly. The v1.35 curriculum added Helm/Kustomize for cluster components as an objective, so you need to recognize this path too.
 
 ```bash
-# Same operator, no Helm in the middle — install in two kubectl create steps.
-# Step 1: install the operator + every CRD it manages
-kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.32.0/manifests/tigera-operator.yaml
+# Same Tigera operator, wrapped in a Helm chart.
+helm repo add projectcalico https://docs.tigera.io/calico/charts
+helm repo update
 
-# Step 2: declare the Installation custom resource (this is what the operator watches for)
-# Default file ships with 192.168.0.0/16 already — matches our kubeadm init exactly.
-kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.32.0/manifests/custom-resources.yaml
+helm install calico projectcalico/tigera-operator --version v3.32.0 \
+  --namespace tigera-operator --create-namespace
 ```
 
-**Windows lens:** `kubectl create -f <url>` is the Linux/Kubernetes equivalent of `Install-Package -Source <url>` on Windows — fetch the manifest, apply it, no package manager in the middle. **Use `create` not `apply` here** because the operator manifest declares CRDs that must be created before any CR that references them; `apply` works too but `create` is the documented Tigera path.
+**Windows lens:** Helm is the Kubernetes package manager. The closest Windows analog is `winget` or `Chocolatey` -- a CLI that fetches versioned application bundles from a remote index and installs them with one command. `helm repo add` is the equivalent of `winget source add`.
 
-**Why the manifest path matters for production:**
+**YAML vs Helm decision matrix:**
 
-| Situation | Helm | Manifest |
+| Situation | YAML (`kubectl create -f`) | Helm |
 |---|---|---|
-| Modern v1.35+ exam question that says "use Helm" | ✓ | — |
-| Exam question that hands you a manifest URL | — | ✓ |
-| Air-gapped cluster (no chart repo reachable) | needs `helm pull` workaround | works with a pre-staged YAML |
-| Cluster where Helm isn't installed at all | install Helm first | works immediately |
-| Tracking version drift across many clusters | chart version pin | filename version pin |
-| Pluralsight + production teaching standard | ✓ (slide 11) | ✓ (this sidebar) |
+| CKA exam question with curl URLs | Yes | Rare |
+| CKA exam question that says "use Helm" | Possible | Yes |
+| Air-gapped cluster (no chart repo reachable) | Works with a pre-staged YAML | Needs `helm pull` workaround |
+| Cluster where Helm isn't installed at all | Works immediately | Install Helm first |
+| Tracking version drift across many clusters | Filename version pin | Chart version pin + values file |
+| Globomantics production teaching standard | Acceptable | Preferred |
 
-**On-camera narrate beat (verbatim — say this while the Helm install finishes):**
+**On-camera narrate beat (verbatim):**
 
-> "**One quick exam-day sidebar.** If the question hands you a curl URL and says 'install Calico,' it's the same Tigera operator — two `kubectl create` lines, no Helm. Same operator, same Installation custom resource, same `192.168.0.0/16` default. **Know both vectors going into the exam.** Helm is the v1.35 modern path. Manifest is the older path that still works and that some exam questions still test."
+> "**This is what you'll do in production at Globomantics. The CKA exam will still hand you the `kubectl create -f` URLs from Step 2.2a -- know both, default to YAML on the exam.** Helm wraps the same two objects in a chart, adds a values file you can pin in Git, and gives you `helm upgrade` and `helm rollback` for free. For the exam, you want the muscle memory of the two `kubectl create -f` URLs. For production, you want this."
 
 ### Step 2.3 — Watch nodes transition from NotReady to Ready
 
 ```bash
+# Brief pause so the Tigera operator can reconcile -- keeps the watch screen lively, not dead
+kubectl -n tigera-operator wait --for=condition=Ready pod -l name=tigera-operator --timeout=90s
+
+# Now watch nodes flip NotReady -> Ready
 kubectl get nodes -w
 ```
 
@@ -234,26 +265,26 @@ Press **Ctrl+C** when all three say Ready.
 
 **Windows lens:** The `-w` watch flag streams updates as they happen — equivalent to `Get-EventLog -Newest 1 -Wait` or any tail-style PowerShell loop. It's how you observe cluster changes in real time without polling.
 
-**Narrate:** "**Magic moment, on camera.** As soon as the Calico DaemonSet finishes rolling out one pod per node, the kubelet on each node ticks the last unticked box on its readiness checklist. All three nodes flip to Ready within seconds of each other."
+**Narrate:** "**One wait, then watch.** The Tigera operator has to be Ready before it rolls out the calico-node DaemonSet. This `wait` line trades 5 seconds of clean transition for 30 seconds of black-screen confusion. **On camera, pacing IS pedagogy.** Then the magic moment: as soon as the Calico DaemonSet finishes rolling out one pod per node, the kubelet on each node ticks the last unticked box on its readiness checklist. All three nodes flip to Ready within seconds of each other."
 
 ### Step 2.4 — Verify Calico's own pods are healthy
 
 ```bash
-kubectl get pods -n calico-system
+kubectl get pods -n calico-system -o wide
 ```
 
-**Expected:**
+**Expected (note the `NODE` column -- one `calico-node` per node, visually verifiable):**
 
 ```
-NAME                                       READY   STATUS    RESTARTS   AGE
-calico-kube-controllers-...                1/1     Running   0          90s
-calico-node-...                            1/1     Running   0          90s   ← one per node
-calico-node-...                            1/1     Running   0          90s
-calico-node-...                            1/1     Running   0          90s
-calico-typha-...                           1/1     Running   0          90s
+NAME                            READY   STATUS    RESTARTS   AGE   IP              NODE       NOMINATED NODE   READINESS GATES
+calico-kube-controllers-...     1/1     Running   0          90s   192.168.x.x     worker1    <none>           <none>
+calico-node-...                 1/1     Running   0          90s   192.168.50.10   control1   <none>           <none>
+calico-node-...                 1/1     Running   0          90s   192.168.50.11   worker1    <none>           <none>
+calico-node-...                 1/1     Running   0          90s   192.168.50.12   worker2    <none>           <none>
+calico-typha-...                1/1     Running   0          90s   192.168.50.11   worker1    <none>           <none>
 ```
 
-**Narrate:** "**Three `calico-node` pods, one per node** — that's the DaemonSet pattern, the same shape as kube-proxy. `calico-kube-controllers` is the single controller Deployment that manages BGP and IPAM state. **Operator-managed, version-pinned, upgradeable cleanly.**"
+**Narrate:** "**`-o wide` adds the NODE column so you can visually confirm the DaemonSet shape.** Three `calico-node` pods, one each on control1, worker1, worker2 -- that's the DaemonSet pattern, the same shape as kube-proxy. `calico-kube-controllers` is the single controller Deployment that manages BGP and IPAM state. **Operator-managed, version-pinned, upgradeable cleanly.**"
 
 ### Step 2.5 — Six-point cluster validation (the exam-day checklist)
 
@@ -705,7 +736,7 @@ Read Robert's quote in character. Monitoring dashboard green. Cluster validated.
 Read the four takeaways off the slide and **add the exam framing** on each:
 
 1. **CNI is what makes nodes Ready.** Every NotReady-after-init question on the exam is "install or fix the CNI." Don't overthink it.
-2. **Calico is the CKA default for a reason.** NetworkPolicy support, 192.168.0.0/16 default CIDR matching kubeadm, active maintenance.
+2. **Calico is the CKA default for a reason.** NetworkPolicy enforcement, `192.168.0.0/16` default CIDR matching kubeadm out-of-the-box, and **the exam typically hands you the upstream `kubectl create -f` URLs** -- so default to YAML on the exam and reach for Helm in production.
 3. **Validate every layer after infrastructure changes.** The six-point checklist is the exam's verification surface. Own it.
 4. **Break it on purpose to build troubleshooting muscle.** Thirty percent of the exam. The diagnostic ladder is the same workflow for every failure.
 
@@ -756,10 +787,10 @@ Then restore Module 2's post-init-join snapshot for a clean restart.
 |---|---|---|
 | `helm install` fails with "context deadline exceeded" | API server slow during startup | Wait 15 seconds, retry — first install after restore is slowest |
 | Nodes stay NotReady more than 2 min after Calico install | `calico-node` pod failing on a specific node | `kubectl get pods -n calico-system -o wide` to find the bad node, then `kubectl logs -n calico-system calico-node-XXX` |
-| CoreDNS stays Pending after Calico installs | Pod CIDR mismatch | `kubectl get installation default -o yaml | grep cidr` should show `192.168.0.0/16` — if not, kubeadm init used wrong CIDR, must re-init cluster |
+| CoreDNS stays Pending after Calico installs | Pod CIDR mismatch | Run `kubectl get installation default -o yaml` and look for the `cidr:` line -- must show `192.168.0.0/16`. If not, kubeadm init used wrong CIDR, must re-init cluster |
 | `nslookup kubernetes.default` returns SERVFAIL | CoreDNS pod crashloop | `kubectl logs -n kube-system -l k8s-app=kube-dns` |
 | `nslookup` returns success but wrong IP | Used wrong busybox tag (e.g., `latest`) | Always pin `busybox:1.28` for DNS tests |
-| `kubectl get nodes -w` doesn't update | Cluster API server overloaded or paused | `kubectl get pods -n kube-system | grep apiserver` — should be Running |
+| `kubectl get nodes -w` doesn't update | Cluster API server overloaded or paused | Run `kubectl get pods -n kube-system` and look for the `kube-apiserver-control1` row -- should be Running |
 | Worker won't return to Ready after `systemctl start kubelet` | containerd died alongside kubelet | `sudo systemctl status containerd` — restart if needed |
 | `curl` to NodePort returns "connection refused" | nginx pod not Ready yet | `kubectl get pods -l app=nginx -o wide` — wait for all three Running |
 | `kubectl create deployment` fails with "ImagePullBackOff" | DNS broken on the node OR registry unreachable | Re-check Demo 2 step 5 nslookup; check `crictl pull nginx:1.27` on the node |
@@ -769,9 +800,10 @@ Then restore Module 2's post-init-join snapshot for a clean restart.
 
 ## Source mapping
 
-- **Live commands:** Deck slide 11 (Helm install + DNS smoke test), slide 13 (diagnostic ladder). One-to-one with what you type on camera.
+- **Live commands:** Deck slide 11 (YAML two-liner + DNS smoke test), slide 12 (Helm sidebar, if present), slide 13 (diagnostic ladder). One-to-one with what you type on camera.
 - **Lab setup from Modules 1-2:** `src/cka-lab/Vagrantfile` installs Helm during provisioning; Module 2 leaves the `post-init-join` snapshot.
 - **Snapshot helpers:** `src/cka-lab/cka-snapshot.ps1` and `src/cka-lab/cka-restore.ps1` — atomic, all-or-nothing across the three VMs.
+- **Snapshot chain across Course 2:** `post-prereqs` (m01) → `post-init-join` (m02) → `pre-record-m3` (m03 takes) → `post-cni-validation` (Course 3 starting point).
 - **Deck markdown extract:** `m03-cni-cluster-validation-TimEdits-WindowsFriendly.md` — every slide + full speaker notes (regenerated alongside this runbook).
 
 ---
@@ -911,4 +943,4 @@ Question says "the cluster has no internet access"
 
 ---
 
-*Three Ready nodes. One Helm release (or one manifest pair). Six validation checks. One intentional break-and-fix. Course 2, closed.*
+*Three Ready nodes. One manifest pair (or one Helm release). Six validation checks. One intentional break-and-fix. Course 2, closed.*
