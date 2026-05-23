@@ -5,7 +5,7 @@
 **Lab:** **Hyper-V + Vagrant** (NOT KIND) — `src/cka-lab` with control1, worker1, worker2 on `192.168.50.10/.11/.12`
 **Authoritative command source:** Deck slides 7 / 12 / 13 / 15 show the install commands; `src/cka-lab/Vagrantfile` already ran them at `vagrant up` time. The demo VERIFIES state, doesn't install.
 **Validator:** `src/cka-lab/cka-validate.ps1` (run from the Windows host; SSHes all three VMs in sequence)
-**Cleanup between takes:** None — every check is read-only or idempotent. Snapshot to `post-prereqs` at the end and Module 2 starts from a known-good baseline.
+**Cleanup between takes:** None — every check is read-only or idempotent. Snapshot to `m02-start` at the end and Module 2 starts from a known-good baseline.
 
 > **Verify-first, not install-first.** The Vagrantfile provisioner already ran the full slides-7/12/13/15 install sequence on all three nodes at `vagrant up`. So the on-camera demo isn't "type the install commands" — it's "inspect the host and prove every prereq is correct." This is the same skill the CKA exam tests: handed a node that someone else prepared, can you verify it before bootstrapping? Show the deck slides for the install commands, then prove the state on the live VM. **Mention this on camera** with a one-liner like: "The install ran when these VMs booted — that's slides 7, 12, 13, 15 — so on camera we'll verify, the same skill the exam tests on a prepared node."
 
@@ -112,7 +112,7 @@ Inside the VM, walk Demos 1-4 below. Confirm muscle memory. Idempotent re-runs a
 7. `exit` → ENTER → back to `vagrant@control1:~$`
 8. `exit` → ENTER → back to admin pwsh on Windows
 9. **Demo 5** — `.\cka-validate.ps1` → ENTER (cross-node verifier)
-10. **Snapshot** — `.\cka-snapshot.ps1 post-prereqs` → ENTER
+10. **Snapshot** — `.\cka-snapshot.ps1 m02-start` → ENTER
 
 **Total ENTERs:** ~25 across the whole module. Slow is smooth, smooth is fast.
 
@@ -324,14 +324,23 @@ crictl images
 ### Step 4.1 — Verify all three packages are installed at the pinned version
 
 ```bash
-dpkg -l kubeadm kubelet kubectl | grep ^ii
+dpkg -l kubeadm kubelet kubectl | grep ^hi
 ```
 
-**Windows lens:** `dpkg` is Debian's package database — closest Windows analogue is `Get-Package` or `winget list`. The `ii` prefix means "**i**nstalled, configuration **i**ntact" — what `winget` would just show as "Installed."
+**Windows lens:** `dpkg` is Debian's package database — closest Windows analogue is `Get-Package` or `winget list`. The two-character status prefix is **desired action + current state** in one glyph:
 
-**Expected:** three `ii` lines, each at `1.35.x-1.1` (where x is the patch — e.g., `1.35.5-1.1` on a current build).
+| Prefix | Means | When you'd see it |
+|---|---|---|
+| `ii` | install desired, installed | Normal installed package, free to upgrade |
+| `hi` | **hold** desired, installed | Pinned via `apt-mark hold` — `apt upgrade` will skip it |
+| `rc` | remove, config-files only | Uninstalled but config left behind |
+| `un` | unknown, not installed | Package was never on the system |
 
-**Narrate:** "Three packages, identical version. That trailing `-1.1` is the Debian package revision — same Kubernetes 1.35 binary, packaged for the apt repo at `pkgs.k8s.io`. The `ii` prefix in the leftmost column is dpkg-speak for **installed AND fully configured**. Anything other than `ii` is a problem you need to fix before bootstrap."
+Our Vagrant provisioner runs `apt-mark hold kubelet kubeadm kubectl` (slide 15, step Demo 4.2 below), so all three packages show `hi`, not `ii`. **Filtering for `ii` would return zero matches on a correctly prepared node — the hold IS the lesson.**
+
+**Expected:** three `hi` lines, each at `1.35.x-1.1` (where x is the patch — e.g., `1.35.5-1.1` on a current build).
+
+**Narrate — slow down here:** "Three packages, identical version. That trailing `-1.1` is the Debian package revision — same Kubernetes 1.35 binary, packaged for the apt repo at `pkgs.k8s.io`. **Now look at the leftmost column — `hi`, not `ii`.** That `h` means **held**: someone — in our case, the Vagrant provisioner — ran `apt-mark hold` to lock these versions against the next `apt upgrade`. The `i` after it means installed. **`hi` is the correct exam-ready state**; if you ever see `ii` for these three packages, that's an unpinned cluster waiting to drift on the next patch window. We'll prove the hold itself in Step 4.2."
 
 ### Step 4.2 — Verify all three packages are held (the exam-day shield)
 
@@ -366,11 +375,24 @@ systemctl is-active kubelet
 
 **Windows lens:** `is-enabled` = `(Get-Service kubelet).StartType` (Automatic vs. Manual). `is-active` = `(Get-Service kubelet).Status` (Running vs. Stopped). Two orthogonal questions: "does it start on boot?" and "is it running right now?"
 
-**Expected:** `enabled` from the first command. The second probably returns `activating` or `failed` — both are healthy at this stage.
+**Expected:** `enabled` from the first command. The second can return `inactive`, `activating (auto-restart)`, or `failed` — **all three are healthy at this stage**. systemd cycles through these states as kubelet tries and fails to start without its config files.
 
 **Windows lens:** `Restart=always` in the kubelet unit file is the systemd equivalent of `sc.exe failure kubelet reset= 0 actions= restart/5000` on Windows. Same contract, same "die and try again" loop. The difference: systemd is loud about it (`activating (auto-restart)` is a real state); SCM hides recovery actions in Services.msc's Recovery tab.
 
-**Narrate:** "**`enabled`**, kubelet starts on every boot. The active status is allowed to be `activating (auto-restart)` or `failed` right now. **Both are healthy at this stage.** With no `kubeadm init` yet, there's no `/etc/kubernetes/kubelet.conf` for kubelet to read. It dies, systemd restarts it, it dies again. **Don't fix this crashloop.** It heals itself the moment Module 2 runs `kubeadm init`."
+**Narrate:** "**`enabled`** — kubelet starts on every boot. The active status can be `inactive`, `activating (auto-restart)`, or `failed` right now. **All three are healthy at this stage.** With no `kubeadm init` yet, there's no `/etc/kubernetes/kubelet.conf` for kubelet to read. systemd tries to start it, it dies in seconds, systemd tries again. After a few rapid failures, systemd's restart-burst limit kicks in and parks the unit at `inactive` until something triggers it. **Don't fix this crashloop.** It heals itself the moment Module 2 runs `kubeadm init` — `inactive` flips to `active` without anyone touching `systemctl start`. That before/after is one of the cleanest cause-and-effect arcs in the whole bootstrap sequence."
+
+### Step 4.5 — Prove WHY kubelet can't start yet (~15 sec, optional but high-payoff)
+
+```bash
+ls /etc/kubernetes/ 2>/dev/null || echo "empty — kubeadm init hasn't run"
+ls /var/lib/kubelet/config.yaml 2>/dev/null || echo "no config — kubelet has nothing to read"
+```
+
+**Windows lens:** `2>/dev/null` redirects stderr to the null device — the bash equivalent of `2>$null` in pwsh. `||` is "run the next command only if the previous one failed," same as pwsh's `||` chain operator (PS7+). Net effect: a clean fallback message instead of a noisy `No such file or directory` error.
+
+**Expected:** both fall back to the `echo` message — `/etc/kubernetes/` doesn't exist yet, and `/var/lib/kubelet/config.yaml` isn't there either.
+
+**Narrate:** "**Here's the proof for the previous step.** kubelet needs four things to start: a kubeconfig at `/etc/kubernetes/kubelet.conf`, a config YAML at `/var/lib/kubelet/config.yaml`, a bootstrap kubeconfig, and TLS certificates under `/var/lib/kubelet/pki/`. **None of them exist yet.** `kubeadm init` is what writes all four. That's the entire reason kubelet can be `enabled` but never reach `active`. The crashloop is *waiting for kubeadm to do its job* — and the moment that job runs in Module 2, the kubelet self-heals. Don't go troubleshooting a kubelet that's healthy by design."
 
 ### Demo 4 money shot (verbatim — say this)
 
@@ -433,12 +455,12 @@ Expected: `C:\github\ps-cka\src\cka-lab`. If not, `cd` there.
 ### Step 6.1 — Atomic checkpoint
 
 ```powershell
-.\cka-snapshot.ps1 post-prereqs
+.\cka-snapshot.ps1 m02-start
 ```
 
 **Snapshot narration (verbatim):**
 
-> "Atomic Hyper-V checkpoint across all three VMs, named `post-prereqs`. **Atomic** means all three or none — if even one VM doesn't exist or already has that checkpoint, the script aborts before touching any of them. A partial snapshot is worse than no snapshot. Now Module 2 starts from a known-good baseline: every prereq verified, every node ready, zero cluster state. **One `cka-restore.ps1 post-prereqs` away from a clean dress rehearsal of `kubeadm init`.**"
+> "Atomic Hyper-V checkpoint across all three VMs, named `m02-start`. **Atomic** means all three or none — if even one VM doesn't exist or already has that checkpoint, the script aborts before touching any of them. A partial snapshot is worse than no snapshot. Now Module 2 starts from a known-good baseline: every prereq verified, every node ready, zero cluster state. **One `cka-restore.ps1 m02-start` away from a clean dress rehearsal of `kubeadm init`.**"
 
 ### Slide 19 — Globomantics checkout (~30 sec)
 
@@ -490,7 +512,7 @@ vagrant up --provider=hyperv
 
 ```powershell
 .\cka-snapshot.ps1 pre-record       # baseline before each take
-.\cka-snapshot.ps1 post-prereqs     # after Demo 5 — Module 2's starting point
+.\cka-snapshot.ps1 m02-start     # after Demo 5 — Module 2's starting point
 ```
 
 ---
@@ -502,6 +524,8 @@ vagrant up --provider=hyperv
 | `vagrant ssh control1` hangs at the prompt | VM is `Saved`, not `Running` | `.\cka-up.ps1` from admin pwsh first |
 | `cka-status.ps1` shows no VMs at all | Day 1 of recording, or post-`vagrant destroy` | `vagrant up --provider=hyperv` (~10-15 min cold, ~5 min on box cache) |
 | `sudo: command not found` for any tool | Provisioner didn't complete on this VM | `vagrant provision control1` re-runs the installer idempotently |
+| `crictl info` errors with `permission denied` on the socket | You're running as `vagrant`, not `root` — skipped `sudo -i` from the click path | `sudo -i` then re-run. The containerd socket is `0660 root:root` by design |
+| `dpkg -l ... \| grep ^ii` returns empty but packages ARE installed | Packages are **held** (`hi` prefix), not plain installed (`ii`) | Use `grep ^hi` (or `grep -E '^[ih]i'`) — see Step 4.1's status-prefix table |
 | `crictl info` errors with `connect: no such file or directory` | containerd not running | `sudo systemctl start containerd` — then root-cause via `journalctl -xeu containerd` |
 | `kubectl` works on the host but not inside the VM | Expected — no `~/.kube/config` until `kubeadm init` in Module 2 | Not a problem. Don't fix it. |
 | `cka-validate.ps1` shows a single FAIL on one node | Drift on that VM | `vagrant ssh <node>` → re-run the relevant Demo 1-4 block on that node only |

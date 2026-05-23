@@ -3,10 +3,10 @@
 **Target runtime:** 12-14 min on camera
 **Environment:** Admin pwsh 7 on Windows 11 → `vagrant ssh control1` (Ubuntu 22.04)
 **Lab:** **Hyper-V + Vagrant** — `src/cka-lab` with control1, worker1, worker2 on `192.168.50.10/.11/.12`
-**Starting state:** `post-prereqs` snapshot from Module 1 (every prerequisite verified, zero cluster state).
+**Starting state:** `m02-start` snapshot from Module 1 (every prerequisite verified, zero cluster state).
 **Authoritative command source:** Deck slides 9 (declarative `init.yaml`), 13 (`kubeadm token create --print-join-command`), 15 (`mkdir/cp/chown` for kubectl).
 **Validator:** Module 2 ends with the cluster validation built into the kubeadm output plus `kubectl get nodes` / `kubectl get pods -n kube-system`. The cross-node CNI validation lives in Module 3.
-**Cleanup between takes:** `cka-restore.ps1 post-prereqs` rewinds in 60-90 sec. Snapshot to `post-init-join` at the end so Module 3 starts from a known-good baseline.
+**Cleanup between takes:** `cka-restore.ps1 m02-start` rewinds in 60-90 sec. Snapshot to `post-init-join` at the end so Module 3 starts from a known-good baseline.
 
 > **Declarative-first, not flag-soup.** Module 1 verified the host state; Module 2 generates an `init.yaml`, edits four lines, and runs `kubeadm init --config init.yaml`. Slide 9 is the canonical command source. Flag-based init still works, but the v1.35 CKA curriculum expects the declarative path, and so does HA later in Course 3.
 
@@ -44,7 +44,7 @@ cd C:\github\ps-cka\src\cka-lab
 ### Step 1 — Restore the Module 1 finish line
 
 ```powershell
-.\cka-restore.ps1 post-prereqs
+.\cka-restore.ps1 m02-start
 ```
 
 Atomic restore across all three VMs. ~60-90 sec. **Every recording of M2 starts from this exact state.** No drift, no surprises.
@@ -88,20 +88,22 @@ Inside the VM, walk Demos 1-4. Confirm muscle memory. Then `exit` twice to get b
 ## Click path (the exact ENTER sequence — high level)
 
 1. `vagrant ssh control1` → ENTER → land at `vagrant@control1:~$`
-2. `sudo -i` → ENTER → root prompt
-3. **Demo 1** — seed and edit `init.yaml` (four lines)
+2. `sudo -i` → ENTER → root prompt (kubeadm init needs root)
+3. **Demo 1** — `kubeadm config print init-defaults > init.yaml`, then `vim init.yaml` to make the four edits (see cheat card in Demo 1), `:wq`, then verify with the grep
 4. **Demo 2** — `kubeadm init --config init.yaml --upload-certs` (watch output); `ls /etc/kubernetes/{pki,manifests}/`; `cat /etc/kubernetes/manifests/kube-apiserver.yaml | head -30`
-5. **Demo 4 first half** — `mkdir/cp/chown` for `~/.kube/config`, run `kubectl get nodes` (NotReady, expected)
-6. **Demo 3a** — `kubeadm token create --print-join-command` (regenerate join command for camera) → copy to clipboard
-7. `exit` → `exit` → back to admin pwsh
-8. `vagrant ssh worker1` → `sudo kubeadm join ...` → wait for success → `exit`
-9. `vagrant ssh worker2` → `sudo kubeadm join ...` → wait for success → `exit`
-10. `vagrant ssh control1` → `kubectl get nodes` (three nodes, all NotReady) → `kubectl get pods -n kube-system`
-11. `exit` → `exit` → `.\cka-snapshot.ps1 post-init-join`
+5. `exit` → ENTER → **leave sudo -i**, back to `vagrant@control1:~$`
+6. **Demo 4 first half** — `mkdir/cp/chown` as **vagrant** (sudo on `cp`/`chown` only); `kubectl get nodes` works as vagrant, kubeconfig lives at `/home/vagrant/.kube/config`
+7. **Demo 3a** — `sudo kubeadm token create --print-join-command | tee /tmp/join-cmd.txt` → highlight the full join line on screen and **copy to clipboard**
+8. `exit` → ENTER → back to admin pwsh on Windows
+9. `vagrant ssh worker1` → paste the join command, **prepend `sudo`** before pressing Enter → wait for success banner → `exit`
+10. `vagrant ssh worker2` → paste the join command, **prepend `sudo`** before pressing Enter → wait for success banner → `exit`
+11. `vagrant ssh control1` → `kubectl get nodes -o wide` (three nodes, all NotReady — works as vagrant) → `kubectl get pods -n kube-system`
+12. `exit` → ENTER → back to admin pwsh
+13. `.\cka-snapshot.ps1 post-init-join` → ENTER
 
 **Total ENTERs:** ~30 across the whole module. Slow is smooth, smooth is fast.
 
-**Why root for the demo:** kubeadm init writes to `/etc/kubernetes/` and reads `/etc/containerd/config.toml`. Constantly prefixing `sudo` adds visual noise. Open with: **"I'm going to `sudo -i` to keep the commands clean — in production you'd `sudo` each step."**
+**Why root only for Demo 1 and Demo 2, then we exit:** `kubeadm init` writes to `/etc/kubernetes/` and reads `/etc/containerd/config.toml` — root pays off there. **After init succeeds, we deliberately `exit` out of `sudo -i`** so the `~/.kube/config` setup writes to `/home/vagrant/.kube/config` (where every later `kubectl` will look). **Running everything as root is the #1 kubeadm beginner mistake** — the kubeconfig lands in `/root/.kube/config` and `kubectl` then silently fails for the regular user. Then `sudo kubeadm token create` (sudo on the single command, not a full root login) is enough for the join command. Open with: **"We're root for `kubeadm init` and then we exit root — that's the standard kubeadm flow, and getting it backwards is why most people's first cluster ends with `kubectl` errors."**
 
 **Pedagogical frame for the open:** "Module 1 verified every prerequisite. The VMs are exam-clean. Now we bootstrap. The CKA exam tests `kubeadm init` and `kubeadm join` directly — under time pressure — and the difference between a calm three-minute exercise and a panicked twenty-minute scramble is which lines you have memorized."
 
@@ -130,168 +132,83 @@ hostname && whoami
 
 Expected: `control1` and `root`. If you see `vagrant`, you skipped `sudo -i`.
 
-### Step 1.2 — Seed the declarative init config
+### Step 1.2 — Emit the kubeadm defaults
 
 ```bash
 kubeadm config print init-defaults > init.yaml
 ```
 
-**Windows lens:** `init-defaults` emits a YAML template — the closest Windows analog is `Export-DscConfiguration` printing a DSC document, or `New-AzConfig` stubbing out an ARM template. You edit the template; you do not memorize nineteen command-line flags.
+You now have a v1beta4 InitConfiguration + ClusterConfiguration template. **This is the exam-day pattern** — emit defaults, edit four lines, save. No flag-soup.
 
-**Narrate:** "One command, one file. That file is `init.yaml` — kubeadm's declarative configuration. Every flag you'd pass on the command line has a YAML equivalent in here, and the exam-day move is editing the file rather than typing a thirty-character flag list."
-
-### Step 1.3 — Edit the four lines that matter (vim on camera)
+### Step 1.3 — Open in vim and make four edits
 
 ```bash
 vim init.yaml
 ```
 
-**Why vim:** it's the editor preinstalled on every CKA exam VM. No mouse, no menus, pure keyboard. If your muscle memory is solid, four edits take 30 seconds. If it isn't, you panic on exam day. **Teach the panic away here.**
+**Optional, viewer-friendly:** `:set number` ⏎ to show line numbers.
 
-**The four edits aren't all the same kind of edit.** That's the key insight. The defaults file already contains some of these keys and is missing others, so each edit has its own keystroke recipe.
+**Cheat card — keep this visible on second monitor:**
 
-| # | Key | In the defaults? | Vim move |
+| # | Find with `/...` | Vim action | What you'll type |
 |---|---|---|---|
-| 1 | `advertiseAddress` | Yes (placeholder `1.2.3.4`) | Search, `C`, retype |
-| 2 | `podSubnet` | No | Search anchor, `o`, type new line |
-| 3 | `controlPlaneEndpoint` | No | Search anchor, `o`, type new line |
-| 4 | `apiServer` (empty `{}`) | Yes (as flow-style empty map) | Search, `cc`, type 5 lines |
+| 1 | `1.2.3.4` | `C` (change to end of line) | `192.168.50.10` |
+| 2 | `serviceSubnet:` | `o` (open new line below) | `␣␣podSubnet: 192.168.0.0/16` (2 leading spaces) |
+| 3 | `clusterName:` | `o` (open new line below) | `controlPlaneEndpoint: 192.168.50.10:6443` (no indent) |
+| 4 | `apiServer: {}` | `cc` (change whole line) | 4 lines (see Edit 4) |
 
-**Optional cosmetic - turn on line numbers so viewers can follow:**
-
-```text
-:set number   ⏎
-```
-
-#### Edit 1 - Change `advertiseAddress` value
-
-The defaults emit a placeholder `1.2.3.4`. Swap it for the lab's control-plane IP.
-
-**Before:**
-
-```yaml
-  advertiseAddress: 1.2.3.4
-```
-
-**Keystrokes:**
+#### Edit 1 — `advertiseAddress`
 
 ```text
-/1.2.3.4    ⏎     " jump cursor to the value
-C                  " kill from cursor to end of line, enter insert mode
-192.168.50.10      " type the new value
-Esc                " back to command mode
-```
-
-**After:**
-
-```yaml
-  advertiseAddress: 192.168.50.10
-```
-
-#### Edit 2 - Add `podSubnet` under `networking:`
-
-`podSubnet` is not in the defaults. Add it as a third key inside the existing `networking:` block.
-
-**Before:**
-
-```yaml
-networking:
-  dnsDomain: cluster.local
-  serviceSubnet: 10.96.0.0/12
-```
-
-**Keystrokes:**
-
-```text
-/serviceSubnet    ⏎             " anchor inside the networking block
-o                                " open new line BELOW, insert mode
-  podSubnet: 192.168.0.0/16      " two-space indent - type the leading spaces literally
+/1.2.3.4   ⏎
+C
+192.168.50.10
 Esc
 ```
 
-**After:**
+#### Edit 2 — `podSubnet` (under `networking:`)
 
-```yaml
-networking:
-  dnsDomain: cluster.local
-  serviceSubnet: 10.96.0.0/12
+```text
+/serviceSubnet   ⏎
+o
   podSubnet: 192.168.0.0/16
-```
-
-#### Edit 3 - Add `controlPlaneEndpoint` at top level
-
-Also not in the defaults. Add as a sibling of `clusterName` in the **second** YAML document (the `ClusterConfiguration` block that follows the `---` separator).
-
-**Before:**
-
-```yaml
-clusterName: kubernetes
-```
-
-**Keystrokes:**
-
-```text
-/clusterName    ⏎                                    " anchor in ClusterConfiguration
-o                                                     " open new line BELOW
-controlPlaneEndpoint: k8s.globomantics.local:6443     " top-level - NO leading spaces
 Esc
 ```
 
-**After:**
+The two leading spaces matter — they put `podSubnet` at the same indent level as `serviceSubnet`.
 
-```yaml
-clusterName: kubernetes
-controlPlaneEndpoint: k8s.globomantics.local:6443
-```
-
-#### Edit 4 - Replace `apiServer: {}` with the SAN-pinning block
-
-The defaults render `apiServer:` as the flow-style empty map `{}`. Replace that line with five lines that pin the certificate SANs.
-
-**Before:**
-
-```yaml
-apiServer: {}
-```
-
-**Keystrokes (toggle paste mode first to suppress YAML autoindent surprises):**
+#### Edit 3 — `controlPlaneEndpoint` (top-level in `ClusterConfiguration`)
 
 ```text
-:set paste   ⏎                  " turn off autoindent for clean multi-line entry
-/apiServer:   ⏎                  " jump to the empty-map line
-cc                                " wipe the whole line, enter insert mode at column 0
-apiServer:                        " type line 1, press ⏎
-  certSANs:                       " line 2 - two leading spaces, press ⏎
-    - k8s.globomantics.local      " line 3 - four leading spaces, press ⏎
-    - 192.168.50.10               " line 4 - four leading spaces, press ⏎
-    - 10.96.0.1                   " line 5 - four leading spaces
+/clusterName   ⏎
+o
+controlPlaneEndpoint: 192.168.50.10:6443
 Esc
-:set nopaste   ⏎                 " restore normal vim behavior
 ```
 
-**After:**
+No leading spaces — `controlPlaneEndpoint` is a top-level key, sibling of `clusterName`.
 
-```yaml
+#### Edit 4 — Replace `apiServer: {}` with the SAN block
+
+Toggle paste mode first so vim doesn't auto-indent your four lines into a parser error:
+
+```text
+:set paste   ⏎
+/apiServer:   ⏎
+cc
 apiServer:
   certSANs:
-    - k8s.globomantics.local
     - 192.168.50.10
     - 10.96.0.1
+Esc
+:set nopaste   ⏎
 ```
 
-#### Save and verify
+**Save and exit:** `:wq` ⏎
 
-```text
-:wq   ⏎
-```
+If a single edit went sideways, `vim init.yaml` and fix the one line. If multiple edits broke, faster to `rm init.yaml` and re-run Step 1.2 cleanly.
 
-If anything went sideways, abandon and redo Step 1.2:
-
-```text
-:q!   ⏎
-```
-
-**Back at the shell, confirm all four edits landed in one grep:**
+### Step 1.4 — Verify all four edits landed (one grep)
 
 ```bash
 grep -E "advertiseAddress|podSubnet|controlPlaneEndpoint|certSANs" init.yaml
@@ -302,29 +219,17 @@ grep -E "advertiseAddress|podSubnet|controlPlaneEndpoint|certSANs" init.yaml
 ```text
   advertiseAddress: 192.168.50.10
   podSubnet: 192.168.0.0/16
-controlPlaneEndpoint: k8s.globomantics.local:6443
+controlPlaneEndpoint: 192.168.50.10:6443
   certSANs:
 ```
 
-If a line is missing or wrong, `vim init.yaml` and fix it. If multiple are wrong, faster to `rm init.yaml` and re-run Step 1.2 cleanly.
+If a line is missing or wrong, re-open vim and fix the specific edit.
 
 ---
 
-**Vim exam-survival kit:** `i` insert · `Esc` command · `/` search · `o` open line below · `:wq` save+quit · `:q!` abandon ship. Tattoo those six. The demo uses `C` (change to end of line) and `cc` (change whole line) as speed boosters - useful, not required.
+**Vim exam-survival kit (6 keystrokes, tattoo these):** `i` insert · `Esc` command · `/` search · `o` open line below · `:wq` save+quit · `:q!` abandon ship. The demo also uses `C` (change to end of line) and `cc` (change whole line) — speed boosters, not required.
 
-**Windows lens:** YAML's indentation is the structure (the same way PowerShell's hashtables are structured by braces, but YAML uses whitespace). Two-space indents only, tabs break the parser silently.
-
-**Narrate, slow down on `controlPlaneEndpoint`:** "**This is the most important line.** Today this DNS name resolves to `192.168.50.10`. Tomorrow in Course 3 it resolves to HAProxy fronting three control-plane nodes. Setting it now writes it into every certificate's SAN list. Skipping it now means HA later is a five-hour certificate reissue. Ten seconds today saves you thirty minutes in Course 3."
-
-### Step 1.4 — Confirm `/etc/hosts` resolves the controlPlaneEndpoint
-
-```bash
-grep globomantics /etc/hosts
-```
-
-**Expected:** `192.168.50.10 k8s.globomantics.local control1` (the Vagrantfile's `hosts-file` provisioner already wrote this on all three VMs).
-
-**Narrate:** "If `controlPlaneEndpoint` doesn't resolve on the workers, `kubeadm join` fails with 'connection refused.' The Vagrantfile pre-staged `/etc/hosts` entries on all three VMs so the DNS name resolves locally. In real production this is where you'd point at internal DNS or a managed load balancer."
+**Narrate, slow down on `controlPlaneEndpoint`:** "**This is the most important line.** Today it's an IP — `192.168.50.10`, control1's address — because that's the honest representation of a single-CP cluster. Tomorrow in Course 3, we swap it for a DNS name pointing at HAProxy in front of three control-plane nodes. Setting `controlPlaneEndpoint` now, even just as the IP, writes it into every certificate's SAN list AND bakes it into the kubeconfig. **Skipping it now and adding HA later is a five-hour certificate reissue.** Ten seconds today saves you thirty minutes in Course 3."
 
 ### Demo 1 money shot (verbatim — say this)
 
@@ -415,21 +320,40 @@ spec:
 
 ---
 
-## Demo 4 first half — Set up kubectl (1 min)
+## Demo 4 first half — Set up kubectl (1-2 min)
 
 We deliberately do kubectl access BEFORE joining workers, so we can use kubectl to verify the join.
 
-### Step 4.1 — Copy `admin.conf` into the user's home
+### Step 4.0 — Exit `sudo -i` so kubectl setup lands in the right home directory
+
+```bash
+exit
+```
+
+You're back at `vagrant@control1:~$` (the `$` prompt instead of `#` is your visual cue). **This matters.** Inside `sudo -i`, `$HOME` was `/root`. Now `$HOME` is `/home/vagrant`. The three lines in Step 4.1 will write `~/.kube/config` into `/home/vagrant/.kube/config` — the exact path every later `kubectl` command (including the post-join verification in Step 4.3) will look at.
+
+**Narrate:** "**Watch this carefully — this is where every kubeadm beginner faceplants.** If we ran the next three lines while still inside `sudo -i`, the kubeconfig would land in `/root/.kube/config` and we could never use `kubectl` as a regular user. Standard kubeadm flow: bootstrap as root, then **exit root** before configuring `~/.kube/config`. The kubeconfig lives with the user, not with root."
+
+### Step 4.1 — Copy `admin.conf` into the vagrant user's home (sudo only where needed)
 
 ```bash
 mkdir -p $HOME/.kube
-cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-chown $(id -u):$(id -g) $HOME/.kube/config
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+ls -l $HOME/.kube/config
 ```
 
-**Windows lens:** `chown` rewrites file ownership, the Linux equivalent of `icacls /setowner` on Windows. `$(id -u):$(id -g)` is shell substitution for "current user ID : current group ID", same idea as `%USERNAME%` expansion in cmd. In this demo we are `root` inside `sudo -i`, so the chown is a no-op for us, but in real production you would have run those three lines as your normal user, and the chown is what makes the kubeconfig usable. Teach it as muscle memory.
+**Windows lens:** `chown` rewrites file ownership, the Linux equivalent of `icacls /setowner` on Windows. `$(id -u):$(id -g)` is shell substitution for "current user's UID:GID" — for `vagrant` that's `1000:1000`. **Why `sudo` only on `cp` and `chown`, not `mkdir`:** `mkdir` writes inside our own `$HOME`, no privilege needed. `cp` reads `/etc/kubernetes/admin.conf` which is `0600 root:root` — needs root to read. `chown` then *transfers ownership* of that root-owned file to vagrant — also needs root. **Three commands, two need sudo, one doesn't.** Knowing which is which is exam muscle memory.
 
-**Narrate, drop into a slower cadence here:** "Three lines, every kubeadm tutorial in the world ships them together. **Make the directory** so `~/.kube/config` has a parent. **Copy the admin kubeconfig** because that file embeds the cluster URL, the cluster CA, and an admin client cert. **Fix the ownership** so a non-root user owns the file, not root. **Skip the chown as a regular user and kubectl returns 'permission denied' on the client certificate.** That is the #1 day-one error in this course. Burn the triplet in: `mkdir -p`, `cp -i`, `chown`."
+**Expected `ls -l` output:**
+
+```text
+-rw------- 1 vagrant vagrant <bytes> <date> /home/vagrant/.kube/config
+```
+
+The `vagrant vagrant` columns are the proof — file owner and group are both `vagrant`, **not `root`**. That's what makes `kubectl` work without `sudo` from here on.
+
+**Narrate, drop into a slower cadence here:** "Three lines, every kubeadm tutorial in the world ships them together. **Make the directory** so `~/.kube/config` has a parent — no sudo, we own our own home. **Copy the admin kubeconfig** with sudo because `/etc/kubernetes/admin.conf` is `0600 root:root` — only root can read it. **Fix the ownership** so the vagrant user owns the file, not root. **Look at the `ls -l`: `vagrant vagrant`, not `root root`.** That's the entire point — and that's the line that makes `kubectl` work as a non-root user. **Skip the chown and kubectl returns 'permission denied' on the client certificate.** Burn the triplet in: `mkdir`, `sudo cp -i`, `sudo chown`."
 
 ### Step 4.2 — Verify kubectl works AND the cluster is in the expected NotReady state
 
@@ -475,41 +399,28 @@ kubeadm token create --print-join-command
 **Output (paste verbatim onto every worker):**
 
 ```
-kubeadm join k8s.globomantics.local:6443 --token abcdef.0123456789abcdef --discovery-token-ca-cert-hash sha256:<HEX>
+kubeadm join 192.168.50.10:6443 --token abcdef.0123456789abcdef --discovery-token-ca-cert-hash sha256:<HEX>
 ```
 
 **Windows lens:** a kubeadm bootstrap token is a short-lived shared secret with a 24-hour default TTL, the same model as a Kerberos TGT's lifetime or a `New-PSSession` credential cached for a session. The CA-cert hash that travels with the join command is a SHA-256 pin of the cluster's root CA, conceptually equivalent to thumbprint-pinning a cert in `Cert:\LocalMachine\Root`. Both ends mutually authenticate, neither is optional.
 
 **Narrate, slow down here:** "**This is the single most important command in this module.** Picture exam day. You ran init fifteen minutes ago. The terminal scrolled. The question now says 'join two workers to this cluster.' Where is the join command? Gone. **`kubeadm token create --print-join-command`** rebuilds it in two seconds, fresh token, correct CA hash, ready to paste. **The rule is: never scroll backward for the original. Always regenerate.** Memorize this command. Tattoo it."
 
-### Step 3.1b — Capture the join command to a file (recording-safe)
+### Step 3.1b — Save the join command to a scratch file for clean on-camera copy
+
+You should still be at the `vagrant@control1:~$` prompt from Step 4.1 (not in `sudo -i`). Run the token command with `sudo` and tee the output:
 
 ```bash
-kubeadm token create --print-join-command | sudo tee /tmp/join.sh
-sudo chmod +x /tmp/join.sh
-cat /tmp/join.sh
+sudo kubeadm token create --print-join-command | tee /tmp/join-cmd.txt
 ```
 
-**Why `tee` to a file:** scrollback is one Ctrl-L away from gone, and a SHA-256 hash is not something you want to retype across two worker SSH sessions. `tee` writes the join command to `/tmp/join.sh` AND echoes it to the terminal in one step, so the on-camera flow stays clean. In production you'd swap `/tmp` for a credential-safe path; on the exam, scratch files in `/tmp` are fine.
+**Why `tee` to a file (no `chmod`, no script, no shebang):** scrollback is one Ctrl-L away from gone, and a SHA-256 hash is not something you want to retype. `tee` writes the join command to `/tmp/join-cmd.txt` AND echoes it to your terminal in one step, so the full command stays visible on camera AND is safely on disk. **It's a one-line text file**, not a script — we'll paste the contents directly into each worker SSH session in Steps 3.3 and 3.4.
 
-**Security note (say this on camera):** "**The bootstrap token in `/tmp/join.sh` is short-lived — 24-hour default — and burned the second a worker joins. Don't scrub it from the recording. By the time anyone watches this, the token is dead.**"
+**Why not `scp` it across to the workers:** the Vagrantfile doesn't distribute SSH keys between VMs, so `scp vagrant@worker1:...` would prompt for a password on camera. The clipboard-and-paste path uses the Vagrant SSH keys the Windows host already has, no cross-VM trust required.
 
-**Distribute to the workers** (run from control1, still as root):
+**Security note (say this on camera):** "**The bootstrap token in this output is short-lived — 24-hour default — and burned the second a worker joins. Don't scrub it from the recording. By the time anyone watches this, the token is dead.**"
 
-```bash
-for w in worker1 worker2; do
-  scp -o StrictHostKeyChecking=no /tmp/join.sh vagrant@$w:/tmp/join.sh
-  ssh -o StrictHostKeyChecking=no vagrant@$w "sudo chmod +x /tmp/join.sh && ls -l /tmp/join.sh"
-done
-```
-
-**Narrate:** "**One `tee`, one `scp` loop, and both workers have the exact same join command on disk.** No retyping. No squinting. When we open the worker SSH sessions in Step 3.3 and 3.4, the command is already there — we just run it."
-
-**Expected `ls -l` output (per worker):**
-
-```text
--rwxr-xr-x 1 root root  <bytes> <date> /tmp/join.sh
-```
+**On camera now:** highlight the full `kubeadm join ...` line (the one with `--token` and `--discovery-token-ca-cert-hash`), right-click → Copy (or Ctrl+Shift+C in Windows Terminal). That's the clipboard contents we'll paste twice.
 
 ### Step 3.2 — Copy the join command to clipboard, then exit to Windows
 
@@ -526,15 +437,15 @@ You're back at admin pwsh on Windows. Paste the join command into a temporary fi
 vagrant ssh worker1
 ```
 
-Inside worker1:
+Inside worker1, type **`sudo`** followed by a space, then paste the join command from your clipboard:
 
 ```bash
-sudo /tmp/join.sh
+sudo kubeadm join 192.168.50.10:6443 --token <pasted> --discovery-token-ca-cert-hash sha256:<pasted>
 ```
 
 **Expected output ends with:** `This node has joined the cluster: ...`
 
-**Narrate:** "Two-way verification. The token authenticates the worker — proves it has permission to join. The CA-cert hash authenticates the API server — proves the worker is talking to the real cluster, not a man-in-the-middle. **Belt and suspenders, by design.** **Reading the join command from `/tmp/join.sh` — same command we captured on control1, same SHA-256 hash, zero retyping risk.**"
+**Narrate:** "Two-way verification. The token authenticates the worker — proves it has permission to join. The CA-cert hash authenticates the API server — proves the worker is talking to the real cluster, not a man-in-the-middle. **Belt and suspenders, by design.** **Notice I typed `sudo` first, then pasted the join line** — kubeadm writes `/etc/kubernetes/kubelet.conf` and needs root to do it. Same command we captured on control1, same SHA-256 hash, zero retyping risk."
 
 ### Step 3.4 — Join worker2
 
@@ -546,15 +457,15 @@ exit   # leave worker1
 vagrant ssh worker2
 ```
 
-Inside worker2 — run the same captured script (within the 24-hour TTL it's still valid):
+Inside worker2, same drill — type **`sudo`** + space, then paste (the join command is still valid for the 24-hour TTL):
 
 ```bash
-sudo /tmp/join.sh
+sudo kubeadm join 192.168.50.10:6443 --token <pasted> --discovery-token-ca-cert-hash sha256:<pasted>
 ```
 
 **Expected:** same success banner. ~20-30 sec.
 
-**Narrate:** "**Reading the join command from `/tmp/join.sh` — same command we captured on control1, same SHA-256 hash, zero retyping risk.**"
+**Narrate:** "Same paste, second worker. Two `sudo`s, two pastes, two `This node has joined the cluster` banners — that's the whole worker-join workflow."
 
 ```bash
 exit   # leave worker2
@@ -578,7 +489,7 @@ exit   # leave worker2
 vagrant ssh control1
 ```
 
-Inside control1 (no `sudo -i` needed — kubectl is owned by the vagrant user):
+Inside control1 (no `sudo -i` needed — `~/.kube/config` was set up for the vagrant user back in Step 4.1, so `kubectl` works directly):
 
 ```bash
 kubectl get nodes -o wide
@@ -662,7 +573,7 @@ Every command in this module is idempotent against `kubeadm reset`, but the clea
 .\cka-restore.ps1 pre-record-m2
 ```
 
-~60-90 sec. Back to the pre-record baseline (post-prereqs from Module 1).
+~60-90 sec. Back to the pre-record baseline (m02-start from Module 1).
 
 ### Nuclear option — `kubeadm reset` and start over without snapshot
 
@@ -689,12 +600,12 @@ Repeat on worker1 and worker2. Slower than restore but works if the snapshot is 
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `kubeadm init` fails at preflight | Module 1 work drifted (e.g., swap re-enabled) | `.\cka-restore.ps1 post-prereqs` and start over |
+| `kubeadm init` fails at preflight | Module 1 work drifted (e.g., swap re-enabled) | `.\cka-restore.ps1 m02-start` and start over |
 | `kubeadm init` hangs at "waiting for the kubelet" | containerd not running or wrong cgroup driver | `sudo systemctl status containerd`; if down, `sudo systemctl restart containerd` |
-| `kubeadm init` exits with "controlPlaneEndpoint not resolvable" | `/etc/hosts` entry missing on control1 | `grep globomantics /etc/hosts` — should show `192.168.50.10 k8s.globomantics.local` |
-| `kubeadm join` returns "invalid token" | Token expired (>24h) | Regenerate with `kubeadm token create --print-join-command` |
+| `kubeadm init` exits with "controlPlaneEndpoint not reachable" | Wrong IP in `controlPlaneEndpoint` or NIC down | `ip -4 addr show eth0` on control1 — must show `192.168.50.10/24` |
+| `kubeadm join` returns "invalid token" | Token expired (>24h) | Regenerate with `sudo kubeadm token create --print-join-command` on control1 |
 | `kubeadm join` returns "x509: certificate signed by unknown authority" | CA-cert hash typo in paste | Regenerate the full join command — never type the hash by hand |
-| `kubeadm join` returns "Unable to connect to the server" | controlPlaneEndpoint doesn't resolve on the worker | `grep globomantics /etc/hosts` on the worker — should show same line as control1 |
+| `kubeadm join` returns "Unable to connect to the server: dial tcp 192.168.50.10:6443" | Worker can't reach control1's API server | `ping -c1 192.168.50.10` from the worker; check `CKA-NAT` switch + control1's firewall |
 | `kubectl` returns "permission denied" on admin.conf | Skipped the `chown` step | `sudo chown $(id -u):$(id -g) ~/.kube/config` |
 | `kubectl get nodes` shows control1 only after join | Workers crashlooped during join | `vagrant ssh worker1; sudo journalctl -u kubelet -n 50` |
 | CoreDNS stuck Pending after Module 3 CNI install (later) | Pod CIDR mismatch | `kubectl cluster-info dump | grep -i podSubnet` vs Calico's CIDR — must match `192.168.0.0/16` |
@@ -705,7 +616,7 @@ Repeat on worker1 and worker2. Slower than restore but works if the snapshot is 
 ## Source mapping
 
 - **Live commands:** Deck slides 9 (declarative init.yaml + kubeadm init + kubectl setup + join), 13 (kubeadm token create --print-join-command). One-to-one with what you type on camera.
-- **Lab setup from Module 1:** `src/cka-lab/Vagrantfile` provisioner already ran prereqs at `vagrant up`. Module 2 picks up at `post-prereqs` snapshot.
+- **Lab setup from Module 1:** `src/cka-lab/Vagrantfile` provisioner already ran prereqs at `vagrant up`. Module 2 picks up at `m02-start` snapshot.
 - **Snapshot helpers:** `src/cka-lab/cka-snapshot.ps1` and `src/cka-lab/cka-restore.ps1` — atomic, all-or-nothing across the three VMs.
 - **Deck markdown extract:** `m02-kubeadm-init-join-TimEdits-WindowsFriendly.md` — every slide + full speaker notes (regenerated alongside this runbook).
 
