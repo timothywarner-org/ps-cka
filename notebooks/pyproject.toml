@@ -1,0 +1,13 @@
+[project]
+name = "cka-c02-notebooks"
+version = "0.1.0"
+description = "Parser + tooling that converts CKA Course 2 markdown runbooks into JupyterLab notebooks (.NET Interactive PowerShell kernel). Not a publishable package."
+requires-python = ">=3.11"
+dependencies = [
+    "markdown-it-py>=3.0",
+    "nbformat>=5.10",
+    "jupyterlab>=4.2",
+]
+
+[tool.uv]
+managed = true

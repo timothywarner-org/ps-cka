@@ -1,0 +1,65 @@
+/* CKA Course 2 — recording-friendly JupyterLab CSS
+ * Loaded via: jupyter lab --custom-css ... (or via overrides.json)
+ * Goals: hide chrome that distracts on camera, visually flag destructive cells,
+ * style expected-output markdown blocks so they're obviously not executable.
+ */
+
+/* ----- Destructive cells: red left border so Tim sees the warning on camera ----- */
+.jp-Cell[data-tags~="destructive"] .jp-InputArea {
+    border-left: 4px solid #d92f2f !important;
+    background-color: rgba(217, 47, 47, 0.04);
+}
+.jp-Cell[data-tags~="destructive"]::before {
+    content: "DESTRUCTIVE — verify snapshot before running";
+    display: block;
+    color: #d92f2f;
+    font-size: 0.75em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0.25em 0 0.5em 0.5em;
+}
+
+/* ----- Expected-output markdown cells: grey quoted block ----- */
+.jp-Cell[data-tags~="expected-output"] .jp-MarkdownCell {
+    background-color: #f5f5f5;
+    border-left: 3px solid #999;
+    padding: 0.5em 1em;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 0.85em;
+}
+
+/* ----- Pre-flight cells: subtle blue tint so they're visually grouped ----- */
+.jp-Cell[data-tags~="pre-flight"] .jp-InputArea {
+    border-left: 3px solid #2c5f9b;
+}
+
+/* ----- Interactive cells (vim, vagrant ssh, kubectl edit, etc.) ----- */
+/* These block the kernel. Style them so Tim knows to switch terminals
+ * rather than click Run. Yellow because they're "warning, not danger." */
+.jp-Cell[data-tags~="interactive"] .jp-InputArea {
+    border-left: 4px solid #d4a017 !important;
+    background-color: rgba(212, 160, 23, 0.04);
+}
+.jp-Cell[data-tags~="interactive"]::before {
+    content: "INTERACTIVE — run in a terminal, not the notebook";
+    display: block;
+    color: #b8860b;
+    font-size: 0.75em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0.25em 0 0.5em 0.5em;
+}
+
+/* ----- Cell numbering: large enough to read in screen recordings ----- */
+.jp-InputPrompt, .jp-OutputPrompt {
+    font-size: 0.85em;
+    color: #666;
+}
+
+/* ----- Bigger code font for camera ----- */
+.jp-Cell .CodeMirror, .jp-CodeMirrorEditor {
+    font-size: 14px;
+    line-height: 1.5;
+}
