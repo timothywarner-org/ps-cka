@@ -118,11 +118,14 @@ YAML
         #!/usr/bin/env bash
         #================================================================
         # CKA Lab — Pre-cluster provisioning
-        # Installs containerd + kubeadm/kubelet/kubectl on Ubuntu 22.04
+        # Installs containerd + crictl + kubeadm/kubelet/kubectl on Ubuntu 22.04
         # Stops BEFORE kubeadm init so you can snapshot clean state
         #================================================================
 
         set -euo pipefail
+
+        # apt must never block on an interactive prompt during provisioning.
+        export DEBIAN_FRONTEND=noninteractive
 
         # --- Logging + error handling ---
         LOG="/var/log/cka-provision.log"
@@ -136,6 +139,35 @@ YAML
           STEP="$1"
           log ">>> $STEP"
         }
+
+        # retry — re-run a command with exponential backoff if it fails.
+        # This is the fix for the silent half-provision: a transient blip
+        # fetching from pkgs.k8s.io, or a dpkg lock held by unattended-upgrades
+        # on a freshly booted box, no longer aborts the whole script. A genuine
+        # failure still exits loudly after the final attempt, so the ERR trap
+        # above still fires for real problems — fail fast, not fail silent.
+        retry() {
+          local max=6 attempt=1 delay=5
+          while true; do
+            if "$@"; then return 0; fi
+            if [ "$attempt" -ge "$max" ]; then
+              log "    ERROR: '$*' failed after $max attempts"
+              return 1
+            fi
+            log "    attempt $attempt/$max failed: '$*' — waiting ${delay}s"
+            sleep "$delay"
+            attempt=$((attempt + 1))
+            delay=$((delay * 2))
+          done
+        }
+
+        # apt wrappers. DPkg::Lock::Timeout makes apt itself wait politely for
+        # the cloud-init / unattended-upgrades lock on a freshly booted box.
+        # Output is sent to the log so the console stays readable; retry()'s
+        # own progress messages still tee to the console.
+        APT_OPTS="-o DPkg::Lock::Timeout=120"
+        apt_update()  { apt-get $APT_OPTS update         >> "$LOG" 2>&1; }
+        apt_install() { apt-get $APT_OPTS install -y "$@" >> "$LOG" 2>&1; }
 
         # --- 1. Disable swap ---
         run_step "Disable swap"
@@ -165,8 +197,8 @@ EOF
 
         # --- 4. Install containerd ---
         run_step "Install containerd"
-        apt-get update >> "$LOG" 2>&1
-        apt-get install -y containerd apt-transport-https ca-certificates curl gnupg >> "$LOG" 2>&1
+        retry apt_update
+        retry apt_install containerd apt-transport-https ca-certificates curl gnupg
         log "    packages installed"
 
         run_step "Configure containerd with systemd cgroup driver"
@@ -194,11 +226,21 @@ EOF
         log "    crictl.yaml written"
 
         # --- 6. Kubernetes apt repo ---
+        # This is the step that silently aborted before. The GPG key fetch
+        # from pkgs.k8s.io is the most network-fragile command in the whole
+        # provisioner — a VPN or a transient DNS hiccup kills it. It is now
+        # retried, curl retries internally too, and the keyring is sanity-
+        # checked for non-zero size before we trust it.
         run_step "Add Kubernetes v1.35 apt repo"
         mkdir -p /etc/apt/keyrings
-        if ! curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.35/deb/Release.key \
-             | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg; then
-          log "FATAL: Could not fetch K8s GPG key — check DNS/internet"
+        fetch_k8s_key() {
+          curl --retry 3 --retry-delay 3 --retry-connrefused -fsSL \
+               https://pkgs.k8s.io/core:/stable:/v1.35/deb/Release.key \
+            | gpg --dearmor --yes -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        }
+        retry fetch_k8s_key
+        if [ ! -s /etc/apt/keyrings/kubernetes-apt-keyring.gpg ]; then
+          log "FATAL: K8s GPG keyring is empty after fetch — check DNS/VPN/internet"
           exit 1
         fi
         echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.35/deb/ /" \
@@ -211,27 +253,44 @@ EOF
         #   <upstream>-<debian-revision>, e.g. 1.35.0-1.1
         # Use `apt-cache madison kubelet` inside a provisioned VM to
         # discover the latest 1.35.x-1.1 before bumping.
-        run_step "Install kubelet, kubeadm, kubectl (pinned)"
+        run_step "Install kubelet, kubeadm, kubectl (pinned) + crictl"
         K8S_PKG_VERSION="1.35.0-1.1"
-        apt-get update >> "$LOG" 2>&1
-        apt-get install -y \
+        retry apt_update
+        retry apt_install \
           kubelet="$K8S_PKG_VERSION" \
           kubeadm="$K8S_PKG_VERSION" \
-          kubectl="$K8S_PKG_VERSION" >> "$LOG" 2>&1
+          kubectl="$K8S_PKG_VERSION"
+        # crictl ships in the cri-tools package. kubeadm on the pkgs.k8s.io
+        # repos does NOT reliably pull it as a transitive dependency, so
+        # install it explicitly — Demo 2 and Demo 3 invoke `crictl` directly
+        # and a missing binary is invisible until on-camera. Left UNPINNED
+        # (crictl tolerates +/-1 minor skew vs the runtime) and UNHELD on
+        # purpose: holding it would make `apt-mark showhold` return four
+        # lines and break the runbook's "three holds" narration in Demo 4.
+        retry apt_install cri-tools
         apt-mark hold kubelet kubeadm kubectl
         systemctl enable kubelet
-        log "    installed $K8S_PKG_VERSION and held"
+        log "    installed $K8S_PKG_VERSION (+ crictl) and held k8s packages"
 
         # --- 8. Shell quality of life ---
+        # Guarded so re-running `vagrant provision` does not append the same
+        # three lines again and again — the provisioner must be idempotent.
         run_step "Configure bash aliases and completion"
-        echo 'alias k=kubectl' >> /home/vagrant/.bashrc
-        echo 'source <(kubectl completion bash)' >> /home/vagrant/.bashrc
-        echo 'complete -o default -F __start_kubectl k' >> /home/vagrant/.bashrc
+        if ! grep -q 'alias k=kubectl' /home/vagrant/.bashrc 2>/dev/null; then
+          cat <<'BASHRC' >> /home/vagrant/.bashrc
+alias k=kubectl
+source <(kubectl completion bash)
+complete -o default -F __start_kubectl k
+BASHRC
+          log "    aliases + completion added"
+        else
+          log "    aliases already present — skipped"
+        fi
 
         # --- 9. Verification gate ---
         run_step "Verify all components"
         FAIL=0
-        for cmd in kubeadm kubelet kubectl containerd; do
+        for cmd in kubeadm kubelet kubectl containerd crictl; do
           if command -v "$cmd" &>/dev/null; then
             log "    $cmd OK"
           else

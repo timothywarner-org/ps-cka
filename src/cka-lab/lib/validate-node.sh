@@ -43,7 +43,7 @@ done
 
 # --- 2. Required binaries ---
 echo "-- Binaries --"
-for cmd in kubeadm kubelet kubectl containerd; do
+for cmd in kubeadm kubelet kubectl crictl containerd; do
   if command -v "$cmd" &>/dev/null; then
     ver=$($cmd version 2>/dev/null | head -1 || echo "present")
     pass "$cmd: $ver"

@@ -1,0 +1,6 @@
+.venv/
+.ipynb_checkpoints/
+__pycache__/
+*.pyc
+.jupyter-cache/
+_smoke-*.ipynb
