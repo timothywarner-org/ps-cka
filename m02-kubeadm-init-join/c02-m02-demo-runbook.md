@@ -111,7 +111,7 @@ Inside the VM, walk Demos 1-4. Confirm muscle memory. Then `exit` twice to get b
 
 **Verbatim talk track:**
 
-> "Three Ubuntu VMs, every prerequisite verified, the kubelet crashlooping on every node — which is correct, because there's no `kubeadm init` yet to give it a config to read. Diana from Globomantics has the warning that costs more candidates their question on this domain than any other: **`--pod-network-cidr` has to match the CNI you'll install later.** Calico's default is `192.168.0.0/16`. Use `10.244.0.0/16` here — Flannel's default — and install Calico anyway, and pods get IPs but cannot route across nodes. The remediation is `kubeadm reset` on every node and start over. So let's get it right the first time."
+> "Three Ubuntu VMs, every prerequisite verified, the kubelet crashlooping on every node — which is correct, because there's no `kubeadm init` yet to give it a config to read. Diana from Globomantics has the warning that costs more candidates their question on this domain than any other: **`--pod-network-cidr` has to match the CNI you'll install later.** We're installing Calico in Module 3, and Calico's default range is `192.168.0.0/16` — so that's exactly the value we'll put in `init.yaml` today. The classic trap is to copy a Flannel-flavored example off the internet, type `10.244.0.0/16` here, then install Calico in Module 3 anyway. Pods get IPs, none of them route across nodes, and the remediation is `kubeadm reset` on every node and start over. So let's get it right the first time."
 
 **Slide 2 — Four framing questions:** read each beat-by-beat, don't pre-answer.
 **Slide 3 — Globomantics check-in:** read Diana's quote in character. Senior SRE. The pod-network-cidr warning lands hardest.
@@ -482,6 +482,35 @@ kubeadm join k8s.globomantics.local:6443 --token abcdef.0123456789abcdef --disco
 
 **Narrate, slow down here:** "**This is the single most important command in this module.** Picture exam day. You ran init fifteen minutes ago. The terminal scrolled. The question now says 'join two workers to this cluster.' Where is the join command? Gone. **`kubeadm token create --print-join-command`** rebuilds it in two seconds, fresh token, correct CA hash, ready to paste. **The rule is: never scroll backward for the original. Always regenerate.** Memorize this command. Tattoo it."
 
+### Step 3.1b — Capture the join command to a file (recording-safe)
+
+```bash
+kubeadm token create --print-join-command | sudo tee /tmp/join.sh
+sudo chmod +x /tmp/join.sh
+cat /tmp/join.sh
+```
+
+**Why `tee` to a file:** scrollback is one Ctrl-L away from gone, and a SHA-256 hash is not something you want to retype across two worker SSH sessions. `tee` writes the join command to `/tmp/join.sh` AND echoes it to the terminal in one step, so the on-camera flow stays clean. In production you'd swap `/tmp` for a credential-safe path; on the exam, scratch files in `/tmp` are fine.
+
+**Security note (say this on camera):** "**The bootstrap token in `/tmp/join.sh` is short-lived — 24-hour default — and burned the second a worker joins. Don't scrub it from the recording. By the time anyone watches this, the token is dead.**"
+
+**Distribute to the workers** (run from control1, still as root):
+
+```bash
+for w in worker1 worker2; do
+  scp -o StrictHostKeyChecking=no /tmp/join.sh vagrant@$w:/tmp/join.sh
+  ssh -o StrictHostKeyChecking=no vagrant@$w "sudo chmod +x /tmp/join.sh && ls -l /tmp/join.sh"
+done
+```
+
+**Narrate:** "**One `tee`, one `scp` loop, and both workers have the exact same join command on disk.** No retyping. No squinting. When we open the worker SSH sessions in Step 3.3 and 3.4, the command is already there — we just run it."
+
+**Expected `ls -l` output (per worker):**
+
+```text
+-rwxr-xr-x 1 root root  <bytes> <date> /tmp/join.sh
+```
+
 ### Step 3.2 — Copy the join command to clipboard, then exit to Windows
 
 ```bash
@@ -500,14 +529,12 @@ vagrant ssh worker1
 Inside worker1:
 
 ```bash
-sudo kubeadm join k8s.globomantics.local:6443 \
-  --token abcdef.0123456789abcdef \
-  --discovery-token-ca-cert-hash sha256:<HEX>
+sudo /tmp/join.sh
 ```
 
 **Expected output ends with:** `This node has joined the cluster: ...`
 
-**Narrate:** "Two-way verification. The token authenticates the worker — proves it has permission to join. The CA-cert hash authenticates the API server — proves the worker is talking to the real cluster, not a man-in-the-middle. **Belt and suspenders, by design.**"
+**Narrate:** "Two-way verification. The token authenticates the worker — proves it has permission to join. The CA-cert hash authenticates the API server — proves the worker is talking to the real cluster, not a man-in-the-middle. **Belt and suspenders, by design.** **Reading the join command from `/tmp/join.sh` — same command we captured on control1, same SHA-256 hash, zero retyping risk.**"
 
 ### Step 3.4 — Join worker2
 
@@ -519,15 +546,15 @@ exit   # leave worker1
 vagrant ssh worker2
 ```
 
-Inside worker2 — paste the same join command (within the 24-hour TTL it's still valid):
+Inside worker2 — run the same captured script (within the 24-hour TTL it's still valid):
 
 ```bash
-sudo kubeadm join k8s.globomantics.local:6443 \
-  --token abcdef.0123456789abcdef \
-  --discovery-token-ca-cert-hash sha256:<HEX>
+sudo /tmp/join.sh
 ```
 
 **Expected:** same success banner. ~20-30 sec.
+
+**Narrate:** "**Reading the join command from `/tmp/join.sh` — same command we captured on control1, same SHA-256 hash, zero retyping risk.**"
 
 ```bash
 exit   # leave worker2
