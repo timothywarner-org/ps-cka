@@ -62,6 +62,8 @@ Three Ubuntu 22.04 VMs (`control1`, `worker1`, `worker2`) with 2 GB / 2 vCPU eac
 
 Target Kubernetes version for both paths: **v1.35** (exam-aligned).
 
+**Course 3 lab controls (renamed, plain-English).** Course 3 records off the Hyper-V Vagrant lab using clearly-named copies in `src/cka-lab/course-03-lifecycle-upgrades/` -- `Start-CkaLab`, `Stop-CkaLab`, `Save-CkaSnapshot`, `Restore-CkaSnapshot`, `Get-CkaLabStatus`, `Get-CkaConnectionInfo`, `Test-CkaLabReady`. They drive the **same** VMs (`VAGRANT_CWD` -> parent `src/cka-lab`); the generic `cka-*.ps1` stay as the shared engine. Node names are **`control1` / `worker1` / `worker2`**, single-sourced in `lib/CkaLab.ps1` (`Get-CkaLabVMs`/`Get-CkaLabNodes`). The Vagrantfile K8s version is parameterized via `$env:CKA_K8S_MINOR` (default `1.35`) so M02 can start at v1.34 and upgrade on camera. Map + workflow: `src/cka-lab/course-03-lifecycle-upgrades/README.md`.
+
 ## Key Conventions
 
 - **Globomantics storyline**: All demos follow a fictional company migrating to Kubernetes. Maintain this narrative when creating exercise content.

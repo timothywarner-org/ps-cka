@@ -7,7 +7,7 @@
     This is your "save point" before a demo take. It checkpoints all three lab VMs
     to a single named checkpoint in one shot, so when you restore, every node rewinds
     to the exact same instant -- no skew between control plane and workers. Afterward,
-    .\cka-restore.ps1 <Name> rewinds the whole cluster in ~60-90 seconds.
+    .\Restore-CkaSnapshot.ps1 <Name> rewinds the whole cluster in ~60-90 seconds.
 
     SAFETY -- atomic, all-or-nothing:
     The script verifies every VM exists BEFORE it checkpoints any of them. If even one
@@ -20,10 +20,10 @@
     rides on color alone.
 
     RECORDING WORKFLOW:
-      1. Bring the lab up:        .\cka-up.ps1
-      2. Save a checkpoint here:  .\cka-snapshot.ps1 m02-pre-upgrade
+      1. Bring the lab up:        .\Start-CkaLab.ps1
+      2. Save a checkpoint here:  .\Save-CkaSnapshot.ps1 m02-pre-upgrade
       3. Record the demo.
-      4. Rewind to re-record:     .\cka-restore.ps1 m02-pre-upgrade
+      4. Rewind to re-record:     .\Restore-CkaSnapshot.ps1 m02-pre-upgrade
 
 .PARAMETER SnapshotName
     Name for the checkpoint. Use a take-specific name (for example "m02-pre-upgrade"
@@ -31,22 +31,22 @@
     prereqs but BEFORE 'kubeadm init'.
 
 .EXAMPLE
-    .\cka-snapshot.ps1
+    .\Save-CkaSnapshot.ps1
     Creates a checkpoint named "pre-cluster" on all three VMs.
 
 .EXAMPLE
-    .\cka-snapshot.ps1 m02-pre-upgrade
+    .\Save-CkaSnapshot.ps1 m02-pre-upgrade
     Creates "m02-pre-upgrade" -- your re-record point for the Module 2 upgrade demo.
 
 .EXAMPLE
-    .\cka-snapshot.ps1 -SnapshotName test -WhatIf
+    .\Save-CkaSnapshot.ps1 -SnapshotName test -WhatIf
     Dry run: lists what WOULD be checkpointed and creates nothing.
 
 .NOTES
     Author: Tim Warner | CKA Course 3 lab (control1, worker1, worker2)
-    Run as: Administrator PowerShell 7+, from C:\github\ps-cka\src\cka-lab
-    Pairs with: cka-restore.ps1 (rewind), cka-status.ps1 (inspect),
-                c03-snapshots.ps1 (copy-paste cheat sheet)
+    Run as: Administrator PowerShell 7+, from C:\github\ps-cka\src\cka-lab\course-03-lifecycle-upgrades
+    Pairs with: Restore-CkaSnapshot.ps1 (rewind), Get-CkaLabStatus.ps1 (inspect),
+                README.md (copy-paste cheat sheet)
 #>
 
 #Requires -Version 7.0
@@ -61,7 +61,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-. (Join-Path -Path $PSScriptRoot -ChildPath 'lib\CkaLab.ps1')
+. (Join-Path -Path $PSScriptRoot -ChildPath '..\lib\CkaLab.ps1')
 Initialize-LabEncoding
 
 # One definition of the node list lives in lib\CkaLab.ps1 (Get-CkaLabVMs),
@@ -86,7 +86,7 @@ foreach ($vm in $VMs) {
 
 if ($missing.Count -gt 0) {
     Write-ErrorMsg "Aborted -- missing VM(s): $($missing -join ', '). Nothing was checkpointed."
-    Write-Info 'Bring the lab up first with:  .\cka-up.ps1'
+    Write-Info 'Bring the lab up first with:  .\Start-CkaLab.ps1'
     exit 1
 }
 
@@ -113,4 +113,4 @@ if ($failed.Count -gt 0) {
     exit 1
 }
 
-Write-Step "Done. Rewind the whole lab any time with:  .\cka-restore.ps1 $SnapshotName"
+Write-Step "Done. Rewind the whole lab any time with:  .\Restore-CkaSnapshot.ps1 $SnapshotName"

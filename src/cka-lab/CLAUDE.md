@@ -58,6 +58,8 @@ cka-lab/
 ├── cka-up.ps1 / cka-down.ps1  # Boot / shutdown all VMs
 ├── cka-info.ps1               # Connection table with live UP/DOWN status
 │
+├── course-03-lifecycle-upgrades/  # Course 3 controls: renamed cka-* (Start/Stop/Save/Restore/Status/Info/Ready)
+│   └── README.md             # One-page 'which script does what' map
 ├── archive/                   # Stale scripts (kind-*.sh, old snapshot.ps1)
 └── docs/                      # Architecture diagrams
 ```
@@ -83,7 +85,8 @@ Key invariants you must preserve when editing `kind-up.ps1`:
 
 All entry points dot-source this file. It provides:
 
-- **Output helpers**: `Write-Step`, `Write-Success`, `Write-Info`, `Write-ErrorMsg`
+- **Output helpers**: `Write-Step`, `Write-Success`, `Write-Info`, `Write-Warn`, `Write-ErrorMsg` -- every line is labeled (`[OK]`/`[INFO]`/`[WARN]`/`[ERROR]`) on the Wong colorblind-safe palette, so meaning never depends on color alone
+- **Lab topology (single source of truth)**: `Get-CkaLabNodes` (Name+IP objects) and `Get-CkaLabVMs` (names only) -- the ONE definition of `control1`/`worker1`/`worker2`. Every `cka-*` wrapper pulls the node list from here; do not hardcode the three names again
 - **Environment**: `Initialize-LabPath` (PATH refresh for winget/Docker/System32; uses a HashSet-based dedup so repeat dot-sources don't stack duplicate segments)
 - **Docker management**: `Test-DockerReady`, `Start-DockerDesktop`, `Wait-DockerReady`, `Stop-DockerDesktop`. `Wait-DockerReady` **throws** on timeout (rather than `exit 1`) so callers can try/catch around Docker startup.
 - **Prerequisites**: `Test-Prerequisites` (docker, kind, kubectl checks)
@@ -156,7 +159,7 @@ Invariants you must preserve when editing any of the three:
 - **Interface picker in provisioning**: the script prefers `eth0` and explicitly excludes `docker*`, `cni*`, `veth*`, `virbr*`, `br-*`, `flannel*`, `cali*`. Previously a naive "first non-loopback" pick could grab a cluster-internal interface after a previous test run.
 - **`netplan try --timeout 30`**: netplan is applied with auto-revert so a misconfig that breaks SSH rolls back automatically instead of bricking the VM.
 - **`auto_config: false` in Vagrant**: Vagrant is not allowed to touch the interface -- netplan is authoritative. This prevents Vagrant's `ifdown`/`ifup` dance from fighting cloud-init.
-- **Pinned K8s packages**: `kubelet/kubeadm/kubectl` are installed at exactly `1.35.0-1.1` and then `apt-mark hold`'d. Version drift would invalidate exam-parity.
+- **Pinned K8s packages**: `kubelet/kubeadm/kubectl` are installed at exactly `1.35.0-1.1` and then `apt-mark hold`'d. Version drift would invalidate exam-parity. The version is **parameterized** via host env vars `CKA_K8S_MINOR` / `CKA_K8S_PKG_VERSION` (defaults `1.35` / `1.35.0-1.1`); set them before `vagrant up` to build the **v1.34** cluster for the Module 2 upgrade demo. Unset, the defaults reproduce the current lab byte-for-byte.
 - **No password logging**: the `vagrant` user's password is set via a method that doesn't echo to `/var/log/cka-provision.log`.
 - **`bootstrap_cp.sh` hardening**: `set -euo pipefail`; Flannel pinned to `v0.24.4`; a comment block at the top documents how to swap Cilium or Calico in place of Flannel.
 
@@ -167,6 +170,36 @@ Invariants you must preserve when editing any of the three:
 ### Snapshot / Restore Atomicity
 
 `cka-snapshot.ps1` and `cka-restore.ps1` are **all-or-nothing**. Both scripts preflight *every* target VM (and, for restore, every named checkpoint) before making a single change. If one VM is missing or one checkpoint doesn't exist, neither script writes anything -- both fail closed with a per-VM summary of what was found vs. expected. This prevents half-restored clusters where control1 is at `pre-cluster` but worker1 is current.
+
+### Course 3 Lab Controls -- renamed, canonical for C03
+
+Course 3 records off this Hyper-V lab using **plain-English copies** of the `cka-*.ps1`
+wrappers, in [`course-03-lifecycle-upgrades/`](course-03-lifecycle-upgrades/). They drive
+the **same** VMs -- each sets `$env:VAGRANT_CWD` to this parent folder (where the
+`Vagrantfile` and `.vagrant` live) and dot-sources `..\lib\CkaLab.ps1`. No second cluster,
+no forked engine. Name map:
+
+| Course 3 control | Engine original | Action |
+| --- | --- | --- |
+| `Start-CkaLab.ps1` | `cka-up.ps1` | boot the 3 VMs |
+| `Stop-CkaLab.ps1` | `cka-down.ps1` | halt the 3 VMs |
+| `Save-CkaSnapshot.ps1` | `cka-snapshot.ps1` | checkpoint all 3 (atomic) |
+| `Restore-CkaSnapshot.ps1` | `cka-restore.ps1` | rewind all 3 (atomic) |
+| `Get-CkaLabStatus.ps1` | `cka-status.ps1` | VM power/ping state |
+| `Get-CkaConnectionInfo.ps1` | `cka-info.ps1` | IPs + SSH commands |
+| `Test-CkaLabReady.ps1` | `cka-validate.ps1` | prereq health check |
+
+Invariants to preserve:
+
+- **One substrate, one set of names.** Node names are **`control1` / `worker1` / `worker2`**
+  everywhere, single-sourced in `lib/CkaLab.ps1` (`Get-CkaLabVMs` / `Get-CkaLabNodes`). The
+  C03 demo runbooks that still say `control-plane` / `worker-1` are a known mismatch to fix.
+- **The generic `cka-*.ps1` originals stay** as the shared engine; the renamed copies are the
+  Course 3 entry points. If you ever collapse to one set, keep the named ones.
+- **Recording loop:** `Save-CkaSnapshot <name>` before a take, `Restore-CkaSnapshot <name>` to
+  re-record. M02 builds at v1.34 (env vars above), upgrades to v1.35 on camera -- which is
+  exactly M03's starting state.
+- Human workflow: [`course-03-lifecycle-upgrades/README.md`](course-03-lifecycle-upgrades/README.md).
 
 ### Validator: `cka-validate.ps1` + `lib/validate-node.sh`
 

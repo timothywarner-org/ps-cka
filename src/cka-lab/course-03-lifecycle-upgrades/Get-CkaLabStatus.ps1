@@ -6,7 +6,7 @@
     Read-only status probe for the Vagrant + Hyper-V CKA lab. For each node
     (control1, worker1, worker2) it reports the authoritative Hyper-V state
     (Running / Off / Saved / Missing) plus a ping check, then -- if any VM is Running
-    and you did not pass -Quiet -- offers to halt them gracefully via cka-down.ps1.
+    and you did not pass -Quiet -- offers to halt them gracefully via Stop-CkaLab.ps1.
     State and ping are printed as text, so meaning never depends on color alone.
 
 .PARAMETER Quiet
@@ -14,15 +14,15 @@
     if any VM is Running. Useful for CI or pre-record sanity checks.
 
 .EXAMPLE
-    .\cka-status.ps1
+    .\Get-CkaLabStatus.ps1
 
 .EXAMPLE
-    .\cka-status.ps1 -Quiet
+    .\Get-CkaLabStatus.ps1 -Quiet
 
 .NOTES
     Author: Tim Warner | CKA Course 3 lab (control1, worker1, worker2)
-    Run as: Administrator PowerShell 7+, from C:\github\ps-cka\src\cka-lab
-    Pairs with: cka-up.ps1, cka-down.ps1
+    Run as: Administrator PowerShell 7+, from C:\github\ps-cka\src\cka-lab\course-03-lifecycle-upgrades
+    Pairs with: Start-CkaLab.ps1, Stop-CkaLab.ps1
 #>
 
 #Requires -Version 7.0
@@ -35,7 +35,7 @@ param(
 
 $ErrorActionPreference = 'Continue'
 
-. (Join-Path -Path $PSScriptRoot -ChildPath 'lib\CkaLab.ps1')
+. (Join-Path -Path $PSScriptRoot -ChildPath '..\lib\CkaLab.ps1')
 Initialize-LabEncoding
 
 $Nodes = Get-CkaLabNodes
@@ -105,7 +105,7 @@ if ($missing.Count -gt 0) {
 
 if ($running.Count -eq 0) {
     Write-Success 'All present VMs are stopped. Nothing to halt.'
-    if ($off.Count -gt 0) { Write-Info 'Start them with:  .\cka-up.ps1' }
+    if ($off.Count -gt 0) { Write-Info 'Start them with:  .\Start-CkaLab.ps1' }
     exit 0
 }
 
@@ -126,7 +126,7 @@ if ($Quiet) {
 # Teardown offer --------------------------------------------------------------
 Write-Host 'Choose an action:'
 Write-Host '  [0] Leave VMs running'
-Write-Host '  [1] Halt VMs gracefully  ->  cka-down.ps1  (vagrant halt)'
+Write-Host '  [1] Halt VMs gracefully  ->  Stop-CkaLab.ps1  (vagrant halt)'
 Write-Host ''
 
 $choice = Read-Host 'Enter choice [0]'
@@ -136,13 +136,13 @@ if ([string]::IsNullOrWhiteSpace($choice) -or $choice -eq '0') {
 }
 
 if ($choice -eq '1') {
-    $down = Join-Path -Path $PSScriptRoot -ChildPath 'cka-down.ps1'
+    $down = Join-Path -Path $PSScriptRoot -ChildPath 'Stop-CkaLab.ps1'
     if (Test-Path -Path $down) {
-        Write-Step 'Running cka-down.ps1...'
+        Write-Step 'Running Stop-CkaLab.ps1...'
         & $down
     }
     else {
-        Write-ErrorMsg 'cka-down.ps1 not found next to this script.'
+        Write-ErrorMsg 'Stop-CkaLab.ps1 not found next to this script.'
         exit 1
     }
 }

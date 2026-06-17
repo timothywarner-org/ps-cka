@@ -2,6 +2,16 @@ Vagrant.configure("2") do |config|
   config.vm.box = "generic/ubuntu2204"
   config.vm.box_check_update = false
 
+  # --- Kubernetes version (override for the Module 2 upgrade lab) -----------
+  # Defaults reproduce the current v1.35 lab byte-for-byte when these env vars
+  # are unset. To build the M02 "start one minor behind" cluster, set them on
+  # the HOST before `vagrant up` (admin PowerShell):
+  #   $env:CKA_K8S_MINOR       = "1.34"
+  #   $env:CKA_K8S_PKG_VERSION = "1.34.6-1.1"   # exact patch: apt-cache madison kubeadm
+  # Record the M02 upgrade to v1.35, then reset with .\cka-restore.ps1.
+  K8S_MINOR       = ENV.fetch("CKA_K8S_MINOR", "1.35")
+  K8S_PKG_VERSION = ENV.fetch("CKA_K8S_PKG_VERSION", "1.35.0-1.1")
+
   # --- Create the CKA-NAT switch before first VM boots ---
   config.trigger.before :up do |trigger|
     trigger.info = "Ensuring CKA-NAT Hyper-V switch exists..."
@@ -114,7 +124,9 @@ YAML
       HOSTS
 
       # --- Main CKA prereq provisioner ---
-      node.vm.provision "shell", name: "cka-prereqs", inline: <<-'SHELL'
+      node.vm.provision "shell", name: "cka-prereqs",
+        env: { "K8S_MINOR" => K8S_MINOR, "K8S_PKG_VERSION" => K8S_PKG_VERSION },
+        inline: <<-'SHELL'
         #!/usr/bin/env bash
         #================================================================
         # CKA Lab — Pre-cluster provisioning
@@ -231,11 +243,11 @@ EOF
         # provisioner — a VPN or a transient DNS hiccup kills it. It is now
         # retried, curl retries internally too, and the keyring is sanity-
         # checked for non-zero size before we trust it.
-        run_step "Add Kubernetes v1.35 apt repo"
+        run_step "Add Kubernetes v${K8S_MINOR} apt repo"
         mkdir -p /etc/apt/keyrings
         fetch_k8s_key() {
           curl --retry 3 --retry-delay 3 --retry-connrefused -fsSL \
-               https://pkgs.k8s.io/core:/stable:/v1.35/deb/Release.key \
+               https://pkgs.k8s.io/core:/stable:/v${K8S_MINOR}/deb/Release.key \
             | gpg --dearmor --yes -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
         }
         retry fetch_k8s_key
@@ -243,7 +255,7 @@ EOF
           log "FATAL: K8s GPG keyring is empty after fetch — check DNS/VPN/internet"
           exit 1
         fi
-        echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.35/deb/ /" \
+        echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v${K8S_MINOR}/deb/ /" \
           | tee /etc/apt/sources.list.d/kubernetes.list
         log "    repo added"
 
@@ -254,7 +266,7 @@ EOF
         # Use `apt-cache madison kubelet` inside a provisioned VM to
         # discover the latest 1.35.x-1.1 before bumping.
         run_step "Install kubelet, kubeadm, kubectl (pinned) + crictl"
-        K8S_PKG_VERSION="1.35.0-1.1"
+        K8S_PKG_VERSION="${K8S_PKG_VERSION:-1.35.0-1.1}"
         retry apt_update
         retry apt_install \
           kubelet="$K8S_PKG_VERSION" \

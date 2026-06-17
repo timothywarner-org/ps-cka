@@ -8,14 +8,14 @@
     Windows OpenSSH command-line truncation AND makes $LASTEXITCODE reflect the inner
     script's exit code. Findings tagged [PASS]/[WARN]/[FAIL] are tallied into a per-lab
     summary. [WARN] does NOT fail the run; only [FAIL] blocks. Use it after `vagrant up`
-    or `cka-restore.ps1`, before you snapshot a clean baseline.
+    or `Restore-CkaSnapshot.ps1`, before you snapshot a clean baseline.
 
 .EXAMPLE
-    .\cka-validate.ps1
+    .\Test-CkaLabReady.ps1
 
 .NOTES
     Author: Tim Warner | CKA Course 3 lab (control1, worker1, worker2)
-    Run as: Administrator PowerShell 7+, from C:\github\ps-cka\src\cka-lab
+    Run as: Administrator PowerShell 7+, from C:\github\ps-cka\src\cka-lab\course-03-lifecycle-upgrades
 #>
 
 #Requires -Version 7.0
@@ -24,8 +24,13 @@
 [CmdletBinding()]
 param()
 
-. (Join-Path -Path $PSScriptRoot -ChildPath 'lib\CkaLab.ps1')
+. (Join-Path -Path $PSScriptRoot -ChildPath '..\lib\CkaLab.ps1')
 Initialize-LabEncoding
+
+# These Course 3 controls live one level down from the lab. The Vagrantfile and
+# your existing VMs are in the parent folder (src\cka-lab), so point Vagrant
+# there -- it drives the SAME VMs, never a second copy.
+$env:VAGRANT_CWD = Split-Path -Parent $PSScriptRoot
 
 $VMs = Get-CkaLabVMs
 $AllPassed = $true
@@ -33,7 +38,7 @@ $TotalPass = 0
 $TotalWarn = 0
 $TotalFail = 0
 
-$ScriptPath = Join-Path -Path $PSScriptRoot -ChildPath 'lib\validate-node.sh'
+$ScriptPath = Join-Path -Path $PSScriptRoot -ChildPath '..\lib\validate-node.sh'
 if (-not (Test-Path -Path $ScriptPath)) {
     Write-ErrorMsg "Validation script not found at $ScriptPath"
     exit 1
