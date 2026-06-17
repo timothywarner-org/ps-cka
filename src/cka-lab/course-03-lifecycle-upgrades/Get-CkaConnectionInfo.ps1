@@ -8,17 +8,17 @@
     the SSH command to reach it.
 
 .EXAMPLE
-    .\cka-info.ps1
+    .\Get-CkaConnectionInfo.ps1
 
 .NOTES
     Author: Tim Warner | CKA Course 3 lab (control1, worker1, worker2)
-    Run as: Administrator PowerShell 7+, from C:\github\ps-cka\src\cka-lab
+    Run as: Administrator PowerShell 7+, from C:\github\ps-cka\src\cka-lab\course-03-lifecycle-upgrades
 #>
 
 #Requires -Version 7.0
 #Requires -RunAsAdministrator
 
-. (Join-Path -Path $PSScriptRoot -ChildPath 'lib\CkaLab.ps1')
+. (Join-Path -Path $PSScriptRoot -ChildPath '..\lib\CkaLab.ps1')
 Initialize-LabEncoding
 
 $Nodes = Get-CkaLabNodes

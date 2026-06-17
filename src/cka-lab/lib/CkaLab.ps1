@@ -45,6 +45,44 @@ function Write-ErrorMsg {
     Write-Host "[ERROR] $Message" -ForegroundColor Red
 }
 
+function Write-Warn {
+    # Bright pop-yellow + explicit [WARN] label. Distinct from green [INFO]
+    # and red [ERROR] so the three severities never depend on color alone.
+    param([string]$Message)
+    Write-Host "$($Script:BrightYellow)[WARN] $Message$($Script:AnsiReset)"
+}
+
+#endregion
+
+#region Lab Topology (single source of truth)
+
+# The CKA Course 3 lab is a fixed 3-node Hyper-V cluster. These helpers are the
+# ONE place the node names and IPs are defined, so every wrapper (cka-snapshot,
+# cka-restore, cka-status, cka-info, cka-validate) agrees and the names can never
+# drift apart. If a node is ever renamed or added, change it HERE and nowhere else.
+
+function Get-CkaLabNodes {
+    <#
+    .SYNOPSIS
+        Returns the lab nodes as ordered objects (Name + static IP),
+        control plane first.
+    #>
+    @(
+        [pscustomobject]@{ Name = 'control1'; IP = '192.168.50.10' }
+        [pscustomobject]@{ Name = 'worker1';  IP = '192.168.50.11' }
+        [pscustomobject]@{ Name = 'worker2';  IP = '192.168.50.12' }
+    )
+}
+
+function Get-CkaLabVMs {
+    <#
+    .SYNOPSIS
+        Returns just the lab VM names, in boot order (control plane first):
+        control1, worker1, worker2.
+    #>
+    (Get-CkaLabNodes).Name
+}
+
 #endregion
 
 #region Environment Setup

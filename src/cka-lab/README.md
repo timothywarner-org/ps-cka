@@ -33,6 +33,12 @@ Use **Hyper-V** for the 20% that do — and for the exam-shaped dress rehearsals
 
 ## 🚀 Quickstart
 
+> **Recording Course 3 (Cluster Lifecycle & Upgrades)?** Use the plain-English controls in
+> **[`course-03-lifecycle-upgrades/`](course-03-lifecycle-upgrades/)** -- `Start-CkaLab`,
+> `Save-CkaSnapshot`, `Restore-CkaSnapshot`, and friends. They drive the same Hyper-V VMs
+> (`control1` / `worker1` / `worker2`); that folder's `README.md` is the one-page map.
+
+
 ### Path A — KIND (single cluster)
 
 ```powershell

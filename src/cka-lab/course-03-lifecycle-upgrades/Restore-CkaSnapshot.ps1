@@ -5,7 +5,7 @@
 .DESCRIPTION
     Restores all three lab VMs to the SAME named checkpoint and then starts them, so the
     entire cluster rewinds together to a known-good state in ~60-90 seconds. This is the
-    "re-record" button: pair it with cka-snapshot.ps1, which creates the checkpoint.
+    "re-record" button: pair it with Save-CkaSnapshot.ps1, which creates the checkpoint.
 
     SAFETY -- atomic, all-or-nothing:
     Every VM must exist AND have the named checkpoint before ANY restore runs. If even one
@@ -21,17 +21,17 @@
     Name of the checkpoint to restore. Defaults to "pre-cluster".
 
 .EXAMPLE
-    .\cka-restore.ps1 m02-pre-upgrade
+    .\Restore-CkaSnapshot.ps1 m02-pre-upgrade
     Rewinds the whole lab to "m02-pre-upgrade" and starts the VMs.
 
 .EXAMPLE
-    .\cka-restore.ps1 -SnapshotName test -WhatIf
+    .\Restore-CkaSnapshot.ps1 -SnapshotName test -WhatIf
     Dry run: shows what WOULD be restored, changes nothing.
 
 .NOTES
     Author: Tim Warner | CKA Course 3 lab (control1, worker1, worker2)
-    Run as: Administrator PowerShell 7+, from C:\github\ps-cka\src\cka-lab
-    Pairs with: cka-snapshot.ps1 (create), cka-status.ps1 (inspect)
+    Run as: Administrator PowerShell 7+, from C:\github\ps-cka\src\cka-lab\course-03-lifecycle-upgrades
+    Pairs with: Save-CkaSnapshot.ps1 (create), Get-CkaLabStatus.ps1 (inspect)
 #>
 
 #Requires -Version 7.0
@@ -46,7 +46,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-. (Join-Path -Path $PSScriptRoot -ChildPath 'lib\CkaLab.ps1')
+. (Join-Path -Path $PSScriptRoot -ChildPath '..\lib\CkaLab.ps1')
 Initialize-LabEncoding
 
 $VMs = Get-CkaLabVMs
@@ -74,7 +74,7 @@ foreach ($vm in $VMs) {
 if ($missing.Count -gt 0) {
     Write-ErrorMsg 'Aborted -- nothing was restored:'
     foreach ($m in $missing) { Write-ErrorMsg "    - $m" }
-    Write-Info "Create checkpoints first with:  .\cka-snapshot.ps1 $SnapshotName"
+    Write-Info "Create checkpoints first with:  .\Save-CkaSnapshot.ps1 $SnapshotName"
     exit 1
 }
 
