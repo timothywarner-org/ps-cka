@@ -184,8 +184,13 @@ YAML
         # --- 1. Disable swap ---
         run_step "Disable swap"
         swapoff -a
-        sed -i '/ swap / s/^/#/' /etc/fstab
-        log "    swap disabled and fstab updated"
+        # Comment the swap line regardless of space/tab delimiters. Ubuntu 22.04
+        # writes /etc/fstab with TABS, so the old ' swap ' (space-only) match never
+        # commented /swap.img -- swap silently came back on every reboot and kubelet
+        # crashlooped with "running with swap on is not supported". [[:space:]]
+        # matches tab OR space; the [^#] guard keeps it idempotent on re-provision.
+        sed -i.bak -E '/[[:space:]]swap[[:space:]]/ s/^([^#])/#\1/' /etc/fstab
+        log "    swap disabled and fstab updated (whitespace-tolerant match)"
 
         # --- 2. Kernel modules ---
         run_step "Load kernel modules"
