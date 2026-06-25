@@ -26,6 +26,7 @@ The snapshot pair supports `-WhatIf` (safe dry run that changes nothing).
 | Run this | What it does | (was) |
 |---|---|---|
 | **Start-CkaLab.ps1** | Boot the 3 VMs (no re-provision), then show how to connect | cka-up.ps1 |
+| **Build-M02UpgradeLab.ps1** | Rebuild the 3 VMs clean at **v1.34** and auto-snapshot `m02-pre-upgrade` (for the M02 upgrade demo) | (new) |
 | **Stop-CkaLab.ps1** | Gracefully halt the 3 VMs (end of session) | cka-down.ps1 |
 | **Save-CkaSnapshot.ps1** `<name>` | Checkpoint all 3 VMs -- your "save point" before a take | cka-snapshot.ps1 |
 | **Restore-CkaSnapshot.ps1** `<name>` | Rewind all 3 VMs to a checkpoint -- the "re-record" button | cka-restore.ps1 |
@@ -48,26 +49,35 @@ colorblind-safe palette -- nothing depends on color alone.
 
 ### Module 2 -- Upgrading clusters  (start at v1.34, upgrade to v1.35 on camera)
 You do **not** build a second cluster. You bring the **same 3-node lab** up one
-minor behind, snapshot it, then upgrade live.
+minor behind, snapshot it, then upgrade live. **One helper does the whole v1.34
+build-and-snapshot in a single shot**, so you never have to remember the
+environment-variable dance:
 
 ```powershell
-# 1) Build the lab at v1.34 -- set these BEFORE Start-CkaLab, in this same window:
-$env:CKA_K8S_MINOR       = "1.34"
-$env:CKA_K8S_PKG_VERSION = "1.34.6-1.1"   # exact patch: see note below
-.\Start-CkaLab.ps1
+# 1) Build the v1.34 cluster AND auto-snapshot it as 'm02-pre-upgrade'.
+#    -ExportBaseline saves your v1.35 'm01-cluster-ready' to disk FIRST, so the
+#    destroy can't cost you the baseline M01 re-records and M03 both need:
+.\Build-M02UpgradeLab.ps1 -ExportBaseline
+#    (exports m01-cluster-ready, destroys the current VMs, re-provisions clean at v1.34,
+#     then checkpoints all 3 as 'm02-pre-upgrade')
 
-#    Find the exact 1.34 patch available, from inside a VM:
-#      vagrant ssh control1 -c "apt-cache madison kubeadm | head"
+#    Pin a specific 1.34 patch if 1.34.6-1.1 is gone. Confirm what's available:
+#      ssh vagrant@192.168.50.10 "apt-cache madison kubeadm | head"
+#    then:  .\Build-M02UpgradeLab.ps1 -PackageVersion 1.34.7-1.1
 
-# 2) Snapshot the clean v1.34 cluster -- your M02 re-record point:
-.\Save-CkaSnapshot.ps1 m02-pre-upgrade
-
-# 3) Record the kubeadm upgrade (v1.34 -> v1.35). The cluster now sits at v1.35,
+# 2) Record the kubeadm upgrade (v1.34 -> v1.35). The cluster now sits at v1.35,
 #    which is exactly Module 3's starting state.
 
-# 4) Re-record any time by rewinding to the clean v1.34 cluster:
+# 3) Re-record any time by rewinding to the clean v1.34 cluster:
 .\Restore-CkaSnapshot.ps1 m02-pre-upgrade
 ```
+
+> **Doing it by hand instead?** The helper just wraps these three: set
+> `$env:CKA_K8S_MINOR="1.34"` and `$env:CKA_K8S_PKG_VERSION="1.34.6-1.1"` in this
+> same window, then `vagrant destroy -f && vagrant up` (a plain `Start-CkaLab`
+> won't downgrade an existing v1.35 cluster), then
+> `.\Save-CkaSnapshot.ps1 m02-pre-upgrade`.
+
 Leave `CKA_K8S_MINOR` unset and the lab builds at **v1.35** exactly like today.
 
 ### Module 3 -- Helm, Kustomize & CRDs  (runs on the upgraded v1.35 cluster)
