@@ -1,0 +1,26 @@
+# PRODUCTION overlay: the same base, hardened for prod.
+#  - namePrefix renames everything prod-globo-web
+#  - env=production label on metadata only
+#  - replicas bumps prod to 4 for availability
+#  - the images transformer pins nginx to a specific patch tag, so prod never
+#    drifts onto a floating tag. This is the kustomize feature exam tasks love.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namePrefix: prod-
+
+labels:
+  - pairs:
+      env: production
+    includeSelectors: false
+
+resources:
+  - ../../base
+
+replicas:
+  - name: globo-web
+    count: 4
+
+images:
+  - name: nginx
+    newTag: 1.27.3-alpine

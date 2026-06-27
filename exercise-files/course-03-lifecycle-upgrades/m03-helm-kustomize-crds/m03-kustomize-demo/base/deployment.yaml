@@ -1,0 +1,31 @@
+# Globomantics storefront web tier -- the shared BASE every environment starts from.
+# Kustomize overlays layer environment-specific changes on top of this without
+# editing or copying it. CKA objective: "Use Kustomize to configure applications."
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: globo-web
+  labels:
+    app: globo-web
+spec:
+  replicas: 1            # overlays override this per environment (staging 2, prod 4)
+  selector:
+    matchLabels:
+      app: globo-web
+  template:
+    metadata:
+      labels:
+        app: globo-web
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.27-alpine   # prod overlay pins a specific patch tag
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi

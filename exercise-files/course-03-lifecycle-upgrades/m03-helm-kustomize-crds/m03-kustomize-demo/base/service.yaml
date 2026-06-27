@@ -1,0 +1,15 @@
+# ClusterIP service fronting the globo-web pods. The overlays inherit it and pick
+# up the same namePrefix/labels, so staging and production each get their own
+# correctly-named service with no duplicated YAML.
+apiVersion: v1
+kind: Service
+metadata:
+  name: globo-web
+  labels:
+    app: globo-web
+spec:
+  selector:
+    app: globo-web
+  ports:
+    - port: 80
+      targetPort: 80

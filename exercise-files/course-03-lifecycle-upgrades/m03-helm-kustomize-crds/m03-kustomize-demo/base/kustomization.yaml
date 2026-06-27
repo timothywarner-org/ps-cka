@@ -1,0 +1,9 @@
+# The BASE kustomization: just the raw building blocks, no environment opinions.
+# `kubectl kustomize .` here renders globo-web exactly as written. The overlays
+# add the prefix, labels, replica counts, and image pins.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - deployment.yaml
+  - service.yaml

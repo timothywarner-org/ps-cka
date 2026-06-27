@@ -1,0 +1,58 @@
+# A CustomResourceDefinition (CRD) teaches the API EXTENSION mechanic: it adds a
+# brand-new kind, BackupPolicy, to the Kubernetes API as if it shipped natively.
+# Once applied, `kubectl get backuppolicies` and `kubectl explain backuppolicy`
+# work against it -- the API server now serves and validates this type.
+#
+# A CRD by itself is just typed storage. Pair it with a controller that watches
+# these objects and acts on them and you have an OPERATOR. CKA objective (Feb 2025
+# addition): "Understand CRDs and operators."
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  # name MUST be <plural>.<group>
+  name: backuppolicies.globomantics.io
+spec:
+  group: globomantics.io
+  scope: Namespaced
+  names:
+    plural: backuppolicies
+    singular: backuppolicy
+    kind: BackupPolicy
+    shortNames:
+      - bp
+  versions:
+    - name: v1
+      served: true       # the API server serves this version
+      storage: true       # objects are persisted at this version
+      schema:
+        # A STRUCTURAL schema. This is what makes `kubectl explain` work and what
+        # lets the API server reject malformed objects at admission time.
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: [schedule, retentionDays, target]
+              properties:
+                schedule:
+                  type: string
+                  description: Cron expression for when the backup runs.
+                retentionDays:
+                  type: integer
+                  minimum: 1
+                  description: How many days to keep each backup before pruning.
+                target:
+                  type: string
+                  description: What to back up (for example etcd, or a PVC name).
+      # Printer columns shape `kubectl get backuppolicies` output, just like the
+      # built-in types show READY/STATUS/AGE.
+      additionalPrinterColumns:
+        - name: Schedule
+          type: string
+          jsonPath: .spec.schedule
+        - name: Retention
+          type: integer
+          jsonPath: .spec.retentionDays
+        - name: Target
+          type: string
+          jsonPath: .spec.target

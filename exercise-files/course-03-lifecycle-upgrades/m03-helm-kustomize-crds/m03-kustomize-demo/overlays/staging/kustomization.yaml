@@ -1,0 +1,21 @@
+# STAGING overlay: same base, lightly customized.
+#  - namePrefix renames everything staging-globo-web (no name clashes with prod)
+#  - the env=staging label is added to metadata only (includeSelectors: false),
+#    so it never touches the immutable Deployment selector
+#  - replicas bumps staging to 2 without editing the base Deployment
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namePrefix: staging-
+
+labels:
+  - pairs:
+      env: staging
+    includeSelectors: false
+
+resources:
+  - ../../base
+
+replicas:
+  - name: globo-web
+    count: 2

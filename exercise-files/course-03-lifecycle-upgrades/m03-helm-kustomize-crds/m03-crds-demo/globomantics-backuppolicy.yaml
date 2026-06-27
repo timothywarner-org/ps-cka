@@ -1,0 +1,13 @@
+# A custom resource (CR) -- an INSTANCE of the BackupPolicy kind the CRD defined.
+# The API server validates this against the CRD's structural schema: drop a
+# required field or set retentionDays to a string and admission rejects it.
+# This object just records intent; a real operator's controller would read it and
+# schedule the actual etcd backup.
+apiVersion: globomantics.io/v1
+kind: BackupPolicy
+metadata:
+  name: nightly-etcd
+spec:
+  schedule: "0 2 * * *"   # 02:00 every day
+  retentionDays: 7
+  target: etcd

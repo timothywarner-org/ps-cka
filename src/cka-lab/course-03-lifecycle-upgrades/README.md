@@ -30,6 +30,9 @@ The snapshot pair supports `-WhatIf` (safe dry run that changes nothing).
 | **Stop-CkaLab.ps1** | Gracefully halt the 3 VMs (end of session) | cka-down.ps1 |
 | **Save-CkaSnapshot.ps1** `<name>` | Checkpoint all 3 VMs -- your "save point" before a take | cka-snapshot.ps1 |
 | **Restore-CkaSnapshot.ps1** `<name>` | Rewind all 3 VMs to a checkpoint -- the "re-record" button | cka-restore.ps1 |
+| **Remove-CkaSnapshot.ps1** | Inventory (default) then prune checkpoint cruft -- keeps the VMs and your save points | (new) |
+| **Invoke-M02Upgrade.ps1** | On-rails M02 demo: restore v1.34, upgrade to v1.35 live, phase by phase | (new) |
+| **Invoke-M03Lab.ps1** | On-rails M03 demo: Helm, Kustomize, CRDs + the exam doc technique, live | (new) |
 | **Get-CkaLabStatus.ps1** | Show each VM's power + ping state (offers graceful halt) | cka-status.ps1 |
 | **Get-CkaConnectionInfo.ps1** | Show node IPs + SSH commands | cka-info.ps1 |
 | **Test-CkaLabReady.ps1** | Check kubeadm prereqs on all 3 VMs | cka-validate.ps1 |
@@ -81,23 +84,56 @@ environment-variable dance:
 Leave `CKA_K8S_MINOR` unset and the lab builds at **v1.35** exactly like today.
 
 ### Module 3 -- Helm, Kustomize & CRDs  (runs on the upgraded v1.35 cluster)
+M03 records off the **clean v1.35 cluster** (no Helm, no CRDs) that M02 produced.
+**One on-rails script IS the demo** -- it restores the snapshot, pushes the
+manifests, and walks Helm -> Kustomize -> CRDs (plus the exam doc technique) phase
+by phase. Same harness as `Invoke-M02Upgrade.ps1`.
+
 ```powershell
+# 1) From the clean v1.35 cluster, take the save point ONCE (no Helm installed yet):
 .\Save-CkaSnapshot.ps1 m03-pre-helm
-# ...record M03...
+
+# 2) Record the module. The script restores to pristine v1.35 on launch, so every
+#    take starts from the identical frame. -OpenDocs also pops kubernetes.io at
+#    each documentation beat:
+.\Invoke-M03Lab.ps1            # or:  .\Invoke-M03Lab.ps1 -OpenDocs
+
+# 3) Re-record any time -- the launch restore is the rewind. Or do it by hand:
 .\Restore-CkaSnapshot.ps1 m03-pre-helm
 ```
 
-## Housekeeping
+> Manifests live in `exercise-files\course-03-lifecycle-upgrades\m03-helm-kustomize-crds\`
+> (the learner download). The script pushes that exact tree to the node, so there
+> is one source of truth and no Vagrant synced-folder dependency. Helm is installed
+> live in Phase 2 -- a teaching beat; on the real exam it is already on the box.
+
+## Housekeeping -- clearing checkpoint cruft after a recording sprint
+
+The re-record loop is generous with checkpoints. Every M02 take drops
+`m02-after-control1` / `m02-after-worker1`, and Hyper-V lets duplicate names pile
+up, each with its own differencing disk (`.avhdx`). When you are done recording,
+clear the pile but keep the VMs and your save points:
 
 ```powershell
-# List checkpoints on one VM (Hyper-V tracks them per VM):
-Get-VMCheckpoint -VMName control1 | Select-Object Name, CreationTime
+# 1) See the tree first (read-only -- changes nothing):
+.\Remove-CkaSnapshot.ps1
 
-# Delete a checkpoint across all three VMs (needed before reusing a name):
-'control1','worker1','worker2' | ForEach-Object {
-    Remove-VMCheckpoint -VMName $_ -Name 'm02-pre-upgrade' -Confirm:$false -ErrorAction SilentlyContinue
-}
+# 2) Dry-run the sweep (still changes nothing):
+.\Remove-CkaSnapshot.ps1 -Prune -WhatIf
+
+# 3) Prune everything EXCEPT your save points (default keep: pre-cluster, m02-pre-upgrade):
+.\Remove-CkaSnapshot.ps1 -Prune
+
+# Protect an extra save point on the way through:
+.\Remove-CkaSnapshot.ps1 -Prune -Keep pre-cluster, m02-pre-upgrade, m01-cluster-ready
+
+# Or surgically remove just the node-boundary cruft (every copy, all 3 VMs):
+.\Remove-CkaSnapshot.ps1 -Name m02-after-control1, m02-after-worker1
 ```
+
+The VMs are never touched -- only checkpoints. Removing a checkpoint merges its
+`.avhdx` back into the parent in the background, which is how the disk space comes
+back. Names in `-Keep` are never removed, even if you also name them in `-Name`.
 
 > The original generic `cka-*.ps1` scripts in the parent `src\cka-lab` folder still
 > work and are unchanged -- they are the shared engine. **For Course 3, use the
