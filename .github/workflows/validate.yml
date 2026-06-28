@@ -29,6 +29,8 @@ jobs:
           globs: |
             **/*.md
             !cka-cert-buddy/**
+            !notebooks/**
+            !**/temp/**
 
       - name: Guard against proprietary work product
         run: |
