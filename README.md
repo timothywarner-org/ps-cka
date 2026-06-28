@@ -31,21 +31,36 @@ graph LR
     C10 --> C11[11. Exam Prep]
 ```
 
-| # | Course | CKA Domain | Est. Runtime |
-|---|--------|-----------|--------------|
-| 1 | Kubernetes Foundations | Cross-domain | 75 min |
-| 2 | Installing Clusters with kubeadm | Architecture (25%) | 90 min |
-| 3 | Managing Cluster Lifecycle and Upgrades | Architecture (25%) | 75 min |
-| 4 | Securing Access with RBAC and Admission Controls | Architecture (25%) | 75 min |
-| 5 | Managing Workloads and Scheduling | Workloads (15%) | 90 min |
-| 6 | Managing Storage | Storage (10%) | 75 min |
-| 7 | Services, Ingress, and Gateway API | Networking (20%) | 90 min |
-| 8 | Network Policies and Traffic Management | Networking (20%) | 75 min |
-| 9 | Troubleshooting Clusters and Nodes | Troubleshooting (30%) | 90 min |
-| 10 | Troubleshooting Workloads and Services | Troubleshooting (30%) | 90 min |
-| 11 | Exam Prep, Practice Labs, and Strategy | All domains | 75 min |
+| # | Course | CKA Domain | Est. Runtime | Status |
+|---|--------|-----------|--------------|--------|
+| 1 | [Kubernetes Foundations](exercise-files/course-01-foundations/README.md) | Cross-domain | 75 min | Recorded |
+| 2 | [Installing Clusters with kubeadm](exercise-files/course-02-kubeadm-cluster-install/README.md) | Architecture (25%) | 90 min | Recorded |
+| 3 | [Managing Cluster Lifecycle and Upgrades](exercise-files/course-03-lifecycle-upgrades/README.md) | Architecture (25%) | 75 min | Recorded |
+| 4 | [Securing Access with RBAC and Admission Controls](exercise-files/course-04-rbac-admission/README.md) | Architecture (25%) | 75 min | Coming as recorded |
+| 5 | [Managing Workloads and Scheduling](exercise-files/course-05-workloads-scheduling/README.md) | Workloads (15%) | 90 min | Coming as recorded |
+| 6 | [Managing Storage](exercise-files/course-06-storage/README.md) | Storage (10%) | 75 min | Coming as recorded |
+| 7 | [Services, Ingress, and Gateway API](exercise-files/course-07-services-ingress-gateway/README.md) | Networking (20%) | 90 min | Coming as recorded |
+| 8 | [Network Policies and Traffic Management](exercise-files/course-08-network-policies/README.md) | Networking (20%) | 75 min | Coming as recorded |
+| 9 | [Troubleshooting Clusters and Nodes](exercise-files/course-09-troubleshoot-clusters/README.md) | Troubleshooting (30%) | 90 min | Coming as recorded |
+| 10 | [Troubleshooting Workloads and Services](exercise-files/course-10-troubleshoot-workloads/README.md) | Troubleshooting (30%) | 90 min | Coming as recorded |
+| 11 | [Exam Prep, Practice Labs, and Strategy](exercise-files/course-11-exam-prep/README.md) | All domains | 75 min | Coming as recorded |
 
 **Total runtime: ~15 hours** (10 core courses + 1 exam-prep capstone)
+
+## Find your module's files
+
+Every course folder has a **README** that maps each module to its files and CKA exam
+objectives. Click a course above, then open the module you're watching. Recorded
+courses (1-3) ship their manifests, scripts, and demo runbooks today; the rest land
+as each module is recorded.
+
+- **Course 1 -- Foundations:** [`exercise-files/course-01-foundations/`](exercise-files/course-01-foundations/README.md)
+- **Course 2 -- kubeadm install:** [`exercise-files/course-02-kubeadm-cluster-install/`](exercise-files/course-02-kubeadm-cluster-install/README.md)
+- **Course 3 -- Lifecycle and upgrades:** [`exercise-files/course-03-lifecycle-upgrades/`](exercise-files/course-03-lifecycle-upgrades/README.md)
+- **Courses 4-11:** browse [`exercise-files/`](exercise-files/) -- each course and module folder carries its own README.
+
+Naming is predictable: `exercise-files/course-NN-topic/mNN-module-name/`. The module
+number matches the video module number in the Pluralsight player.
 
 ## CKA Exam Domain Weights
 
