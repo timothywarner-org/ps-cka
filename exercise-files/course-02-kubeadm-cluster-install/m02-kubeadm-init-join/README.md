@@ -12,6 +12,7 @@
 
 | File | What it is |
 | --- | --- |
+| [`m02-kubeadm-init-join-slides.pdf`](m02-kubeadm-init-join-slides.pdf) | Slide deck (PDF) for this module. |
 | [`c02-m02-demo-runbook.md`](c02-m02-demo-runbook.md) | Recording runbook: control-plane init and worker join, with a troubleshooting table. |
 
 Every manifest here is built to run on a standard kind cluster (1 control-plane + 2 workers) at Kubernetes **v1.35**, the exam topology.

@@ -12,9 +12,9 @@ Cluster architecture, the kubectl workflow, core resources, and the diagnostic l
 
 | # | Module | Exam objectives | Files |
 | --- | --- | --- | --- |
-| M01 | [Architecture and Lab Setup](m01-architecture-lab-setup/README.md) | Kubernetes architecture; control plane and node components; the CNI, CSI, and CRI extension interfaces. | Coming as recorded |
-| M02 | [kubectl Workflows](m02-kubectl-workflows/README.md) | Imperative and declarative kubectl; the dry-run to YAML pipeline; multi-cluster context switching. | Coming as recorded |
-| M03 | [Core Resources and the Diagnostic Ladder](m03-core-resources-diagnostic-ladder/README.md) | Pods, ReplicaSets, Deployments, Services, EndpointSlices; the get > describe > logs > events diagnostic ladder. | Coming as recorded |
+| M01 | [Architecture and Lab Setup](m01-architecture-lab-setup/README.md) | Kubernetes architecture; control plane and node components; the CNI, CSI, and CRI extension interfaces. | Recorded |
+| M02 | [kubectl Workflows](m02-kubectl-workflows/README.md) | Imperative and declarative kubectl; the dry-run to YAML pipeline; multi-cluster context switching. | Recorded |
+| M03 | [Core Resources and the Diagnostic Ladder](m03-core-resources-diagnostic-ladder/README.md) | Pods, ReplicaSets, Deployments, Services, EndpointSlices; the get > describe > logs > events diagnostic ladder. | Recorded |
 
 ---
 

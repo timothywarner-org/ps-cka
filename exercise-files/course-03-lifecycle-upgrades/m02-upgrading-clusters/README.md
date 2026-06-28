@@ -12,6 +12,7 @@
 
 | File | What it is |
 | --- | --- |
+| [`m02-upgrading-clusters-slides.pdf`](m02-upgrading-clusters-slides.pdf) | Slide deck (PDF) for this module. |
 | [`CKA-C03-M02-demo-runbook.md`](CKA-C03-M02-demo-runbook.md) | Recording runbook: an eight-phase kubeadm upgrade, mirroring the on-rails Invoke-M02Upgrade.ps1 lab driver. |
 | [`m02-kubeadm-upgrade.sh`](m02-kubeadm-upgrade.sh) | Control-plane upgrade: apt repo repoint, kubeadm upgrade plan/apply, kubelet upgrade. |
 | [`m02-worker-upgrade.sh`](m02-worker-upgrade.sh) | Worker upgrade: drain, kubeadm upgrade node, kubelet upgrade, uncordon. |
