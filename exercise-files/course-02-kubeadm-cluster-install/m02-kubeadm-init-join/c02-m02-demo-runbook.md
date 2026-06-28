@@ -399,7 +399,7 @@ kubeadm token create --print-join-command
 **Output (paste verbatim onto every worker):**
 
 ```
-kubeadm join 192.168.50.10:6443 --token abcdef.0123456789abcdef --discovery-token-ca-cert-hash sha256:<HEX>
+kubeadm join 192.168.50.10:6443 --token <TOKEN> --discovery-token-ca-cert-hash sha256:<HEX>
 ```
 
 **Windows lens:** a kubeadm bootstrap token is a short-lived shared secret with a 24-hour default TTL, the same model as a Kerberos TGT's lifetime or a `New-PSSession` credential cached for a session. The CA-cert hash that travels with the join command is a SHA-256 pin of the cluster's root CA, conceptually equivalent to thumbprint-pinning a cert in `Cert:\LocalMachine\Root`. Both ends mutually authenticate, neither is optional.
