@@ -17,6 +17,20 @@ reference/
 baseline-exports/
 src/cka-lab/baseline-exports/
 
+# Never commit VM disk images or Hyper-V/Vagrant VM artifacts to this public repo.
+# Only the scripts, Vagrantfile, and configs that BUILD the lab belong here.
+*.vhd
+*.vhdx
+*.avhdx
+*.vmcx
+*.vmrs
+*.vsv
+*.vmdk
+*.ova
+*.iso
+*.box
+.vagrant/
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
