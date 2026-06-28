@@ -12,6 +12,7 @@
 
 | File | What it is |
 | --- | --- |
+| [`m03-cni-cluster-validation-slides.pdf`](m03-cni-cluster-validation-slides.pdf) | Slide deck (PDF) for this module. |
 | [`c02-m03-demo-runbook.md`](c02-m03-demo-runbook.md) | Recording runbook: CNI install, DNS smoke test, and the diagnostic ladder applied to a fresh cluster. |
 
 Every manifest here is built to run on a standard kind cluster (1 control-plane + 2 workers) at Kubernetes **v1.35**, the exam topology.

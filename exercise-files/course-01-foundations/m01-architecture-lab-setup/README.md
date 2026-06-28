@@ -8,11 +8,14 @@
 
 ---
 
-## Coming as recorded
+## What's in this folder
 
-This module's exercise files (manifests, scripts, and any demo apps) land here as the module is recorded. Nothing is missing on your end. **Clone the repo and pull periodically**, or watch the repo on GitHub, so you get each module's files the day it ships.
+| File | What it is |
+| --- | --- |
+| [`m01-architecture-lab-setup-slides.pdf`](m01-architecture-lab-setup-slides.pdf) | Slide deck (PDF) for this module. |
+| [`../../../dev/m01-demo-runbook.md`](../../../dev/m01-demo-runbook.md) | Recording runbook: pre-flight, click path, and timed demos. |
 
-Until then, the objectives above tell you exactly what this module covers on the exam.
+Every manifest here is built to run on a standard kind cluster (1 control-plane + 2 workers) at Kubernetes **v1.35**, the exam topology.
 
 ---
 

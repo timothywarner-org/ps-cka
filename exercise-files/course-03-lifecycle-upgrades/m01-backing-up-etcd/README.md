@@ -12,6 +12,7 @@
 
 | File | What it is |
 | --- | --- |
+| [`m01-backing-up-etcd-slides.pdf`](m01-backing-up-etcd-slides.pdf) | Slide deck (PDF) for this module. |
 | [`CKA-C03-M01-demo-runbook.md`](CKA-C03-M01-demo-runbook.md) | Recording runbook for the etcd backup and restore demo. |
 | [`commands.sh`](commands.sh) | The copy-paste demo path, in beat order, matching the video. |
 | [`m01-etcd-backup.sh`](m01-etcd-backup.sh) | Take a timestamped etcd snapshot with etcdctl and certificate auth. |

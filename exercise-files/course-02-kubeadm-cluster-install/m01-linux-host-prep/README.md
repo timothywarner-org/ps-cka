@@ -12,6 +12,7 @@
 
 | File | What it is |
 | --- | --- |
+| [`m01-linux-host-prep-slides.pdf`](m01-linux-host-prep-slides.pdf) | Slide deck (PDF) for this module. |
 | [`c02-m01-demo-runbook.md`](c02-m01-demo-runbook.md) | Recording runbook: verify-first host-prep demo against the Hyper-V Vagrant lab. |
 
 Every manifest here is built to run on a standard kind cluster (1 control-plane + 2 workers) at Kubernetes **v1.35**, the exam topology.

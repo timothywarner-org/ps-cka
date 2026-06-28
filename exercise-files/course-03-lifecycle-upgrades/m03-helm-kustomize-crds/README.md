@@ -9,6 +9,8 @@ The on-rails demo driver is `Invoke-M03Lab.ps1` in
 and runs every command live. You can also run the commands yourself against any
 v1.35 cluster.
 
+The module slide deck (PDF) is [`m03-helm-kustomize-crds-slides.pdf`](m03-helm-kustomize-crds-slides.pdf).
+
 ## Kustomize -- `m03-kustomize-demo/`
 
 One **base** customized by two **overlays**. No templating language, no copied YAML.
