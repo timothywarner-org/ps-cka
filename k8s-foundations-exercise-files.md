@@ -16,16 +16,16 @@ Aligned to the **CKA v1.35 (February 2025) curriculum** revision.
 > **Heads up:** This file is a **pointer**. Every manifest, lab config, demo app, and recording runbook for this course lives in the public GitHub repo below. Bookmark it, clone it, and keep it open while you watch the videos.
 
 <p align="center">
-  <a href="https://github.com/timothywarner/ps-cka">
-    <img src="https://img.shields.io/badge/GO%20TO%20THE%20REPO-timothywarner%2Fps--cka-2EA043?style=for-the-badge&logo=github&logoColor=white&labelColor=0D1117" alt="Go to the repo" height="60">
+  <a href="https://github.com/timothywarner-org/ps-cka">
+    <img src="https://img.shields.io/badge/GO%20TO%20THE%20REPO-timothywarner-org%2Fps--cka-2EA043?style=for-the-badge&logo=github&logoColor=white&labelColor=0D1117" alt="Go to the repo" height="60">
   </a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/timothywarner/ps-cka/stargazers"><img src="https://img.shields.io/github/stars/timothywarner/ps-cka?style=flat-square&logo=github&color=FFD33D" alt="GitHub stars"></a>
-  <a href="https://github.com/timothywarner/ps-cka"><img src="https://img.shields.io/badge/Kubernetes-v1.35-326CE5?style=flat-square&logo=kubernetes&logoColor=white" alt="Kubernetes v1.35"></a>
-  <a href="https://github.com/timothywarner/ps-cka"><img src="https://img.shields.io/badge/CKA-Feb%202025%20Curriculum-1F6FEB?style=flat-square" alt="CKA Feb 2025 Curriculum"></a>
-  <a href="https://github.com/timothywarner/ps-cka"><img src="https://img.shields.io/badge/License-See%20Repo-lightgrey?style=flat-square" alt="License: see repo"></a>
+  <a href="https://github.com/timothywarner-org/ps-cka/stargazers"><img src="https://img.shields.io/github/stars/timothywarner-org/ps-cka?style=flat-square&logo=github&color=FFD33D" alt="GitHub stars"></a>
+  <a href="https://github.com/timothywarner-org/ps-cka"><img src="https://img.shields.io/badge/Kubernetes-v1.35-326CE5?style=flat-square&logo=kubernetes&logoColor=white" alt="Kubernetes v1.35"></a>
+  <a href="https://github.com/timothywarner-org/ps-cka"><img src="https://img.shields.io/badge/CKA-Feb%202025%20Curriculum-1F6FEB?style=flat-square" alt="CKA Feb 2025 Curriculum"></a>
+  <a href="https://github.com/timothywarner-org/ps-cka"><img src="https://img.shields.io/badge/License-See%20Repo-lightgrey?style=flat-square" alt="License: see repo"></a>
   <a href="https://TechTrainerTim.com"><img src="https://img.shields.io/badge/Maintained%20by-Tim%20Warner-0078D4?style=flat-square&logo=microsoft&logoColor=white" alt="Maintained by Tim Warner"></a>
 </p>
 
@@ -33,7 +33,7 @@ Aligned to the **CKA v1.35 (February 2025) curriculum** revision.
 
 ## What's in the repo
 
-Welcome — I'm Tim, and here's the lay of the land when you arrive at [github.com/timothywarner/ps-cka](https://github.com/timothywarner/ps-cka):
+Welcome — I'm Tim, and here's the lay of the land when you arrive at [github.com/timothywarner-org/ps-cka](https://github.com/timothywarner-org/ps-cka):
 
 - **`exercise-files/`** — All course manifests, organized by `course-NN-topic/mNN-module-name/`. Each module's YAML, scripts, and supporting assets live here.
 - **`exercise-files/shared/apps/`** — Reusable demo applications (`catalog-api`, `fleet-dashboard`, `telemetry-worker`) backing the **Globomantics** storyline you'll see throughout the skill path.
@@ -48,7 +48,7 @@ Welcome — I'm Tim, and here's the lay of the land when you arrive at [github.c
 ## Quick start (three commands)
 
 ```powershell
-git clone https://github.com/timothywarner/ps-cka.git
+git clone https://github.com/timothywarner-org/ps-cka.git
 cd ps-cka/src/cka-lab
 ./kind-up.ps1                      # interactive menu: pick topology + tutorial
 ```
@@ -76,8 +76,8 @@ If you've studied the older CKA curriculum, these are the deltas. If you're new 
 ## One more time — go to the repo
 
 <p align="center">
-  <a href="https://github.com/timothywarner/ps-cka">
-    <img src="https://img.shields.io/badge/CLONE%20THE%20REPO-github.com%2Ftimothywarner%2Fps--cka-2EA043?style=for-the-badge&logo=github&logoColor=white&labelColor=0D1117" alt="Clone the repo" height="60">
+  <a href="https://github.com/timothywarner-org/ps-cka">
+    <img src="https://img.shields.io/badge/CLONE%20THE%20REPO-github.com%2Ftimothywarner-org%2Fps--cka-2EA043?style=for-the-badge&logo=github&logoColor=white&labelColor=0D1117" alt="Clone the repo" height="60">
   </a>
 </p>
 
@@ -89,7 +89,7 @@ Thanks for taking this course — it genuinely means a lot. If you hit a snag, s
 
 - **Website:** [TechTrainerTim.com](https://TechTrainerTim.com)
 - **Email:** [tim@techtrainertim.com](mailto:tim@techtrainertim.com)
-- **Repo issues:** [github.com/timothywarner/ps-cka/issues](https://github.com/timothywarner/ps-cka/issues)
+- **Repo issues:** [github.com/timothywarner-org/ps-cka/issues](https://github.com/timothywarner-org/ps-cka/issues)
 
 Now go pass that exam.
 

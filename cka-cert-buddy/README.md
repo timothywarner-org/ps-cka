@@ -32,7 +32,7 @@ Built for the **February 2025 CKA curriculum revision** -- the largest update in
 1. **Clone the repository** and open it in VS Code.
 
    ```bash
-   git clone https://github.com/timothywarner/ps-cka.git
+   git clone https://github.com/timothywarner-org/ps-cka.git
    cd ps-cka/cka-cert-buddy
    code .
    ```
@@ -164,7 +164,7 @@ Internal architecture, authoring rules, and skill-discovery gotchas are document
 
 ## Help and Support
 
-- **Issues:** [Open an issue](https://github.com/timothywarner/ps-cka/issues) for bugs, incorrect content, or feature requests.
+- **Issues:** [Open an issue](https://github.com/timothywarner-org/ps-cka/issues) for bugs, incorrect content, or feature requests.
 - **Contributing:** See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - **Security:** See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 

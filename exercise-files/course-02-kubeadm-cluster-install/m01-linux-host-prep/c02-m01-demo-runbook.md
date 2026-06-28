@@ -543,7 +543,6 @@ vagrant up --provider=hyperv
 - **VM provisioner** (off-camera, ran once at `vagrant up`): `src/cka-lab/Vagrantfile` — same commands as the demo, baked into a shell provisioner. **That's why every command in the demo is idempotent.**
 - **Snapshot helpers:** `src/cka-lab/cka-snapshot.ps1` and `src/cka-lab/cka-restore.ps1` — atomic, all-or-nothing across the three VMs.
 - **Vagrant lab walkthrough (deeper context):** `src/cka-lab/TUTORIAL-HYPERV.md`.
-- **Deck source:** `m01-linux-host-prep_TimEdits-WindowsFriendly.pptx` (this module's directory). Open in PowerPoint for slides and speaker notes.
 
 ---
 

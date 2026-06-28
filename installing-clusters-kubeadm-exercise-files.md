@@ -16,19 +16,19 @@ Aligned to the **CKA v1.35 (February 2025) curriculum** revision.
 > **Heads up:** This file is a **pointer**. Every manifest, Vagrantfile, provisioning script, demo runbook, and validation script for this course lives in the public GitHub repo below. Bookmark it, clone it, and keep it open while you watch the videos.
 
 <p align="center">
-  <a href="https://github.com/timothywarner/ps-cka">
-    <img src="https://img.shields.io/badge/GO%20TO%20THE%20REPO-timothywarner%2Fps--cka-2EA043?style=for-the-badge&logo=github&logoColor=white&labelColor=0D1117" alt="Go to the course repository on GitHub" height="60">
+  <a href="https://github.com/timothywarner-org/ps-cka">
+    <img src="https://img.shields.io/badge/GO%20TO%20THE%20REPO-timothywarner-org%2Fps--cka-2EA043?style=for-the-badge&logo=github&logoColor=white&labelColor=0D1117" alt="Go to the course repository on GitHub" height="60">
   </a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/timothywarner/ps-cka/stargazers"><img src="https://img.shields.io/github/stars/timothywarner/ps-cka?style=flat-square&logo=github&color=FFD33D" alt="GitHub stars"></a>
-  <a href="https://github.com/timothywarner/ps-cka"><img src="https://img.shields.io/badge/Kubernetes-v1.35-326CE5?style=flat-square&logo=kubernetes&logoColor=white" alt="Kubernetes v1.35"></a>
-  <a href="https://github.com/timothywarner/ps-cka"><img src="https://img.shields.io/badge/CKA-Feb%202025%20Curriculum-1F6FEB?style=flat-square" alt="CKA Feb 2025 curriculum"></a>
-  <a href="https://github.com/timothywarner/ps-cka"><img src="https://img.shields.io/badge/kubeadm-v1.35-326CE5?style=flat-square&logo=kubernetes&logoColor=white" alt="kubeadm v1.35"></a>
-  <a href="https://github.com/timothywarner/ps-cka"><img src="https://img.shields.io/badge/containerd-CRI-575757?style=flat-square&logo=containerd&logoColor=white" alt="containerd as CRI"></a>
-  <a href="https://github.com/timothywarner/ps-cka"><img src="https://img.shields.io/badge/Calico-CNI-FF8C00?style=flat-square" alt="Calico as CNI"></a>
-  <a href="https://github.com/timothywarner/ps-cka"><img src="https://img.shields.io/badge/License-See%20Repo-lightgrey?style=flat-square" alt="License: see repo"></a>
+  <a href="https://github.com/timothywarner-org/ps-cka/stargazers"><img src="https://img.shields.io/github/stars/timothywarner-org/ps-cka?style=flat-square&logo=github&color=FFD33D" alt="GitHub stars"></a>
+  <a href="https://github.com/timothywarner-org/ps-cka"><img src="https://img.shields.io/badge/Kubernetes-v1.35-326CE5?style=flat-square&logo=kubernetes&logoColor=white" alt="Kubernetes v1.35"></a>
+  <a href="https://github.com/timothywarner-org/ps-cka"><img src="https://img.shields.io/badge/CKA-Feb%202025%20Curriculum-1F6FEB?style=flat-square" alt="CKA Feb 2025 curriculum"></a>
+  <a href="https://github.com/timothywarner-org/ps-cka"><img src="https://img.shields.io/badge/kubeadm-v1.35-326CE5?style=flat-square&logo=kubernetes&logoColor=white" alt="kubeadm v1.35"></a>
+  <a href="https://github.com/timothywarner-org/ps-cka"><img src="https://img.shields.io/badge/containerd-CRI-575757?style=flat-square&logo=containerd&logoColor=white" alt="containerd as CRI"></a>
+  <a href="https://github.com/timothywarner-org/ps-cka"><img src="https://img.shields.io/badge/Calico-CNI-FF8C00?style=flat-square" alt="Calico as CNI"></a>
+  <a href="https://github.com/timothywarner-org/ps-cka"><img src="https://img.shields.io/badge/License-See%20Repo-lightgrey?style=flat-square" alt="License: see repo"></a>
   <a href="https://TechTrainerTim.com"><img src="https://img.shields.io/badge/Maintained%20by-Tim%20Warner-0078D4?style=flat-square&logo=microsoft&logoColor=white" alt="Maintained by Tim Warner"></a>
 </p>
 
@@ -50,7 +50,7 @@ Three modules, ~90 minutes total:
 
 ## What's in the repo
 
-Welcome - I'm Tim, and here's the lay of the land when you arrive at [github.com/timothywarner/ps-cka](https://github.com/timothywarner/ps-cka):
+Welcome - I'm Tim, and here's the lay of the land when you arrive at [github.com/timothywarner-org/ps-cka](https://github.com/timothywarner-org/ps-cka):
 
 - **`m01-linux-host-prep/`** - Module 1 demo runbook, Vagrantfile, provisioning scripts. Kernel modules, sysctl, swap, containerd install, kubeadm/kubelet/kubectl install from `pkgs.k8s.io`, version pinning with `apt-mark hold`.
 - **`m02-kubeadm-init-join/`** - Module 2 demo runbook. `kubeadm init` on the control plane, walkthrough of the static pod manifests in `/etc/kubernetes/manifests/`, admin kubeconfig setup, `kubeadm join` on the workers, bootstrap token refresh with `kubeadm token create --print-join-command`.
@@ -67,7 +67,7 @@ Welcome - I'm Tim, and here's the lay of the land when you arrive at [github.com
 ## Quick start (three commands)
 
 ```powershell
-git clone https://github.com/timothywarner/ps-cka.git
+git clone https://github.com/timothywarner-org/ps-cka.git
 cd ps-cka
 ./src/cka-lab/Start-HyperVLab.ps1     # provisions 3 VMs, stops before kubeadm init
 ```
@@ -254,8 +254,8 @@ Every link below was verified live. Grouped by module so you can read alongside 
 ## One more time - go to the repo
 
 <p align="center">
-  <a href="https://github.com/timothywarner/ps-cka">
-    <img src="https://img.shields.io/badge/CLONE%20THE%20REPO-github.com%2Ftimothywarner%2Fps--cka-2EA043?style=for-the-badge&logo=github&logoColor=white&labelColor=0D1117" alt="Clone the course repository" height="60">
+  <a href="https://github.com/timothywarner-org/ps-cka">
+    <img src="https://img.shields.io/badge/CLONE%20THE%20REPO-github.com%2Ftimothywarner-org%2Fps--cka-2EA043?style=for-the-badge&logo=github&logoColor=white&labelColor=0D1117" alt="Clone the course repository" height="60">
   </a>
 </p>
 
@@ -270,7 +270,7 @@ Thanks for taking this course - it genuinely means a lot. If you hit a snag, spo
 - **YouTube:** [youtube.com/c/TechTrainerTim](https://www.youtube.com/c/TechTrainerTim)
 - **LinkedIn:** [linkedin.com/in/timothywarner](https://www.linkedin.com/in/timothywarner)
 - **Microsoft MVP profile:** [mvp.microsoft.com/timothywarner](https://mvp.microsoft.com/en-US/mvp/profile/e9a13bca-2798-4247-be56-f116f780869d)
-- **Repo issues:** [github.com/timothywarner/ps-cka/issues](https://github.com/timothywarner/ps-cka/issues)
+- **Repo issues:** [github.com/timothywarner-org/ps-cka/issues](https://github.com/timothywarner-org/ps-cka/issues)
 
 Now go pass that exam.
 

@@ -18,7 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `Start-Tutorial.ps1` menu labels updated to reflect the 10-step counts for Modules 2 and 3.
 
 ### Added
-- **`k8s-foundations-exercise-files.md` pointer file** at the repo root — single-file Pluralsight Course 1 ("Kubernetes Foundations") exercise-files download that points learners back to `github.com/timothywarner/ps-cka` for all manifests, lab scripts, and recording runbooks.
+- **`k8s-foundations-exercise-files.md` pointer file** at the repo root — single-file Pluralsight Course 1 ("Kubernetes Foundations") exercise-files download that points learners back to `github.com/timothywarner-org/ps-cka` for all manifests, lab scripts, and recording runbooks.
 - **Multi-cluster context lab** (`kind-multi-up.ps1`, `kind-multi-down.ps1`, `Start-ContextPractice.ps1`) — stands up `cka-dev` (1 CP + 1 worker, ports 30100/30180) and `cka-prod` (1 CP + 2 workers, ports 30200/30280) side by side. Powers M03's gated section 10/10 with graceful-degrade if either cluster is missing.
 - **Status probes** (read-only, CI-safe): `kind-status.ps1`, `kind-multi-status.ps1`, `cka-status.ps1` (Hyper-V VMs).
 - **Per-module recording runbooks** in `dev/`: `m01-`, `m02-`, `m03-demo-runbook.md`. Each carries pre-flight, camera checklist, click path, timed demos, reset-between-takes, and recovery cheat sheet mapped to the section numbering in `lib/tutorials.ps1`.

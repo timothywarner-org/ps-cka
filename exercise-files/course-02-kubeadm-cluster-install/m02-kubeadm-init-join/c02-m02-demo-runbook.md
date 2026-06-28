@@ -618,7 +618,6 @@ Repeat on worker1 and worker2. Slower than restore but works if the snapshot is 
 - **Live commands:** Deck slides 9 (declarative init.yaml + kubeadm init + kubectl setup + join), 13 (kubeadm token create --print-join-command). One-to-one with what you type on camera.
 - **Lab setup from Module 1:** `src/cka-lab/Vagrantfile` provisioner already ran prereqs at `vagrant up`. Module 2 picks up at `m02-start` snapshot.
 - **Snapshot helpers:** `src/cka-lab/cka-snapshot.ps1` and `src/cka-lab/cka-restore.ps1` — atomic, all-or-nothing across the three VMs.
-- **Deck markdown extract:** `m02-kubeadm-init-join-TimEdits-WindowsFriendly.md` — every slide + full speaker notes (regenerated alongside this runbook).
 
 ---
 

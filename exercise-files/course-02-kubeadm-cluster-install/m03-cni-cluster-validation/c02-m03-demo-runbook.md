@@ -807,7 +807,6 @@ Then restore Module 2's m03-start snapshot for a clean restart.
 - **Lab setup from Modules 1-2:** `src/cka-lab/Vagrantfile` provisions containerd + crictl + kubeadm/kubelet/kubectl (no Helm — the Helm sidebar in Step 2.2b is narration only). Module 2 leaves the `m03-start` snapshot.
 - **Snapshot helpers:** `src/cka-lab/cka-snapshot.ps1` and `src/cka-lab/cka-restore.ps1` — atomic, all-or-nothing across the three VMs.
 - **Snapshot chain across Course 2:** `m02-start` (m01 end) → `m03-start` (m02 end) → `pre-record-m3` (m03 takes) → `m04-start` (Course 3 starting point). Convention: each `m{N}-start` snapshot is the verified baseline that Module N restores from.
-- **Deck markdown extract:** `m03-cni-cluster-validation-TimEdits-WindowsFriendly.md` — every slide + full speaker notes (regenerated alongside this runbook).
 
 ---
 
