@@ -38,7 +38,6 @@ Use **Hyper-V** for the 20% that do — and for the exam-shaped dress rehearsals
 > `Save-CkaSnapshot`, `Restore-CkaSnapshot`, and friends. They drive the same Hyper-V VMs
 > (`control1` / `worker1` / `worker2`); that folder's `README.md` is the one-page map.
 
-
 ### Path A — KIND (single cluster)
 
 ```powershell
@@ -86,6 +85,7 @@ Deep dive and the practice loop: **[TUTORIAL-HYPERV.md](TUTORIAL-HYPERV.md)**
 ## 📦 What's in the Box
 
 ### Shared
+
 | File | What It Does |
 |------|-------------|
 | `README.md` | This page — the landing pad |
@@ -94,6 +94,7 @@ Deep dive and the practice loop: **[TUTORIAL-HYPERV.md](TUTORIAL-HYPERV.md)**
 | `TUTORIAL-HYPERV.md` | Hands-on VM walkthrough + practice loop |
 
 ### KIND path
+
 | File | What It Does |
 |------|-------------|
 | `kind-up.ps1` | Interactive menu → creates a KIND cluster (simple / 3-node / HA / workloads). NodePort preflight, topology-aware `--wait`, optional tutorial. |
@@ -109,6 +110,7 @@ Deep dive and the practice loop: **[TUTORIAL-HYPERV.md](TUTORIAL-HYPERV.md)**
 | `configs/cka-*.yaml` | Six topologies — simple, 3-node (exam), HA (3 CPs, port maps on worker), workloads (labels/taints), plus `cka-dev` / `cka-prod` for the multi-cluster context lab (disjoint host ports). |
 
 ### Hyper-V path
+
 | File | What It Does |
 |------|-------------|
 | `Vagrantfile` | 3 headless Ubuntu 22.04 VMs (control1, worker1, worker2), all prereqs installed, pinned to Kubernetes `1.35.0-1.1`. Stops *before* `kubeadm init`. |
@@ -122,6 +124,7 @@ Deep dive and the practice loop: **[TUTORIAL-HYPERV.md](TUTORIAL-HYPERV.md)**
 | `cka-up.ps1` / `cka-down.ps1` | Boot / graceful shutdown for all VMs. |
 
 ### Housekeeping
+
 | Path | What It Does |
 |------|-------------|
 | `archive/` | Retired scripts (old bash `kind-up.sh`, legacy `snapshot.ps1`). Preserved for reference. |
@@ -132,6 +135,7 @@ Deep dive and the practice loop: **[TUTORIAL-HYPERV.md](TUTORIAL-HYPERV.md)**
 ## ✅ Prerequisites
 
 ### KIND path
+
 - Windows 10/11 with **Docker Desktop** (WSL2 backend recommended)
 - **KIND** — `winget install Kubernetes.kind`
 - **kubectl** — `winget install Kubernetes.kubectl`
@@ -153,6 +157,7 @@ docker --version; kind version; kubectl version --client --output=yaml; $PSVersi
 ```
 
 ### Hyper-V path
+
 - **Windows 11 Pro / Enterprise** (Hyper-V is gated out of Home)
 - **Hyper-V** feature enabled (reboot required)
 - **[Vagrant](https://developer.hashicorp.com/vagrant/install)** 2.4.x+
@@ -178,7 +183,7 @@ Running both at once is fine if you have the RAM for it — KIND lives inside Do
 
 ---
 
-## 🎯 Which One Should I Start With?
+## 🎯 Which One Should I Start With
 
 **If you're still learning Kubernetes concepts:** start with KIND. A 90-second reset loop is the
 right feedback cadence for "deploy a pod, break it, fix it, move on." Don't waste time on

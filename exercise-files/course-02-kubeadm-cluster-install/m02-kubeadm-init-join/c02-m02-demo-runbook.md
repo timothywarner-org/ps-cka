@@ -608,8 +608,8 @@ Repeat on worker1 and worker2. Slower than restore but works if the snapshot is 
 | `kubeadm join` returns "Unable to connect to the server: dial tcp 192.168.50.10:6443" | Worker can't reach control1's API server | `ping -c1 192.168.50.10` from the worker; check `CKA-NAT` switch + control1's firewall |
 | `kubectl` returns "permission denied" on admin.conf | Skipped the `chown` step | `sudo chown $(id -u):$(id -g) ~/.kube/config` |
 | `kubectl get nodes` shows control1 only after join | Workers crashlooped during join | `vagrant ssh worker1; sudo journalctl -u kubelet -n 50` |
-| CoreDNS stuck Pending after Module 3 CNI install (later) | Pod CIDR mismatch | `kubectl cluster-info dump | grep -i podSubnet` vs Calico's CIDR — must match `192.168.0.0/16` |
-| Control-plane static pod fails to start | Malformed kubeadm flags wrote a bad manifest | `sudo cat /etc/kubernetes/manifests/kube-apiserver.yaml | grep '\\-\\-'` to inspect the args |
+| CoreDNS stuck Pending after Module 3 CNI install (later) | Pod CIDR mismatch | `kubectl cluster-info dump \| grep -i podSubnet` vs Calico's CIDR — must match `192.168.0.0/16` |
+| Control-plane static pod fails to start | Malformed kubeadm flags wrote a bad manifest | `sudo cat /etc/kubernetes/manifests/kube-apiserver.yaml \| grep '\\-\\-'` to inspect the args |
 
 ---
 

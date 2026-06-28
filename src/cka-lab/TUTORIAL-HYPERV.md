@@ -685,7 +685,7 @@ ran `kubeadm init` for you, the exam would catch you with your pants down.
 |---------|-----|
 | **The cluster itself** — no `kubeadm init` has run | Exam objective #1. Do it yourself. |
 | **A CNI** — no pod network is applied by default | `bootstrap_cp.sh` installs Flannel, but only if *you* run it. The exam expects you to pick and install a CNI. |
-| **Helm** | Install when a practice scenario needs it. CKA v1.35 covers Helm for installing cluster components (Course 3), so practice `curl | bash` Helm installs by hand. |
+| **Helm** | Install when a practice scenario needs it. CKA v1.35 covers Helm for installing cluster components (Course 3), so practice `curl \| bash` Helm installs by hand. |
 | **Kustomize** | Comes with kubectl 1.14+ as `kubectl kustomize` — that's installed. Standalone `kustomize` binary? Install if needed. |
 | **An ingress controller** | NodePort is enough for most practice. Install nginx-ingress or Traefik when the scenario calls for it. |
 | **Metrics Server** | HPA/VPA practice needs this. Install by hand when you get there. |

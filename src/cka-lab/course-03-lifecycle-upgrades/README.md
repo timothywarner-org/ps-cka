@@ -43,6 +43,7 @@ colorblind-safe palette -- nothing depends on color alone.
 ## Recording workflow, per module
 
 ### Module 1 -- Backing up etcd  (cluster at v1.35)
+
 ```powershell
 .\Start-CkaLab.ps1
 .\Save-CkaSnapshot.ps1 m01-cluster-ready   # save point
@@ -51,6 +52,7 @@ colorblind-safe palette -- nothing depends on color alone.
 ```
 
 ### Module 2 -- Upgrading clusters  (start at v1.34, upgrade to v1.35 on camera)
+
 You do **not** build a second cluster. You bring the **same 3-node lab** up one
 minor behind, snapshot it, then upgrade live. **One helper does the whole v1.34
 build-and-snapshot in a single shot**, so you never have to remember the
@@ -84,6 +86,7 @@ environment-variable dance:
 Leave `CKA_K8S_MINOR` unset and the lab builds at **v1.35** exactly like today.
 
 ### Module 3 -- Helm, Kustomize & CRDs  (runs on the upgraded v1.35 cluster)
+
 M03 records off the **clean v1.35 cluster** (no Helm, no CRDs) that M02 produced.
 **One on-rails script IS the demo** -- it restores the snapshot, pushes the
 manifests, and walks Helm -> Kustomize -> CRDs (plus the exam doc technique) phase

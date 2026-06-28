@@ -1,0 +1,43 @@
+{
+  "default": true,
+  "MD022": true,
+  "MD031": true,
+  "MD032": true,
+  "MD030": {
+    "ul_single": 1,
+    "ol_single": 1,
+    "ul_multi": 1,
+    "ol_multi": 1
+  },
+  "MD007": {
+    "indent": 2
+  },
+  "MD013": false,
+  "MD041": false,
+  "MD060": false,
+  "MD036": false,
+  "MD040": false,
+  "MD028": false,
+  "MD024": {
+    "siblings_only": true
+  },
+  "MD026": {
+    "punctuation": ".,;:!?"
+  },
+  "MD029": {
+    "style": "one_or_ordered"
+  },
+  "MD033": {
+    "allowed_elements": [
+      "br",
+      "sub",
+      "sup",
+      "details",
+      "summary",
+      "p",
+      "img",
+      "a",
+      "div"
+    ]
+  }
+}

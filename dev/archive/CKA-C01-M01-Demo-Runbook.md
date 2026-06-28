@@ -393,22 +393,26 @@ k get nodes
 ## Troubleshooting
 
 **kind create cluster hangs or fails?**
+
 - Run `docker info` to verify Docker is running
 - Check available memory: `free -h` (need 4 GB+ free)
 - Delete stale clusters: `kind delete cluster --name cka-lab`
 - Check Docker disk space: `docker system df`
 
 **Nodes showing NotReady?**
+
 - Wait 30 seconds — kindnet and kube-proxy may still be initializing
 - Check kube-system pods: `kubectl -n kube-system get pods` — look for CrashLoopBackOff
 - Restart Docker Desktop and recreate the cluster
 
 **DNS test fails (nslookup times out)?**
+
 - Verify CoreDNS pods are Running: `kubectl -n kube-system get pods -l k8s-app=kube-dns`
 - Check CoreDNS logs: `kubectl -n kube-system logs -l k8s-app=kube-dns`
 - Recreate cluster if CoreDNS is stuck in CrashLoopBackOff
 
 **kubectl not connecting?**
+
 - Verify context: `kubectl config current-context` (should show `kind-cka-lab`)
 - Check kubeconfig: `cat ~/.kube/config | grep current-context`
 - Regenerate kubeconfig: `kind export kubeconfig --name cka-lab`

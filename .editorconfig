@@ -1,0 +1,31 @@
+# EditorConfig keeps formatting consistent across editors and contributors.
+# https://editorconfig.org
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# Markdown: trailing whitespace can be a hard line break, and prose lines run long.
+[*.md]
+trim_trailing_whitespace = false
+
+# YAML manifests and Kustomize files: 2-space indent is mandatory for Kubernetes.
+[*.{yml,yaml}]
+indent_size = 2
+
+# JSON config files.
+[*.json]
+indent_size = 2
+
+# PowerShell: the lab tooling uses 4-space indent.
+[*.ps1]
+indent_size = 4
+
+# Makefiles and shell scripts that require tabs.
+[Makefile]
+indent_style = tab

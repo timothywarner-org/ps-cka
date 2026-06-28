@@ -95,11 +95,13 @@ safe; re-launch resets you.
 > minutes per task."
 
 **[1.1]** kubectl explain prints the live, version-correct schema for any field, straight from the API server.
+
 ```bash
 kubectl explain deployment.spec.strategy --recursive
 ```
 
 **[1.2]** The --dry-run=client flag scaffolds a manifest as YAML without creating anything on the cluster.
+
 ```bash
 kubectl create deployment web --image=nginx --dry-run=client -o yaml
 ```
@@ -121,21 +123,25 @@ kubectl create deployment web --image=nginx --dry-run=client -o yaml
 > the exam, Helm is already on the box."
 
 **[2.1]** We install the Helm client using the canonical one-line installer from helm.sh.
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 ```
 
 **[2.2]** We register a chart repository and refresh its local index so Helm can find the chart.
+
 ```bash
 helm repo add podinfo https://stefanprodan.github.io/podinfo && helm repo update
 ```
 
 **[2.3]** helm upgrade --install deploys the release, creating it the first time and upgrading it on later runs.
+
 ```bash
 helm upgrade --install globo-podinfo podinfo/podinfo --wait
 ```
 
 **[2.4]** helm list shows our release sitting at revision 1.
+
 ```bash
 helm list
 ```
@@ -144,16 +150,19 @@ helm list
 > of editing live objects by hand."
 
 **[2.5]** Changing a single value makes Helm roll a brand-new revision instead of editing the live objects by hand.
+
 ```bash
 helm upgrade globo-podinfo podinfo/podinfo --reuse-values --set replicaCount=3 --wait
 ```
 
 **[2.6]** Rolling back to revision 1 proves that every Helm release has an undo button.
+
 ```bash
 helm rollback globo-podinfo 1 --wait
 ```
 
 **[2.7]** helm history is the revision ledger, recording the install, the upgrade, and the rollback.
+
 ```bash
 helm history globo-podinfo
 ```
@@ -172,41 +181,49 @@ helm history globo-podinfo
 > type on the exam."
 
 **[3.1]** This is the base Deployment, the plain workload with no environment-specific opinions baked in.
+
 ```bash
 cat m03-kustomize-demo/base/deployment.yaml
 ```
 
 **[3.2]** The base kustomization simply lists the resources that make up the application.
+
 ```bash
 cat m03-kustomize-demo/base/kustomization.yaml
 ```
 
 **[3.3]** The staging overlay patches the base, adding a name prefix, an env label, and two replicas.
+
 ```bash
 cat m03-kustomize-demo/overlays/staging/kustomization.yaml
 ```
 
 **[3.4]** kubectl kustomize renders the staging result so you can inspect it before anything is applied.
+
 ```bash
 kubectl kustomize m03-kustomize-demo/overlays/staging
 ```
 
 **[3.5]** The production overlay patches the same base with four replicas and a pinned image tag.
+
 ```bash
 cat m03-kustomize-demo/overlays/production/kustomization.yaml
 ```
 
 **[3.6]** Rendering production shows the pinned image, so this environment never drifts onto a floating tag.
+
 ```bash
 kubectl kustomize m03-kustomize-demo/overlays/production
 ```
 
 **[3.7]** kubectl apply -k applies the production overlay to the cluster for real.
+
 ```bash
 kubectl apply -k m03-kustomize-demo/overlays/production
 ```
 
 **[3.8]** The result proves the overlay worked: four replicas, prod- names, and the env=production label.
+
 ```bash
 kubectl get deploy,svc -l env=production
 ```
@@ -224,16 +241,19 @@ kubectl get deploy,svc -l env=production
 > backup schedule. Apply the CRD and the API server starts serving that type."
 
 **[4.1]** This CustomResourceDefinition declares a new BackupPolicy kind along with the schema that validates it.
+
 ```bash
 cat m03-crds-demo/backuppolicy-crd.yaml
 ```
 
 **[4.2]** Applying the CRD registers the new kind with the API server.
+
 ```bash
 kubectl apply -f m03-crds-demo/backuppolicy-crd.yaml
 ```
 
 **[4.3]** The API server now serves our kind, which we can query by name with no grep required.
+
 ```bash
 kubectl get crd backuppolicies.globomantics.io
 ```
@@ -242,21 +262,25 @@ kubectl get crd backuppolicies.globomantics.io
 > schema, `kubectl explain` now works against our OWN kind."
 
 **[4.4]** Because the CRD carries a schema, kubectl explain now documents our own custom kind.
+
 ```bash
 kubectl explain backuppolicy.spec
 ```
 
 **[4.5]** This custom resource is a single instance of the BackupPolicy kind we just defined.
+
 ```bash
 cat m03-crds-demo/globomantics-backuppolicy.yaml
 ```
 
 **[4.6]** Creating the instance makes the API server validate it against the CRD schema on admission.
+
 ```bash
 kubectl apply -f m03-crds-demo/globomantics-backuppolicy.yaml
 ```
 
 **[4.7]** Listing the resource shows the custom printer columns the CRD defined (its short name is bp).
+
 ```bash
 kubectl get backuppolicies
 ```
@@ -275,16 +299,19 @@ kubectl get backuppolicies
 > the one kubernetes.io tab second."
 
 **[5.1]** We uninstall the Helm release to remove it from the cluster.
+
 ```bash
 helm uninstall globo-podinfo
 ```
 
 **[5.2]** We delete the Kustomize overlay we applied earlier.
+
 ```bash
 kubectl delete -k m03-kustomize-demo/overlays/production
 ```
 
 **[5.3]** We delete the CRD, which also removes any custom resources of that kind.
+
 ```bash
 kubectl delete -f m03-crds-demo/backuppolicy-crd.yaml
 ```

@@ -329,7 +329,7 @@ CURRENT   NAME                CLUSTER             AUTHINFO
 
 **Talking points:**
 
-> "The CKA exam uses six clusters. Every task starts with 'Switch to context <name>.' Forgetting this is the number one silent error — you do correct work in the wrong cluster, score zero points, and get no warning."
+> "The CKA exam uses six clusters. Every task starts with 'Switch to context `<name>`.' Forgetting this is the number one silent error — you do correct work in the wrong cluster, score zero points, and get no warning."
 
 ---
 
@@ -444,19 +444,23 @@ k apply -f resource.yaml
 ## Troubleshooting
 
 **Imperative command fails with "already exists"?**
+
 - Delete the existing resource: `k delete pod <name>` or `k delete deploy <name>`
 - Or use `k apply` with the dry-run pipeline instead
 
 **dry-run output missing expected fields?**
+
 - Some fields require flags: `--port`, `--replicas`, `--command`
 - For unsupported fields, generate skeleton and add manually
 
 **Context switch didn't work?**
+
 - Verify with `k config current-context`
 - Check spelling: `k config get-contexts` lists exact names
 - If kubeconfig is corrupted: `kind export kubeconfig --name cka-lab`
 
 **kubectl explain shows "error: the server doesn't have a resource type"?**
+
 - Check spelling: `k api-resources | grep <resource>` for correct names
 - Use full path: `k explain pods` not `k explain pod` (both work, but be precise)
 

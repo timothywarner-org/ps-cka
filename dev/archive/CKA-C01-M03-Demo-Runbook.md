@@ -488,25 +488,30 @@ k logs fixed | head -5
 ## Troubleshooting
 
 **Scale command fails with "not found"?**
+
 - Verify the Deployment exists: `k get deploy`
 - Check namespace: `k get deploy -A` to find it
 
 **ClusterIP not reachable from debug pod?**
+
 - Verify endpoints exist: `k get endpointslices -l kubernetes.io/service-name=<svc>`
 - Check pod labels match service selector: `k get svc <name> -o yaml | grep selector`
 - Verify the backend pods are Running and Ready
 
 **NodePort curl returns "Connection refused"?**
+
 - Verify the port: `k get svc <name> -o jsonpath='{.spec.ports[0].nodePort}'`
 - On kind, use `localhost:<nodePort>` not the node IP
 - Check the extraPortMappings in cka-lab-cluster.yaml include the assigned port range
 
 **Diagnostic ladder: describe shows no events?**
+
 - Events expire after 1 hour by default
 - If the pod is old, recreate it to generate fresh events
 - Check cluster-wide: `k get events -A --sort-by=.metadata.creationTimestamp`
 
 **Label removal didn't trigger new Pod creation?**
+
 - Verify the ReplicaSet spec: `k get rs -l app=managed -o yaml | grep replicas`
 - The ReplicaSet counts pods by label — removing the label drops the count
 

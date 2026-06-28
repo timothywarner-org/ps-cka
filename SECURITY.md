@@ -6,7 +6,7 @@ If you discover a security vulnerability in any exercise file, script, or config
 
 **Do not** open a public GitHub issue for security vulnerabilities.
 
-Instead, email **timothywarner316@gmail.com** with:
+Instead, email **<timothywarner316@gmail.com>** with:
 
 - A description of the vulnerability
 - Steps to reproduce

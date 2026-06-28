@@ -35,5 +35,5 @@ If you find a broken manifest, incorrect command, or outdated reference, please 
 
 ## Contact
 
-- **Tim Warner** -- timothywarner316@gmail.com
+- **Tim Warner** -- <timothywarner316@gmail.com>
 - Website: [TechTrainerTim.com](https://techtrainertim.com)

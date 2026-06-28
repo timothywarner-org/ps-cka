@@ -1,0 +1,62 @@
+name: Content Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "**.md"
+      - ".markdownlint.json"
+      - ".github/**"
+  push:
+    branches: [main]
+    paths:
+      - "**.md"
+      - ".markdownlint.json"
+      - ".github/**"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint Markdown
+        uses: DavidAnson/markdownlint-cli2-action@v19
+        with:
+          globs: |
+            **/*.md
+            !cka-cert-buddy/**
+
+      - name: Guard against proprietary work product
+        run: |
+          echo "Checking for slide decks, outlines, or VM images that must not be committed..."
+          RESULTS=$(git ls-files | grep -iE '\.(pptx|potx|ppt|docx|doc|vhd|vhdx|avhdx|vmcx|vmrs|vsv|vmdk|ova|iso|box)$' || true)
+          if [ -n "$RESULTS" ]; then
+            echo "::error::Proprietary or binary lab artifacts are tracked. Remove them and add to .gitignore:"
+            echo "$RESULTS"
+            exit 1
+          else
+            echo "No proprietary work product tracked. Good."
+          fi
+
+      - name: Check for em dashes and curly quotes
+        continue-on-error: true
+        run: |
+          echo "Checking for curly quotes, em dashes, and en dashes in Markdown..."
+          RESULTS=$(grep -rn --include="*.md" -P '[\x{2018}\x{2019}\x{201C}\x{201D}\x{2013}\x{2014}]' . || true)
+          if [ -n "$RESULTS" ]; then
+            echo "::warning::Non-ASCII punctuation found (curly quotes or dashes). Prefer straight quotes and hyphens:"
+            echo "$RESULTS"
+          else
+            echo "No curly quotes or dashes found."
+          fi
+
+      - name: Validate Markdown links
+        continue-on-error: true
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-quiet-mode: "yes"
+          config-file: ".github/workflows/mlc-config.json"

@@ -19,6 +19,7 @@ What went wrong when you applied or ran this exercise?
 What should have happened?
 
 **Environment**
+
 - Kubernetes version: (e.g., v1.35.0)
 - Cluster tool: (e.g., kind v0.25, minikube)
 - OS: (e.g., Windows 11 WSL2, macOS, Ubuntu)
