@@ -1,0 +1,14 @@
+# Stamp the PROD banner. Strategic merge on the env list's `name` key, so the
+# four Downward API variables in the base survive untouched.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: globo-shop
+spec:
+  template:
+    spec:
+      containers:
+        - name: globo-shop
+          env:
+            - name: APP_ENV
+              value: "prod"

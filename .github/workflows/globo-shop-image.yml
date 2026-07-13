@@ -1,0 +1,55 @@
+name: Build globo-shop image
+
+# Builds and publishes the shared Globomantics demo app to ghcr.io.
+# The CKA lab pulls this image, so a broken build here breaks every learner's lab.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'exercise-files/shared/apps/globo-shop/**'
+      - '.github/workflows/globo-shop-image.yml'
+  workflow_dispatch:
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/globo-shop
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: exercise-files/shared/apps/globo-shop
+          push: true
+          # v1 is what the manifests pin. latest is a convenience only --
+          # never point a lab manifest at :latest or the demo changes under you.
+          tags: |
+            ${{ env.IMAGE }}:v1
+            ${{ env.IMAGE }}:latest
+          build-args: |
+            APP_VERSION=v1
+
+      - name: Verify the image actually serves
+        run: |
+          docker run -d --rm --name verify -p 8080:8080 \
+            -e APP_ENV=ci -e POD_NAME=ci-pod ${{ env.IMAGE }}:v1
+          sleep 4
+          curl -fsS http://localhost:8080/healthz
+          curl -fsS http://localhost:8080/ | grep -q 'ci-pod' \
+            && echo "OK: Downward API values render" \
+            || { echo "FAIL: page did not render pod identity"; exit 1; }
+          docker stop verify

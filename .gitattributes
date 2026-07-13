@@ -1,0 +1,37 @@
+# Normalize text files in the repo, but PIN Linux line endings on anything that
+# runs inside a container or on a lab VM.
+#
+# WHY this file exists: `entrypoint.sh` runs as PID 1 inside a Linux container.
+# If Git hands a learner a CRLF copy, the shebang becomes `#!/bin/sh\r` and the
+# container fails with "no such file or directory" -- an error that points at
+# nothing useful and costs an hour to diagnose. Authoring on Windows and
+# shipping to Linux is exactly where this bites.
+
+* text=auto
+
+# Shell scripts and YAML MUST be LF. These run on Linux, always.
+*.sh    text eol=lf
+*.bash  text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+Dockerfile text eol=lf
+Vagrantfile text eol=lf
+
+# PowerShell runs on Windows; CRLF is correct and expected there.
+*.ps1   text eol=crlf
+*.psm1  text eol=crlf
+
+# Binary assets: never touch these.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.svg   text
+*.pdf   binary
+*.pptx  binary
+*.docx  binary
+*.xlsx  binary
+*.vhd   binary
+*.vhdx  binary
+*.iso   binary
+*.box   binary

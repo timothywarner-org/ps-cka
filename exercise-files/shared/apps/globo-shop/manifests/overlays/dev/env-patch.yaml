@@ -1,0 +1,19 @@
+# Stamp the banner this environment prints on the page.
+#
+# This is a STRATEGIC MERGE patch, so the env list merges on the `name` key.
+# Naming APP_ENV updates only APP_ENV and leaves the four Downward API variables
+# (POD_NAME, POD_NAMESPACE, POD_IP, NODE_NAME) completely intact. A JSON patch
+# indexing into env[0] would work today and break the moment anyone reorders
+# the list. Merge keys over array indexes, every time.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: globo-shop
+spec:
+  template:
+    spec:
+      containers:
+        - name: globo-shop
+          env:
+            - name: APP_ENV
+              value: "dev"
