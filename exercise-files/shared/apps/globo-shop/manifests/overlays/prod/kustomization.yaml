@@ -1,0 +1,26 @@
+# PROD overlay -- Globomantics parts shop.
+#
+#   kubectl apply -k overlays/prod
+#
+# Reachable at http://192.168.50.10:30081  (dev is on :30080)
+#
+# Both environments run at the SAME TIME on the SAME cluster. That is what makes
+# the Module 2 context demo real: two browser tabs, side by side, and one wrong
+# `set-context` sends your kubectl at the wrong one.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: globo-prod
+
+resources:
+  - ../../base
+
+# 3 replicas in prod vs 2 in dev, so `kubectl get pods` alone tells you which
+# environment you are looking at.
+replicas:
+  - name: globo-shop
+    count: 3
+
+patches:
+  - path: env-patch.yaml
+  - path: svc-patch.yaml

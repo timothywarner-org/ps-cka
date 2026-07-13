@@ -1,0 +1,18 @@
+# Base: the app as it is, with no opinion about which environment it lands in.
+# The overlays in ../overlays/ supply that opinion.
+#
+# Kustomize is on the February 2025 CKA curriculum, so this doubles as the
+# teaching artifact for it. It is also just the right tool: two environments
+# that differ in three fields do not need two copies of a manifest.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - globo-shop.yaml
+
+# `labels` with includeSelectors, not the deprecated `commonLabels`.
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/name: globo-shop
+      app.kubernetes.io/part-of: globomantics

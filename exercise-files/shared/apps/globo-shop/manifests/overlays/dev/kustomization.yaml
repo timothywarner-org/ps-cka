@@ -1,0 +1,22 @@
+# DEV overlay -- Globomantics parts shop.
+#
+#   kubectl apply -k overlays/dev
+#
+# Reachable at http://192.168.50.10:30080
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: globo-dev
+
+resources:
+  - ../../base
+
+# 2 replicas in dev, 3 in prod. On purpose: when the learner switches namespaces,
+# the Pod COUNT changes, so the environments look different in a plain
+# `kubectl get pods` before anyone opens a browser.
+replicas:
+  - name: globo-shop
+    count: 2
+
+patches:
+  - path: env-patch.yaml

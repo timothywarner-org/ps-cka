@@ -1,0 +1,134 @@
+# Globomantics parts shop -- the shared demo app for the CKA Skill Path.
+#
+# ONE manifest, TWO environments. Apply it into globo-dev or globo-prod and the
+# app reports which one it landed in. That is what makes the Module 2 context
+# and namespace demos honest: the learner SEES the environment change, they do
+# not just take the author's word for it.
+#
+#   kubectl apply -n globo-dev  -f globo-shop.yaml
+#   kubectl apply -n globo-prod -f globo-shop.yaml
+#
+# Deliberately has NO `namespace:` field. Hardcoding the namespace here would
+# make the -n flag a lie, and teaching a flag that does nothing is worse than
+# not teaching it.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: globo-shop
+  labels:
+    app: globo-shop
+    tier: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: globo-shop
+  template:
+    metadata:
+      labels:
+        app: globo-shop
+        tier: frontend
+    spec:
+      # Give the Pod 5 seconds to shut down instead of the default 30. A static
+      # nginx has nothing to drain, and on camera a 30-second delete is dead air.
+      terminationGracePeriodSeconds: 5
+      containers:
+        - name: globo-shop
+          image: ghcr.io/timothywarner-org/globo-shop:v1
+          # IfNotPresent, not Always: once the node has the layer, re-creating a
+          # Pod costs nothing. On a laptop lab that is the difference between a
+          # 2-second scale-up and a 20-second one.
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            # APP_ENV is the ONLY thing that differs between dev and prod, and
+            # the overlay patches it. Everything below comes from the Downward
+            # API -- Kubernetes telling the Pod who it is.
+            - name: APP_ENV
+              value: "dev"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          # Readiness gates traffic; liveness restarts a wedged container. They
+          # are different questions and the exam tests that you know the difference:
+          # "should this Pod receive requests?" vs "is this Pod beyond saving?"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            # runAsNonRoot makes the kubelet VERIFY the user is not root before it
+            # starts the container. It can only check a NUMBER -- if the image says
+            # `USER nginx`, the kubelet cannot resolve that name without running the
+            # image, so it fails closed with CreateContainerConfigError. Always pair
+            # runAsNonRoot with an explicit numeric runAsUser. 101 is nginx in alpine.
+            runAsNonRoot: true
+            runAsUser: 101
+            runAsGroup: 101
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          # readOnlyRootFilesystem means nginx cannot write anywhere, so we hand
+          # it exactly the two writable paths it needs and nothing more.
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: html
+              mountPath: /usr/share/nginx/html
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        # The entrypoint copies the pristine page from /opt (read-only, in the image)
+        # into here and stamps the Downward API values into the copy. emptyDir gives
+        # each Pod its own writable copy without an initContainer.
+        - name: html
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: globo-shop
+  labels:
+    app: globo-shop
+spec:
+  type: NodePort
+  selector:
+    app: globo-shop
+  ports:
+    - name: http
+      port: 80          # the Service's own port (what other Pods dial)
+      targetPort: http  # the container's port, by NAME not number -- rename the
+                        # port in the Deployment and this keeps working
+      nodePort: 30080   # reachable at http://192.168.50.10:30080 from the host

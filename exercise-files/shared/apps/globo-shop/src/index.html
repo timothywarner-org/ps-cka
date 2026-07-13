@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Globomantics Robotics -- Parts Shop</title>
+  <style>
+    :root {
+      --ink: #10162F;
+      --paper: #F6F7FB;
+      --line: #D5D9E6;
+      --accent: #E5077E;
+      --ok: #1F7A4C;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      line-height: 1.5;
+    }
+
+    /* The env banner is the teaching instrument. It is labeled in TEXT, never
+       by color alone -- the demo is recorded for a red/green colorblind author
+       and viewed by learners with the same. Color is decoration; the word is data. */
+    .env-banner {
+      padding: 0.9rem 1.5rem;
+      font-weight: 700;
+      font-size: 1.05rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border-bottom: 4px solid var(--ink);
+      background: #FFFFFF;
+    }
+    .env-banner .tag {
+      display: inline-block;
+      padding: 0.15rem 0.6rem;
+      border: 2px solid var(--ink);
+      border-radius: 4px;
+      margin-right: 0.6rem;
+    }
+
+    header {
+      padding: 2rem 1.5rem 1rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    h1 { margin: 0 0 0.25rem; font-size: 2rem; }
+    .tagline { margin: 0; color: #5A6178; }
+
+    main { max-width: 900px; margin: 0 auto; padding: 0 1.5rem 3rem; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem 0 2rem;
+    }
+    .part {
+      background: #FFF;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    .part h3 { margin: 0 0 0.35rem; font-size: 1.05rem; }
+    .sku { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.85rem; color: #5A6178; }
+    .price { font-weight: 700; color: var(--accent); margin-top: 0.5rem; }
+    .stock { font-size: 0.85rem; color: var(--ok); font-weight: 600; }
+
+    /* This table is the whole point of the app: it proves WHICH pod served you. */
+    .served-by {
+      background: #FFF;
+      border: 2px solid var(--ink);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+    .served-by h2 { margin: 0 0 0.75rem; font-size: 1.1rem; }
+    table { width: 100%; border-collapse: collapse; font-family: "Cascadia Code", Consolas, monospace; font-size: 0.9rem; }
+    td { padding: 0.4rem 0; border-bottom: 1px solid var(--line); }
+    td:first-child { color: #5A6178; width: 40%; }
+    td:last-child { font-weight: 700; }
+    tr:last-child td { border-bottom: none; }
+
+    footer { max-width: 900px; margin: 0 auto; padding: 0 1.5rem 2rem; color: #5A6178; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+
+  <!-- __ENV_BANNER__ is substituted at container start by entrypoint.sh from the
+       APP_ENV variable, which the Deployment sets per namespace. -->
+  <div class="env-banner" id="env-banner">
+    <span class="tag">__ENV_NAME__</span> Globomantics parts shop
+  </div>
+
+  <header>
+    <h1>Globomantics Robotics</h1>
+    <p class="tagline">Replacement parts for the FR-7 fleet. Ships same day.</p>
+  </header>
+
+  <main>
+    <div class="grid">
+      <div class="part">
+        <h3>Servo actuator</h3>
+        <p class="sku">SKU FR7-SRV-114</p>
+        <p class="price">$249.00</p>
+        <p class="stock">In stock</p>
+      </div>
+      <div class="part">
+        <h3>LiDAR module</h3>
+        <p class="sku">SKU FR7-LDR-902</p>
+        <p class="price">$1,180.00</p>
+        <p class="stock">In stock</p>
+      </div>
+      <div class="part">
+        <h3>Gripper assembly</h3>
+        <p class="sku">SKU FR7-GRP-330</p>
+        <p class="price">$615.00</p>
+        <p class="stock">In stock</p>
+      </div>
+      <div class="part">
+        <h3>Battery pack, 48V</h3>
+        <p class="sku">SKU FR7-BAT-048</p>
+        <p class="price">$430.00</p>
+        <p class="stock">In stock</p>
+      </div>
+    </div>
+
+    <div class="served-by">
+      <h2>This page was served by</h2>
+      <table>
+        <tr><td>Environment</td><td id="f-env">__ENV_NAME__</td></tr>
+        <tr><td>Pod</td><td id="f-pod">__POD_NAME__</td></tr>
+        <tr><td>Namespace</td><td id="f-ns">__POD_NAMESPACE__</td></tr>
+        <tr><td>Node</td><td id="f-node">__NODE_NAME__</td></tr>
+        <tr><td>Pod IP</td><td id="f-ip">__POD_IP__</td></tr>
+        <tr><td>Image version</td><td id="f-ver">__APP_VERSION__</td></tr>
+      </table>
+    </div>
+  </main>
+
+  <footer>
+    Globomantics Robotics Company -- a fictional company for the Pluralsight CKA Skill Path.
+    Refresh the page: the Service load-balances you across Pods, so the Pod name changes.
+  </footer>
+
+</body>
+</html>

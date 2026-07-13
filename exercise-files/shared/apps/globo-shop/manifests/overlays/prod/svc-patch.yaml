@@ -1,0 +1,17 @@
+# Prod gets its own NodePort so BOTH environments are reachable at once.
+#   dev  -> http://192.168.50.10:30080
+#   prod -> http://192.168.50.10:30081
+#
+# Two live URLs is what turns "check your context" from a lecture into a demo:
+# the learner can see both environments in two browser tabs while kubectl is
+# pointed at exactly one of them.
+apiVersion: v1
+kind: Service
+metadata:
+  name: globo-shop
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      nodePort: 30081

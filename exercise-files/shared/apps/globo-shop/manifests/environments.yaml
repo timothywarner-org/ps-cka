@@ -1,0 +1,42 @@
+# Globomantics -- the two environments the CKA lab switches between.
+#
+# WHY namespaces and not two clusters: the CKA exam puts you in front of several
+# clusters and every task names the one it wants. We cannot hand every learner a
+# second cluster on a laptop, but the REFLEX we are drilling -- "verify where you
+# are pointed BEFORE you type" -- is identical whether the boundary is a cluster
+# or a namespace. Same muscle, one-tenth the RAM.
+#
+#   kubectl apply -f environments.yaml
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: globo-dev
+  labels:
+    app.kubernetes.io/part-of: globomantics
+    environment: dev
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: globo-prod
+  labels:
+    app.kubernetes.io/part-of: globomantics
+    environment: prod
+---
+# A ResourceQuota on prod ONLY. This is not decoration: it gives the module a
+# real reason to care which namespace you are in. Deploy something oversized into
+# prod and it gets rejected; the same manifest sails into dev. That is the
+# consequence that makes "check your context" land emotionally, not just logically.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: globo-prod-quota
+  namespace: globo-prod
+spec:
+  hard:
+    requests.cpu: "1"
+    requests.memory: 1Gi
+    limits.cpu: "2"
+    limits.memory: 2Gi
+    pods: "10"
