@@ -1,0 +1,25 @@
+# The deck code slide shows the DEFAULTS half of the LimitRange, which
+# is the mutating behaviour. Demo beat 2 pushes against the per-container
+# CEILING, and that needs a max. Applying this replaces production-defaults
+# with the same defaults plus min and max, so the beat has something to
+# reject against without contradicting what is on screen.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: production-defaults
+  namespace: production
+spec:
+  limits:
+  - type: Container
+    defaultRequest:
+      cpu: "100m"
+      memory: "128Mi"
+    default:
+      cpu: "500m"
+      memory: "256Mi"
+    min:
+      cpu: "50m"
+      memory: "64Mi"
+    max:
+      cpu: "800m"
+      memory: "1Gi"

@@ -77,7 +77,7 @@ Three Ubuntu 22.04 VMs (`control1`, `worker1`, `worker2`) with 2 GB / 2 vCPU eac
 
 Target Kubernetes version for both paths: **v1.35** (exam-aligned).
 
-**Course 3 lab controls (renamed, plain-English).** Course 3 records off the Hyper-V Vagrant lab using clearly-named copies in `src/cka-lab/course-03-lifecycle-upgrades/` -- `Start-CkaLab`, `Stop-CkaLab`, `Save-CkaSnapshot`, `Restore-CkaSnapshot`, `Get-CkaLabStatus`, `Get-CkaConnectionInfo`, `Test-CkaLabReady`. They drive the **same** VMs (`VAGRANT_CWD` -> parent `src/cka-lab`); the generic `cka-*.ps1` stay as the shared engine. Node names are **`control1` / `worker1` / `worker2`**, single-sourced in `lib/CkaLab.ps1` (`Get-CkaLabVMs`/`Get-CkaLabNodes`). The Vagrantfile K8s version is parameterized via `$env:CKA_K8S_MINOR` (default `1.35`) so M02 can start at v1.34 and upgrade on camera. Map + workflow: `src/cka-lab/course-03-lifecycle-upgrades/README.md`.
+**Lab controls (plain-English, Verb-Noun).** The Hyper-V Vagrant lab is driven by clearly-named scripts flat at `src/cka-lab/` -- `Start-CkaLab`, `Stop-CkaLab`, `Save-CkaSnapshot`, `Restore-CkaSnapshot`, `Get-CkaLabStatus`, `Get-CkaConnectionInfo`, `Test-CkaLabReady`, plus Course-3-specific `Build-M02UpgradeLab`, `Invoke-M02Upgrade`, `Invoke-M03Lab`, `Invoke-KubeletFlagRepair`. Node names are **`control1` / `worker1` / `worker2`**, single-sourced in `lib/CkaLab.ps1` (`Get-CkaLabVMs`/`Get-CkaLabNodes`). The Vagrantfile K8s version is parameterized via `$env:CKA_K8S_MINOR` (default `1.35`) so M02 can start at v1.34 and upgrade on camera. Recording workflow: `src/cka-lab/RECORDING-WORKFLOW.md`.
 
 ## Key Conventions
 
@@ -121,3 +121,198 @@ These topics are new to the CKA exam and represent the primary differentiator of
 - Ephemeral containers / kubectl debug -- Course 10
 - Native sidecar containers (initContainers with restartPolicy: Always) -- Course 10
 - Extension interfaces: CNI, CSI, CRI -- Course 1
+
+---
+
+## Working agreement with Tim — read this FIRST, every session
+
+Locked 2026-08-16 at Tim's instruction. This overrides convenience and overrides
+politeness. It does not override the voice rules in `cka-course-builder`.
+
+### 1. Presuppose the question "is Claude hallucinating?" and answer it unasked
+
+Tim's default and correct posture is skepticism. Do not wait to be challenged.
+Every substantive deliverable ends with a **verification ledger**: what is
+PROVEN, by what specific evidence, and what is UNVERIFIED. Name the unverified
+items yourself, ranked by risk. An unprompted "I have not run this" buys more
+trust than three paragraphs of confident prose.
+
+### 2. An assertion about your own work proves nothing
+
+"I checked" is not evidence. Evidence is: a command that ran and its output, a
+verbatim source quote, a validator exit code, a parse result. If you cannot
+produce one, the claim is UNVERIFIED and must be labeled that way in the
+deliverable itself, not just in chat.
+
+### 3. Quote the source; never trust a paraphrase on a load-bearing claim
+
+Real incident, C04 M01: a summarizing pass reported "configmaps are not in the
+`view` ClusterRole." Demo 3 used `kubectl get configmaps` as its central proof.
+Forcing a verbatim quote of `viewRules()` in
+`plugin/pkg/auth/authorizer/rbac/bootstrappolicy/policy.go` showed configmaps
+IS present and the summary was wrong. Had it shipped, the demo would have
+thrown a 403 on camera. **For any fact a demo depends on, fetch the defining
+source and demand the exact line.** For Kubernetes RBAC defaults that file is
+the source of truth, not the docs prose and not memory.
+
+### 4. Read Tim's actual shipped artifacts before authoring in his format
+
+Do not author from a skill template when real examples exist in this repo. The
+published runbook standard lives in
+`exercise-files/course-NN-*/mNN-*/cNN-mNN-demo-runbook.md` (C02 M01/M03, C03
+M01). Read one end to end first. Note: the `cka-course-builder` skill's
+`validate_runbook.py` FAILS Tim's own published `c02-m01` runbook — it expects
+"Beat N" and "## Sources" while the real corpus uses "Demo N" and
+"## Source mapping". The corpus wins. Validators encode assumptions; a failure
+may be the validator's defect, and you must check which.
+
+### 5. One folder per module. Do not scatter.
+
+Everything for a module goes in its `exercise-files/course-NN-*/mNN-*/` folder:
+runbook, scripts, manifests, START-HERE. The only permitted exception is code
+with a hard technical dependency on another location — e.g. lab scripts that
+dot-source `src/cka-lab/lib/CkaLab.ps1` or need to sit beside the `Vagrantfile`.
+When you place a file outside the module folder, say why in one line.
+
+### 6. Few scripts, subcommands not files
+
+Tim runs these live while recording. Prefer ONE script with subcommands
+(`./lab.sh reset|mint|verify`, bare invocation = the sensible default) over four
+single-purpose scripts. Setup and reset must never be "a bunch of commands."
+
+### 7. Idempotent by construction, and verified so
+
+Every script re-runnable any number of times. Deletes use `--ignore-not-found`.
+Anything that consumes a one-shot object (a CSR cannot be re-approved) clears it
+before recreating. Scripts VERIFY their end state rather than assuming it, and a
+dry-run harness must fail on an unexpected **success** — a stale grant that
+silently still works is more dangerous than a visible error.
+
+### 8. Runtime budgets include command execution, not just talking
+
+A talk-track word count understates a demo. Count the ENTERs too (~1.5s each of
+output and dead air). Report speech time, execution time, and the total, and
+supply a ranked trim ladder plus an explicit do-not-cut list.
+
+### 9. Course 4 standing convention — show and switch context every demo
+
+Every demo opens with `kubectl config get-contexts` or `current-context`. The
+opening line is non-negotiable at any runtime: the exam runs six clusters and
+every task begins with a `use-context`. Mid-demo switches are negotiable; the
+opening line is not.
+
+### 10. Deck wins, then fix the other assets
+
+When the deck and an outline/script/runbook disagree, the recorded deck is the
+contract (see `Recording-Readiness-Report.md`). Fix the other asset, flag the
+change in one line, and never silently edit a deck to match an outline.
+
+### 11. Environment constraints to state plainly, not work around
+
+- Hyper-V and Vagrant require an **elevated** shell. Remote sessions here are
+  NOT elevated, so lab boot is always Tim's action. Say so; do not pretend.
+- This authoring sandbox blocks container registries and `dl.k8s.io`, so no
+  substitute cluster can be built to test against. When Tim's VMs are off,
+  execution against Kubernetes is impossible — report that instead of implying
+  verification happened.
+- Files pushed to a node with `cat >` land 0644. `chmod +x` any `.sh`, then
+  verify the bit, or `./script.sh` fails on camera.
+
+### 12. Lab facts — established by past work, do not re-derive or guess
+
+Set in Course 2 and used ever since. Confirmed 2026-08-16 by counting the
+shipped exercise files: 14 `calico-node`, 9 `tigera-operator`, 7 `calico-system`,
+**zero** `kube-flannel`.
+
+- **Nodes:** control1 / worker1 / worker2 at `192.168.50.10` / `.11` / `.12`,
+  Ubuntu 22.04, Kubernetes **v1.35**, containerd.
+- **CNI: Calico**, installed via the **Tigera operator**, manifests pinned to
+  **v3.29.1** (`tigera-operator.yaml` then `custom-resources.yaml`). Namespaces
+  `tigera-operator` and `calico-system`; DaemonSet `calico-system/calico-node`.
+- **Pod CIDR `192.168.0.0/16`**, Service CIDR `10.96.0.0/12`. The pod CIDR is
+  load-bearing: Calico's default Installation CR ships `192.168.0.0/16`, and
+  `c02-m03-demo-runbook.md` Step 1.0 proves the alignment **on camera**. Any
+  other value silently contradicts a recorded module.
+- **kubeadm init is declarative** in this course — `kubeadm config print
+  init-defaults > init.yaml`, edit, `kubeadm init --config init.yaml` (C02 M02).
+- **Known gotcha:** a Hyper-V checkpoint restore invalidates Calico's CNI token;
+  nodes sit NotReady until `kubectl -n calico-system rollout restart
+  ds/calico-node`. Every bring-up script must heal this before running workloads.
+- **`src/cka-lab/bootstrap_cp.sh` is STALE** — it installs Flannel v0.24.4 on
+  `10.244.0.0/16`, a Course 1 leftover. Do not call it. `Initialize-C04M01Lab.ps1`
+  deliberately does not.
+
+**The rule this encodes:** when an environment detail is already settled by
+recorded work, go read the recorded work. Counting references across
+`exercise-files/` takes one grep and beats any assumption. If the repo
+contradicts itself, the artifact that was RECORDED wins, and the loser gets
+flagged as stale rather than quietly accommodated.
+
+### 13. Bug classes this repo has actually shipped — check these every time
+
+Found 2026-08-16 by a five-lens adversarial audit of C04 M01, each finding then
+handed to a skeptic told to refute it. 15 of 16 survived. These are not
+hypotheticals; they were all live in code that had already passed `bash -n`,
+a PowerShell parse, and a careful human read.
+
+**The assertion that cannot fail.** `kubectl delete pod --all` in an EMPTY
+namespace lists (allowed), finds nothing, deletes nothing, and exits **0** —
+authorization for `delete` is never consulted, so the expected 403 never
+appears. Any "prove this is denied" step must use an operation that reaches the
+API server unconditionally: a NAMED delete, or a create. Bonus: the API server
+authorizes *before* it looks for the object, so deleting a nonexistent named
+Pod returns **403, not 404** — a better teaching beat than the broken original.
+
+**Half-assertions.** If a harness only asserts the DENY cases, an expected-ALLOW
+step that starts failing produces a green run. Always assert both directions.
+The catastrophic outcome is never a visible error; it is a false green.
+
+**Nonzero is not a reason.** Treating any nonzero exit as "denied as expected"
+silently accepts a missing binary, a refused connection, and a 401 from an
+expired credential. Match the actual expected signal in the output.
+
+**Negative assertions over a failing command.** "Output must NOT contain X" is
+trivially true when the command errors and prints nothing. `grep` exits 1 when
+it finds nothing, which is indistinguishable from total failure. Prefer a
+command that exits 0 and prints the full set (`-o jsonpath=...`), and require
+exit 0 before believing any negative result.
+
+**kubectl `--wait` without `--timeout` is 168 HOURS** (`pkg/cmd/delete/delete.go`
+substitutes 168h when Timeout is 0). Always pass `--timeout`.
+
+**`$OutputEncoding = [System.Text.Encoding]::UTF8` emits a BOM.** Every file
+piped to a Linux node with `cat >` lands with EF BB BF before byte 0, so a
+shebang stops being a shebang and `./script.sh` dies with a bad-interpreter
+error that points nowhere. Use `[System.Text.UTF8Encoding]::new($false)` for the
+copy, then verify remotely that byte 0 is `#`.
+
+**`\"` inside a double-quoted PowerShell string does not escape a quote — it
+ENDS the string.** Arguments then split silently and reach the remote shell
+malformed. Use single-quoted here-strings for anything containing shell quoting.
+
+**Substring `-match` for a version check** passes a mixed-version cluster,
+because the expected string appears somewhere in the blob. Require exactly one
+distinct value across nodes.
+
+**`rm -rf <dir>` during staging** yanks the cwd out from under any SSH session
+already sitting in it. Clear contents, keep the directory.
+
+**Pipelines eat exit codes.** `./script.sh | tee log` reports TEE's status. A
+script whose exit code is a go/no-go signal must self-log (process substitution)
+rather than being documented behind a pipe.
+
+**`Push-Location` with no `finally`** leaves the caller's stack dirty on any
+terminating error.
+
+### 14. Run the adversarial audit before calling demo code done
+
+Five lenses, in parallel, over the same files: shell correctness, PowerShell
+correctness, domain semantics (does the command do what the narration CLAIMS),
+cross-asset coherence (script vs runbook vs index), and idempotency/false-green
+hunting. Then hand every finding to a separate skeptic instructed to REFUTE it
+and to default to refuted when uncertain. Survivors only.
+
+This is not optional polish. On the C04 M01 pass it caught a bug that would have
+been discovered ON CAMERA, mid-take, in the module's most important beat — and
+no amount of syntax checking or careful reading had found it across several
+review rounds.

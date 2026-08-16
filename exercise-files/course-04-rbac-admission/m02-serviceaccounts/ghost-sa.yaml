@@ -1,0 +1,15 @@
+# Names a ServiceAccount that does not exist.
+# The ServiceAccount admission plugin REJECTS this at the API server.
+# No Pod object is persisted, nothing is scheduled, no container is
+# created -- so there is no CreateContainerConfigError to find. That
+# error belongs to a missing ConfigMap or Secret, not a missing SA.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ghost-runner
+  namespace: staging
+spec:
+  serviceAccountName: does-not-exist
+  containers:
+  - name: runner
+    image: nginx:1.27
