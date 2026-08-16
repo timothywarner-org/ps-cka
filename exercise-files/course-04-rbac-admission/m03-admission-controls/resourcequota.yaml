@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: production-cap
+  namespace: production
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 4Gi
+    limits.cpu: "2"
+    limits.memory: 4Gi
+
+# Trap: bare cpu and memory mean
+# requests, never limits

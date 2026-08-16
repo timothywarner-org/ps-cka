@@ -1,0 +1,21 @@
+# privileged: true violates the BASELINE Pod Security Standard. The
+# Deployment is created, the ReplicaSet is created, and zero Pods appear
+# -- the refusal is waiting one level down on the ReplicaSet.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: legacy-agent
+  namespace: production
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: legacy-agent }
+  template:
+    metadata:
+      labels: { app: legacy-agent }
+    spec:
+      containers:
+      - name: agent
+        image: nginx:1.27
+        securityContext:
+          privileged: true

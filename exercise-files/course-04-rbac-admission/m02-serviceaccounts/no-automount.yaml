@@ -1,0 +1,17 @@
+# This workload never calls the API server, so it has no business
+# carrying a credential. automountServiceAccountToken: false removes
+# the projected volume entirely -- /var/run/secrets/kubernetes.io/
+# will not exist inside the container.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: quiet-runner
+  namespace: staging
+spec:
+  serviceAccountName: deploy-bot
+  automountServiceAccountToken: false
+  containers:
+  - name: runner
+    image: nginx:1.27
+    resources:
+      requests: { cpu: "100m" }

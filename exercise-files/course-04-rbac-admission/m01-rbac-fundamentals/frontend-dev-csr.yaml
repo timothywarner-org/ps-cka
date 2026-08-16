@@ -1,0 +1,42 @@
+# =====================================================================
+# CKA Course 4 / Module 1 -- CertificateSigningRequest for frontend-dev
+#
+# This is how Kubernetes onboards a HUMAN. There is no User object in
+# Kubernetes -- a "user" is whatever the authentication layer decides a
+# credential means. For an X.509 client certificate:
+#
+#     CN (Common Name)   ->  the RBAC username        (frontend-dev)
+#     O  (Organization)  ->  an RBAC group            (globomantics)
+#
+# The placeholder REQUEST_B64 is filled in on camera from the .csr file
+# openssl just produced, because base64 of a CSR is 1400 characters of
+# noise nobody should type or read:
+#
+#     sed "s|REQUEST_B64|$(base64 -w0 frontend-dev.csr)|" frontend-dev-csr.yaml \
+#       | kubectl apply -f -
+#
+# signerName kubernetes.io/kube-apiserver-client is the signer that
+# issues client certs the API SERVER will trust for authentication.
+# Using the wrong signer is the #1 reason a hand-rolled CSR gets
+# approved, gets issued, and then still returns 401 -- the cert is
+# real, it just is not trusted for client auth.
+#
+# expirationSeconds 604800 = 7 days. Short on purpose: a credential you
+# have to renew is a credential somebody notices when it leaks.
+# =====================================================================
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  name: frontend-dev
+spec:
+  # The base64-encoded PKCS#10 request produced by `openssl req`.
+  request: REQUEST_B64
+
+  # Which CA signs this, and what the resulting cert may be used for.
+  signerName: kubernetes.io/kube-apiserver-client
+
+  # 7 days. Renew it, do not extend it.
+  expirationSeconds: 604800
+
+  usages:
+  - client auth

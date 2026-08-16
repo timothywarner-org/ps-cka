@@ -1,0 +1,15 @@
+# limits.cpu 1500m against a max of 800m. LimitRanger rejects this on the
+# validating pass, and the message names the constraint AND your value:
+#   maximum cpu usage per Container is 800m, but limit is 1500m
+apiVersion: v1
+kind: Pod
+metadata:
+  name: greedy
+  namespace: production
+spec:
+  containers:
+  - name: app
+    image: nginx:1.27
+    resources:
+      limits:
+        cpu: "1500m"

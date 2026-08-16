@@ -1,0 +1,27 @@
+# nginx:1.27 runs as root by default, so runAsNonRoot alone would fail
+# at the kubelet. runAsUser gives it a non-root UID to actually use, and
+# nginxinc/nginx-unprivileged listens on 8080 instead of 80.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hardened
+  namespace: production
+spec:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 101
+  containers:
+  - name: app
+    image: nginxinc/nginx-unprivileged:1.27
+    securityContext:
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+    volumeMounts:
+    - { name: cache, mountPath: /tmp }
+  volumes:
+  - name: cache
+    emptyDir: {}

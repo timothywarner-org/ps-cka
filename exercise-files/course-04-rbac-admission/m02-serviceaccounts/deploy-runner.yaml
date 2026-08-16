@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: deploy-runner
+spec:
+  serviceAccountName: deploy-bot
+  containers:
+  - name: runner
+    image: nginx:1.27
+    resources:
+      requests: { cpu: "100m" }
+    securityContext:
+      allowPrivilegeEscalation: false
