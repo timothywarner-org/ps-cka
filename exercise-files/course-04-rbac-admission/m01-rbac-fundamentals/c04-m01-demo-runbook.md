@@ -6,7 +6,7 @@
 **One script on the node:** `./lab.sh [reset|mint|verify]` — no arg means reset + verify
 **One script on the host:** `src/cka-lab/Initialize-C04M01Lab.ps1` — boot, health-check, stage, gate, reset, checkpoint
 **Cleanup between takes:** `./lab.sh reset` — 8 seconds, no VM restore
-**Last verified: 2026-08-16** — static + source-of-truth only. See the Verification ledger; nothing has been run against a cluster yet.
+**Last verified: 2026-08-17** — cluster health and all five fact gates PASSED live on control1; runbook↔`lab.sh` coherence verified command-for-command (38/39, two documented divergences). The four demos themselves are still unrun; see the Verification ledger.
 
 > **Everything is idempotent.** Run anything twice. `reset` cascades the namespace delete, `mint` clears the spent CSR before resubmitting, `verify` exits 0 or names the check that drifted. Nothing here is worth restoring a checkpoint for — save that for a broken control plane.
 
@@ -24,6 +24,8 @@
 | 22 | **Demo 3** | Same ClusterRole, two binding kinds. **The binding sets the scope** | ~2:45 |
 | 23 | **Demo 4** | `view` never reads Secrets, `edit` does. Aggregation callout. `--dry-run` | ~1:50 |
 | 24-25 | Checkout + takeaways | Priya signs off → Module 2 | ~1:15 |
+
+**Measured runtime: ~9:40 at your usual 165 wpm, ~10:10 at 155.** That's 1,421 words you actually say aloud (the `> "..."` talk track plus the **Narrate** lines) over 39 demo commands at ~1.5 sec each. It corrects an earlier ~12:07 estimate that wrongly counted the design-note callouts as script. **You have room** — don't rush the two 403 beats.
 
 **If you run long, cut in this order:** `describe role` in Demo 2 (~35 sec, it's on slide 13) → the `get secrets` 403 in Demo 2 (~25 sec, Step 2.4 already proved deny-by-default) → pre-create the namespace so Demo 1 opens on the mint (~30 sec, but you lose the order-matters teaching). **Never cut** an opening context command, the 403 in Demo 1, Demo 3's before/after pairs, or `--dry-run=client`.
 
@@ -101,12 +103,12 @@ Resets and then walks the whole module against the live cluster. **Exit 0** mean
 
 1. `vagrant ssh control1` → `cd ~/m01`
 2. **Demo 1** — 8 commands: contexts, namespace, `./lab.sh mint`, contexts, switch, whoami, get pods (**403**), switch back
-3. **Demo 2** — 12 commands: context, role, describe, binding, switch, get pods, 2 denials, switch back, 3 × `can-i`
+3. **Demo 2** — 13 commands: context, role, describe, binding, switch, get pods, 2 denials, switch back, 3 × `can-i`
 4. **Demo 3** — 13 commands: context, RoleBinding, switch, 3 questions, back, ClusterRoleBinding, switch, same 3, back
 5. **Demo 4** — 5 commands: context, built-ins, 2 greps, `--dry-run`
 6. After you stop recording: `./lab.sh reset`
 
-**~40 ENTERs**, 13 of them context commands. Those are content, not overhead — each one is a beat where you say who you're becoming and why. Slow is smooth, smooth is fast.
+**39 demo commands** (8 / 13 / 13 / 5), **13 of them context commands** — plus `vagrant ssh`, `cd ~/m01`, and the post-take `./lab.sh reset`. Those are content, not overhead — each one is a beat where you say who you're becoming and why. Slow is smooth, smooth is fast.
 
 **No `sudo` anywhere in this module.** Nothing touches a root-owned file. Say that on camera — it keeps the Linux user and the Kubernetes user from blurring together, which is the single most common confusion in this topic.
 
@@ -319,7 +321,7 @@ kubectl describe clusterrole edit | grep -i '^  secrets'
 kubectl create role pod-reader --verb=get,list,watch --resource=pods --dry-run=client -o yaml
 ```
 
-**Expected:** `[4.2]` prints nothing for `view` (the `||` branch fires), then a `secrets` row for `edit` listing the write verbs. `[4.3]` prints a Role manifest with the same rules as `pod-reader.yaml`. It is **not** byte-identical: the dry-run adds `creationTimestamp: null` and omits `namespace:` (there is no `-n` on the command). Say "same rules, and I'd add the namespace" rather than claiming they match exactly.
+**Expected:** `[4.2]` prints `NO secrets rule in view` — `grep` matches nothing, so the `||` branch fires and echoes that line. Then a `secrets` row for `edit` listing the write verbs. `[4.3]` prints a Role manifest with the same rules as `pod-reader.yaml`. It is **not** byte-identical: the dry-run adds `creationTimestamp: null` and omits `namespace:` (there is no `-n` on the command). Say "same rules, and I'd add the namespace" rather than claiming they match exactly.
 
 **Say — [4.2], the money shot:**
 
@@ -414,7 +416,29 @@ Rebuild from absolute zero (~15-20 min, rare): `vagrant destroy -f ; vagrant up 
 
 Read this before you trust anything above. **No command in this runbook has been executed against any Kubernetes cluster.** Your VMs were powered off during authoring (SSH on `.10/.11/.12` refused), and this authoring environment blocks container registries, so no substitute cluster could be built either. Every "Expected" line above is a prediction until `./lab.sh` says otherwise.
 
-### PROVEN — verified against the Kubernetes `release-1.35` source of truth
+### PROVEN — on Tim's live cluster, 2026-08-16
+
+`Initialize-C04M01Lab.ps1` ran against control1/worker1/worker2 and **all five fact gates passed**:
+
+```
+[OK] All 3 nodes report Ready
+[OK] Kubelet version is v1.35.0 on all 3 nodes
+[OK] Container runtime is containerd
+[OK] GATE PASS  system:basic-user is bound to system:authenticated
+[OK] GATE PASS  view has NO rule mentioning Secrets
+[OK] GATE PASS  edit can write Secrets (create/delete/patch/update)
+[OK] GATE PASS  view covers Namespaces (cluster-scoped reach for Beat 3)
+[OK] GATE PASS  edit is composed via aggregationRule, not hand-written rules
+```
+
+That is the whole deck-claim surface, confirmed by the cluster rather than by anybody's assertion. Demo 3's
+`get namespaces` payoff and Demo 4's `view`/`edit` Secrets contrast are now backed by this box, not just by
+upstream source. `lab.sh reset` also ran clean here and printed `READY FOR TAKE`.
+
+Still unrun as of that pass: the four demos end to end (`./lab.sh`). Until that exits 0, the per-command
+expectations below remain predictions.
+
+### ALSO PROVEN — against the Kubernetes `release-1.35` source of truth
 
 Checked in `plugin/pkg/auth/authorizer/rbac/bootstrappolicy/policy.go`, the file that *defines* the default ClusterRoles. Verbatim quotes, not summaries.
 

@@ -199,6 +199,71 @@ function Wait-NodeSsh {
     }
 }
 
+function Copy-TextToNode {
+    <#
+    .SYNOPSIS
+        Copy one local text file to the node WITHOUT piping to `vagrant ssh`.
+    .DESCRIPTION
+        The obvious way -- `$body | vagrant ssh $Node -c "cat > file"` -- DEADLOCKS.
+        vagrant ssh wraps ssh in a Ruby process, and the remote `cat` sits waiting
+        for an EOF on stdin that never propagates through that wrapper, so the
+        whole script hangs at the staging step with no output and no timeout.
+        (Observed live: the ruby and vagrant processes stay resident, burning a
+        few CPU-seconds, forever.)
+
+        So: no stdin at all. Base64 the content and carry it INSIDE the command
+        string, appended in chunks because a Windows command line caps out around
+        32767 characters and these files are bigger than that once encoded.
+
+        Three bugs die with one change:
+          * the stdin deadlock above;
+          * the BOM corruption -- we choose the exact bytes here, so $OutputEncoding
+            can never prepend EF BB BF ahead of a shebang;
+          * CRLF -- normalized before encoding, so line endings cannot depend on
+            how git checked the file out on Windows.
+
+        Then it VERIFIES by comparing SHA256 on both sides, because "the command
+        did not error" is not the same as "the bytes arrived".
+    #>
+    param(
+        [Parameter(Mandatory)][string]$LocalPath,
+        [Parameter(Mandatory)][string]$RemotePath
+    )
+
+    $body  = (Get-Content -Raw -LiteralPath $LocalPath) -replace "`r`n", "`n"
+    $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($body)
+    $b64   = [Convert]::ToBase64String($bytes)
+
+    # Local hash of exactly the bytes we are about to send.
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $localHash = ([BitConverter]::ToString($sha.ComputeHash($bytes)) -replace '-', '').ToLower()
+    $sha.Dispose()
+
+    [void](Invoke-Node -Command ": > '$RemotePath.b64'")
+
+    # 6000 chars leaves generous headroom under the command-line cap once the
+    # ssh/vagrant wrapper and the __RC__ sentinel are added around it.
+    $chunkSize = 6000
+    for ($i = 0; $i -lt $b64.Length; $i += $chunkSize) {
+        $part = $b64.Substring($i, [Math]::Min($chunkSize, $b64.Length - $i))
+        # printf '%s', not echo: echo mangles backslashes on some shells and
+        # base64 is backslash-free anyway, but printf is the portable choice.
+        [void](Invoke-Node -Command "printf '%s' '$part' >> '$RemotePath.b64'")
+    }
+
+    [void](Invoke-Node -Command "base64 -d < '$RemotePath.b64' > '$RemotePath' && rm -f '$RemotePath.b64'")
+
+    $remoteHash = (Invoke-Node -Command "sha256sum '$RemotePath' | cut -d' ' -f1").Trim()
+    if ($remoteHash -ne $localHash) {
+        Write-ErrorMsg "checksum mismatch copying $(Split-Path -Leaf $LocalPath)"
+        Write-Host    "           local  : $localHash"
+        Write-Host    "           remote : $remoteHash"
+        $Failures.Add("Corrupt transfer: $(Split-Path -Leaf $LocalPath)")
+        return $false
+    }
+    return $true
+}
+
 function Push-ModuleAssets {
     <#
     .SYNOPSIS
@@ -218,36 +283,39 @@ function Push-ModuleAssets {
     # directory" for the cwd rather than for the script.
     [void](Invoke-Node -Command "mkdir -p '$RemoteBase' ~/certs && rm -f '$RemoteBase'/*")
 
-    # BOM TRAP. lib\CkaLab.ps1 sets $global:OutputEncoding to
-    # [System.Text.Encoding]::UTF8, whose .NET preamble is EF BB BF. Piping a
-    # string to a native command uses $OutputEncoding, so every file we `cat >`
-    # onto the node lands with a BOM in front of byte 0. For a shell script that
-    # means the shebang is no longer at the start of the file and `./lab.sh`
-    # dies with a bad-interpreter error that looks nothing like its cause.
-    # Swap in a BOM-less encoder for the duration of the copy, then restore.
-    $savedEncoding = $global:OutputEncoding
-    $global:OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-    try {
-        $files = Get-ChildItem -Path $srcDir -File | Where-Object { $_.Name -ne '.gitkeep' }
-        foreach ($f in $files) {
-            $body = (Get-Content -Raw -LiteralPath $f.FullName) -replace "`r`n", "`n"
-            $body | vagrant ssh $Node -c "cat > '$RemoteBase/$($f.Name)'"
+    # Only these three files are needed ON THE NODE. The runbook and
+    # START-HERE.md are read on Tim's second monitor, not on control1 --
+    # staging them cost ~60KB of base64 across dozens of round trips for
+    # nothing. Fewer, smaller transfers is also fewer chances to hang.
+    $wanted = @('lab.sh', 'frontend-dev-csr.yaml', 'pod-reader.yaml')
+    $files  = Get-ChildItem -Path $srcDir -File | Where-Object { $wanted -contains $_.Name }
+
+    $missing = $wanted | Where-Object { $_ -notin $files.Name }
+    if ($missing) {
+        Write-ErrorMsg "Missing from the module folder: $($missing -join ', ')"
+        $Failures.Add("Module folder is incomplete: $($missing -join ', ')")
+        return
+    }
+
+    # Each chunk is its own `vagrant ssh` round trip and those take a few seconds
+    # apiece, so a silent staging step reads as a hang. Announce every file and
+    # its size BEFORE the transfer starts, so the screen always shows progress.
+    $n = 0
+    foreach ($f in $files) {
+        $n++
+        Write-Info "  [$n/$($files.Count)] $($f.Name) ($([math]::Ceiling($f.Length / 1KB)) KB) -- transferring in chunks, this takes a few seconds"
+        if (Copy-TextToNode -LocalPath $f.FullName -RemotePath "$RemoteBase/$($f.Name)") {
+            Write-Success "  staged $($f.Name) (sha256 verified)"
         }
-
-        $ctxBody = (Get-Content -Raw -LiteralPath $ctxSrc) -replace "`r`n", "`n"
-        $ctxBody | vagrant ssh $Node -c 'cat > ~/setup-contexts.sh'
-    }
-    finally {
-        $global:OutputEncoding = $savedEncoding
     }
 
-    # `cat >` creates files 0644. The runbook types `./reset.sh` on camera,
-    # and "Permission denied" is a rotten thing to meet mid-take -- so set
-    # the execute bit on every .sh we just pushed. Cheap, and idempotent.
+    Write-Info '  [extra] setup-contexts.sh (fallback identity builder)'
+    [void](Copy-TextToNode -LocalPath $ctxSrc -RemotePath '/home/vagrant/setup-contexts.sh')
+
+    # `base64 -d >` creates files 0644. The runbook types `./lab.sh` on camera,
+    # and "Permission denied" is a rotten thing to meet mid-take.
     [void](Invoke-Node -Command "chmod +x '$RemoteBase'/*.sh ~/setup-contexts.sh 2>/dev/null; true")
 
-    # Verify rather than assume: a runbook that says ./reset.sh must have a
-    # reset.sh that actually executes.
     # Verify BOTH the execute bit AND that byte 0 is '#' -- if a BOM slipped
     # through, the shebang is broken and ./lab.sh fails on camera with an error
     # that points nowhere useful. `head -c1` is the cheapest possible proof.
@@ -493,14 +561,21 @@ Write-Step 'Scrubbing anything a prior take left behind'
 # takes -- so the two can never drift apart. lab.sh guards against a false
 # green (it refuses to report clean when it cannot reach the API server), and
 # its nonzero exit is what we key on.
-$scrub = Invoke-Node -Command "cd $RemoteBase && ./lab.sh reset 2>&1; echo __RC__=`$?"
+# DO NOT append your own __RC__ sentinel here. Invoke-Node already appends one
+# AND strips every `__RC__=<n>` from the text it returns -- so a second sentinel
+# gets stripped too, the match never succeeds, and a perfectly clean reset is
+# reported as a failure. (That exact bug shipped: lab.sh printed READY FOR TAKE
+# and this block still called it not-recording-ready.) Read the status from
+# $Script:LastNodeRC, which is the one place it now lives.
+$scrub = Invoke-Node -Command "cd '$RemoteBase' && ./lab.sh reset"
+$scrubRC = $Script:LastNodeRC
 $scrub -split "`n" | Where-Object { $_ -match '\S' } | ForEach-Object { Write-Host "    $_" }
-if ($scrub -match '__RC__=0') {
+if ($scrubRC -eq 0) {
     Write-Success 'Starting frame is clean -- no dev-team, no frontend-dev'
 }
 else {
-    Write-ErrorMsg 'lab.sh reset did not report a clean starting frame.'
-    $Failures.Add('Reset to frame zero failed')
+    Write-ErrorMsg "lab.sh reset did not report a clean starting frame (remote exit $scrubRC)."
+    $Failures.Add("Reset to frame zero failed (exit $scrubRC)")
 }
 
 #endregion
