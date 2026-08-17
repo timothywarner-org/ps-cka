@@ -1,0 +1,702 @@
+<#
+.SYNOPSIS
+    Get the 3-node Hyper-V lab recording-ready for CKA Course 4 / Module 2
+    (ServiceAccounts and Least-Privilege Access).
+
+.DESCRIPTION
+    One command between "my VMs are off" and "I can hit record." It boots the
+    lab, proves the cluster is actually healthy, stages the module's exercise
+    files on the control plane, GATES the seven ServiceAccount facts the deck asserts out
+    loud, scrubs anything a prior take left behind, and checkpoints the result.
+
+    WHY A FACT GATE. This module says five specific things on camera -- for
+    example "expirationSeconds is 3607" and "no Secret is auto-created." Those
+    are properties of the cluster's bootstrapped RBAC policy, not of the deck.
+    If a future Kubernetes release changes one, the deck becomes wrong and the
+    only place you would find out is mid-take. So the gate asks the live
+    cluster all five and refuses a green light on any drift. An assertion about
+    your own content proves nothing; the cluster's answer proves something.
+
+    WHAT IT DOES NOT DO. It never drives the demo. Module 2 is typed live on
+    camera, because watching a human build a Role is the pedagogy. This script
+    only guarantees the starting frame is identical every take.
+
+    IDEMPOTENT. Safe to re-run between takes, and cheap -- a warm re-run is
+    about 20 seconds because the boot and bootstrap steps no-op.
+
+.PARAMETER Bootstrap
+    Run kubeadm init on control1 and join both workers. Use this ONCE, on VMs
+    that have been provisioned (containerd + kubeadm installed) but never had a
+    cluster created on them. Skipped automatically if a cluster already answers.
+
+.PARAMETER SkipBoot
+    Do not call vagrant up. Use when the VMs are already running and you just
+    want the verify + stage + gate + scrub passes.
+
+.PARAMETER SkipSnapshot
+    Do not checkpoint at the end. Use for a quick mid-sprint reset when you
+    already hold a good save point.
+
+.PARAMETER SnapshotName
+    Checkpoint name written at the end. Default 'c04-m02-rbac-ready'.
+
+.PARAMETER Node
+    The control-plane node to drive. Default 'control1'.
+
+.EXAMPLE
+    .\Initialize-C04M02Lab.ps1
+    The normal path. Boot, verify, stage, gate, scrub, checkpoint.
+
+.EXAMPLE
+    .\Initialize-C04M02Lab.ps1 -Bootstrap
+    First run on freshly provisioned VMs -- also does kubeadm init and the joins.
+
+.EXAMPLE
+    .\Initialize-C04M02Lab.ps1 -SkipBoot -SkipSnapshot
+    Fast reset between takes on an already-running lab.
+
+.NOTES
+    Author:  Tim Warner | CKA lab (control1, worker1, worker2)
+    Run as:  Administrator PowerShell 7+, from C:\github\ps-cka\src\cka-lab
+             (Hyper-V cmdlets require elevation, every time, no exceptions)
+    Pairs with: exercise-files\course-04-rbac-admission\m02-serviceaccounts\c04-m02-demo-runbook.md
+    Exit codes: 0 = recording-ready, 1 = a gate failed (read the [ERROR] lines)
+#>
+
+#Requires -Version 7.0
+#Requires -RunAsAdministrator
+
+[CmdletBinding(SupportsShouldProcess)]
+param(
+    [switch]$Bootstrap,
+    [switch]$SkipBoot,
+    [switch]$SkipSnapshot,
+
+    [ValidateNotNullOrEmpty()]
+    [string]$SnapshotName = 'c04-m02-rbac-ready',
+
+    [ValidateNotNullOrEmpty()]
+    [string]$Node = 'control1'
+)
+
+$ErrorActionPreference = 'Stop'
+# Several probes below are EXPECTED to exit nonzero (a 403 is a passing result
+# in an RBAC course). Native exit codes must not abort the script.
+$PSNativeCommandUseErrorActionPreference = $false
+
+. (Join-Path -Path $PSScriptRoot -ChildPath 'lib\CkaLab.ps1')
+Initialize-LabEncoding
+Initialize-LabPath
+
+$AllVMs      = Get-CkaLabVMs
+$LabNodes    = Get-CkaLabNodes
+$RemoteBase  = '/home/vagrant/m02'
+$ExpectMinor = '1.35'
+$Failures    = [System.Collections.Generic.List[string]]::new()
+$Script:LastNodeRC = -1
+
+# Push-Location with no finally leaves the caller's location stack dirty on any
+# terminating error. Register the pop on the engine's exit event so it happens
+# whether we exit cleanly, throw, or the user hits Ctrl-C.
+Push-Location $PSScriptRoot
+$null = Register-EngineEvent -SourceIdentifier ([System.Management.Automation.PsEngineEvent]::Exiting) -Action {
+    Pop-Location -ErrorAction SilentlyContinue
+}
+
+#region Helpers -----------------------------------------------------------------
+
+function Invoke-Node {
+    <#
+    .SYNOPSIS
+        Run one command on the control-plane node over `vagrant ssh` and return
+        its stdout+stderr as a single trimmed string.
+    .DESCRIPTION
+        Returns text, never throws on a nonzero remote exit. Callers decide what
+        a failure means -- in this module a 403 is frequently the pass condition.
+    #>
+    param([Parameter(Mandatory)][string]$Command)
+    # Capture the REMOTE exit status too. Without it, a gate phrased as a
+    # negative assertion ("this output must NOT contain 'secrets'") passes
+    # whenever the command fails outright and prints nothing -- a false pass
+    # on the exact check that is supposed to stop a bad recording.
+    # NEWLINE, not "; ". Several gate commands are multi-line here-strings, and a
+    # semicolon appended after a trailing newline produces a line that STARTS with
+    # ';' -- a bash syntax error. A newline separator is correct for both a
+    # one-liner and a multi-line script.
+    $out = vagrant ssh $Node -c "$Command`necho __RC__=`$?" 2>&1
+    $text = ($out | Out-String)
+    if ($text -match '__RC__=(\d+)') { $Script:LastNodeRC = [int]$Matches[1] }
+    else { $Script:LastNodeRC = -1 }   # sentinel never arrived: ssh itself failed
+    return (($text -replace '__RC__=\d+\s*', '').Trim())
+}
+
+function Test-Gate {
+    <#
+    .SYNOPSIS
+        Assert one live-cluster fact. Records a failure instead of throwing so a
+        single run reports EVERY drift, not just the first one.
+    .PARAMETER Name
+        Human-readable claim, phrased the way Tim says it on camera.
+    .PARAMETER Command
+        The command whose output is evaluated on the node.
+    .PARAMETER Match
+        Regex the output must match for the gate to pass.
+    .PARAMETER ShouldNotMatch
+        Invert the test: the gate passes only when the regex does NOT match.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][string]$Command,
+        [Parameter(Mandatory)][string]$Match,
+        [switch]$ShouldNotMatch
+    )
+    $out  = Invoke-Node -Command $Command
+    $rc   = $Script:LastNodeRC
+
+    # A negative assertion is only meaningful if the command actually RAN.
+    # "output does not contain 'secrets'" is trivially true of an error, so
+    # require exit 0 before believing a ShouldNotMatch gate.
+    if ($ShouldNotMatch -and $rc -ne 0) {
+        Write-ErrorMsg "GATE FAIL  $Name"
+        Write-Host  "           the command itself failed (remote exit $rc), so the"
+        Write-Host  "           'must not match' result proves nothing."
+        Write-Host  "           command : $Command"
+        Write-Host  "           got     : $(if ($out) { ($out -split "`n")[0] } else { '<empty>' })"
+        $Failures.Add($Name)
+        return
+    }
+
+    $hit  = $out -match $Match
+    $pass = if ($ShouldNotMatch) { -not $hit } else { $hit }
+
+    if ($pass) {
+        Write-Success "GATE PASS  $Name"
+    }
+    else {
+        Write-ErrorMsg "GATE FAIL  $Name"
+        Write-Host  "           command : $Command"
+        Write-Host  "           expected: $(if ($ShouldNotMatch) { 'NO match for' } else { 'match for' }) /$Match/"
+        Write-Host  "           got     : $(if ($out) { ($out -split "`n")[0] } else { '<empty>' })"
+        $Failures.Add($Name)
+    }
+}
+
+function Wait-NodeSsh {
+    <#
+    .SYNOPSIS
+        Block until every lab VM answers a trivial SSH command, or time out.
+    #>
+    param([int]$TimeoutSeconds = 240)
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    foreach ($n in $LabNodes) {
+        Write-Info "Waiting for SSH on $($n.Name) ($($n.IP))..."
+        do {
+            $probe = (vagrant ssh $n.Name -c 'echo __UP__' 2>&1 | Out-String)
+            if ($probe -match '__UP__') { Write-Success "$($n.Name) is answering"; break }
+            Start-Sleep -Seconds 5
+        } while ((Get-Date) -lt $deadline)
+
+        if ($probe -notmatch '__UP__') {
+            Write-ErrorMsg "$($n.Name) never answered SSH within $TimeoutSeconds seconds."
+            $Failures.Add("SSH timeout on $($n.Name)")
+        }
+    }
+}
+
+function Copy-TextToNode {
+    <#
+    .SYNOPSIS
+        Copy one local text file to the node WITHOUT piping to `vagrant ssh`.
+    .DESCRIPTION
+        The obvious way -- `$body | vagrant ssh $Node -c "cat > file"` -- DEADLOCKS.
+        vagrant ssh wraps ssh in a Ruby process, and the remote `cat` sits waiting
+        for an EOF on stdin that never propagates through that wrapper, so the
+        whole script hangs at the staging step with no output and no timeout.
+        (Observed live: the ruby and vagrant processes stay resident, burning a
+        few CPU-seconds, forever.)
+
+        So: no stdin at all. Base64 the content and carry it INSIDE the command
+        string, appended in chunks because a Windows command line caps out around
+        32767 characters and these files are bigger than that once encoded.
+
+        Three bugs die with one change:
+          * the stdin deadlock above;
+          * the BOM corruption -- we choose the exact bytes here, so $OutputEncoding
+            can never prepend EF BB BF ahead of a shebang;
+          * CRLF -- normalized before encoding, so line endings cannot depend on
+            how git checked the file out on Windows.
+
+        Then it VERIFIES by comparing SHA256 on both sides, because "the command
+        did not error" is not the same as "the bytes arrived".
+    #>
+    param(
+        [Parameter(Mandatory)][string]$LocalPath,
+        [Parameter(Mandatory)][string]$RemotePath
+    )
+
+    $body  = (Get-Content -Raw -LiteralPath $LocalPath) -replace "`r`n", "`n"
+    $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($body)
+    $b64   = [Convert]::ToBase64String($bytes)
+
+    # Local hash of exactly the bytes we are about to send.
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $localHash = ([BitConverter]::ToString($sha.ComputeHash($bytes)) -replace '-', '').ToLower()
+    $sha.Dispose()
+
+    [void](Invoke-Node -Command ": > '$RemotePath.b64'")
+
+    # 6000 chars leaves generous headroom under the command-line cap once the
+    # ssh/vagrant wrapper and the __RC__ sentinel are added around it.
+    $chunkSize = 6000
+    for ($i = 0; $i -lt $b64.Length; $i += $chunkSize) {
+        $part = $b64.Substring($i, [Math]::Min($chunkSize, $b64.Length - $i))
+        # printf '%s', not echo: echo mangles backslashes on some shells and
+        # base64 is backslash-free anyway, but printf is the portable choice.
+        [void](Invoke-Node -Command "printf '%s' '$part' >> '$RemotePath.b64'")
+    }
+
+    [void](Invoke-Node -Command "base64 -d < '$RemotePath.b64' > '$RemotePath' && rm -f '$RemotePath.b64'")
+
+    $remoteHash = (Invoke-Node -Command "sha256sum '$RemotePath' | cut -d' ' -f1").Trim()
+    if ($remoteHash -ne $localHash) {
+        Write-ErrorMsg "checksum mismatch copying $(Split-Path -Leaf $LocalPath)"
+        Write-Host    "           local  : $localHash"
+        Write-Host    "           remote : $remoteHash"
+        $Failures.Add("Corrupt transfer: $(Split-Path -Leaf $LocalPath)")
+        return $false
+    }
+    return $true
+}
+
+function Push-ModuleAssets {
+    <#
+    .SYNOPSIS
+        Copy the M01 exercise files onto the node as LF-normalized text.
+    .DESCRIPTION
+        Same stdin->ssh path the rest of the lab uses: one source of truth in the
+        repo, no Vagrant synced-folder dependency, and CRLF can never reach a
+        bash script. Also lands setup-contexts.sh in the home directory as the
+        on-camera safety net.
+    #>
+    $srcDir = (Resolve-Path (Join-Path $PSScriptRoot '..\..\exercise-files\course-04-rbac-admission\m02-serviceaccounts')).Path
+    $ctxSrc = (Resolve-Path (Join-Path $PSScriptRoot '..\..\exercise-files\course-04-rbac-admission\setup-contexts.sh')).Path
+
+    # Clear the CONTENTS, never the directory itself. `rm -rf ~/m02` yanks the
+    # working directory out from under any SSH session Tim already has open
+    # there, and his next `./lab.sh` fails with a cryptic "No such file or
+    # directory" for the cwd rather than for the script.
+    [void](Invoke-Node -Command "mkdir -p '$RemoteBase' ~/certs && rm -f '$RemoteBase'/*")
+
+    # Only these three files are needed ON THE NODE. The runbook and
+    # START-HERE.md are read on Tim's second monitor, not on control1 --
+    # staging them cost ~60KB of base64 across dozens of round trips for
+    # nothing. Fewer, smaller transfers is also fewer chances to hang.
+    $wanted = @('lab.sh', 'deploy-runner.yaml', 'ghost-sa.yaml', 'no-automount.yaml')
+    $files  = Get-ChildItem -Path $srcDir -File | Where-Object { $wanted -contains $_.Name }
+
+    $missing = $wanted | Where-Object { $_ -notin $files.Name }
+    if ($missing) {
+        Write-ErrorMsg "Missing from the module folder: $($missing -join ', ')"
+        $Failures.Add("Module folder is incomplete: $($missing -join ', ')")
+        return
+    }
+
+    # Each chunk is its own `vagrant ssh` round trip and those take a few seconds
+    # apiece, so a silent staging step reads as a hang. Announce every file and
+    # its size BEFORE the transfer starts, so the screen always shows progress.
+    $n = 0
+    foreach ($f in $files) {
+        $n++
+        Write-Info "  [$n/$($files.Count)] $($f.Name) ($([math]::Ceiling($f.Length / 1KB)) KB) -- transferring in chunks, this takes a few seconds"
+        if (Copy-TextToNode -LocalPath $f.FullName -RemotePath "$RemoteBase/$($f.Name)") {
+            Write-Success "  staged $($f.Name) (sha256 verified)"
+        }
+    }
+
+    Write-Info '  [extra] setup-contexts.sh (fallback identity builder)'
+    [void](Copy-TextToNode -LocalPath $ctxSrc -RemotePath '/home/vagrant/setup-contexts.sh')
+
+    # `base64 -d >` creates files 0644. The runbook types `./lab.sh` on camera,
+    # and "Permission denied" is a rotten thing to meet mid-take.
+    [void](Invoke-Node -Command "chmod +x '$RemoteBase'/*.sh ~/setup-contexts.sh 2>/dev/null; true")
+
+    # Verify BOTH the execute bit AND that byte 0 is '#' -- if a BOM slipped
+    # through, the shebang is broken and ./lab.sh fails on camera with an error
+    # that points nowhere useful. `head -c1` is the cheapest possible proof.
+    $execCheck = Invoke-Node -Command "test -x '$RemoteBase/lab.sh' && [ `"`$(head -c1 '$RemoteBase/lab.sh')`" = '#' ] && echo __EXEC_OK__ || echo __EXEC_BAD__"
+    if ($execCheck -match '__EXEC_OK__') {
+        Write-Success "Staged $($files.Count) file(s) in $RemoteBase (lab.sh executable), plus ~/setup-contexts.sh"
+    }
+    else {
+        Write-ErrorMsg "$RemoteBase/lab.sh is not executable -- './lab.sh mint' will fail on camera."
+        $Failures.Add('lab.sh missing the execute bit')
+    }
+}
+
+#endregion
+
+#region Banner ------------------------------------------------------------------
+
+Clear-Host
+Write-Host ""
+Write-Host "$($Script:NeonGreen)===================================================================$($Script:AnsiReset)"
+Write-Host "$($Script:NeonGreen)  CKA COURSE 4 / MODULE 1  --  RBAC FUNDAMENTALS$($Script:AnsiReset)"
+Write-Host "$($Script:NeonGreen)  Lab bring-up, health check, fact gate, and clean starting frame$($Script:AnsiReset)"
+Write-Host "$($Script:NeonGreen)===================================================================$($Script:AnsiReset)"
+Write-Host ""
+Write-Host "  Nodes      : $($AllVMs -join ', ')"
+Write-Host "  Driving    : $Node"
+Write-Host "  Kubernetes : v$ExpectMinor expected"
+Write-Host "  Checkpoint : $(if ($SkipSnapshot) { '<skipped>' } else { $SnapshotName })"
+Write-Host ""
+Write-HostMemory
+
+#endregion
+
+#region 1. Boot -----------------------------------------------------------------
+
+if ($SkipBoot) {
+    Write-Warn '-SkipBoot set: assuming the VMs are already running.'
+}
+elseif ($PSCmdlet.ShouldProcess(($AllVMs -join ', '), 'vagrant up --no-provision')) {
+    Write-Step 'Booting the lab VMs (no re-provision)'
+    # --no-provision matters: a plain `vagrant up` would re-run the whole prereq
+    # shell provisioner on every boot, which is 6+ minutes you never need again.
+    vagrant up --no-provision
+    Wait-NodeSsh
+}
+
+#endregion
+
+#region 2. Bootstrap the cluster (first run only) -------------------------------
+
+Write-Step 'Checking whether a cluster already exists'
+$apiProbe = Invoke-Node -Command 'kubectl get --raw=/readyz 2>/dev/null || echo __NOCLUSTER__'
+
+if ($apiProbe -match '__NOCLUSTER__' -or $apiProbe -notmatch 'ok') {
+    if (-not $Bootstrap) {
+        Write-ErrorMsg 'No cluster is answering on this lab, and -Bootstrap was not set.'
+        Write-Info     'Re-run with:  .\Initialize-C04M02Lab.ps1 -Bootstrap'
+        Pop-Location
+        exit 1
+    }
+
+    # DELIBERATELY NOT bootstrap_cp.sh. That script installs Flannel on
+    # 10.244.0.0/16, which is a Course 1 leftover -- the course has taught
+    # CALICO via the Tigera operator since Course 2 Module 3, on pod CIDR
+    # 192.168.0.0/16 (Calico's default Installation CR ships that exact
+    # range, and C02 M03 Step 1.0 proves the alignment on camera). Booting
+    # this lab on Flannel/10.244 would silently contradict three recorded
+    # modules. Versions pinned to match c02-m03-demo-runbook.md exactly.
+    Write-Step 'No cluster found -- kubeadm init on the control plane (Calico, pod CIDR 192.168.0.0/16)'
+    vagrant ssh $Node -c @'
+set -euo pipefail
+sudo kubeadm init \
+  --apiserver-advertise-address=192.168.50.10 \
+  --pod-network-cidr=192.168.0.0/16
+mkdir -p "$HOME/.kube"
+sudo cp -f /etc/kubernetes/admin.conf "$HOME/.kube/config"
+sudo chown "$(id -u):$(id -g)" "$HOME/.kube/config"
+'@ 2>&1 | ForEach-Object { Write-Host "    $_" }
+
+    Write-Step 'Installing Calico via the Tigera operator (pinned v3.29.1 -- same as C02 M03)'
+    vagrant ssh $Node -c @'
+set -euo pipefail
+kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.29.1/manifests/tigera-operator.yaml
+kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.29.1/manifests/custom-resources.yaml
+'@ 2>&1 | ForEach-Object { Write-Host "    $_" }
+
+    foreach ($w in ($LabNodes | Where-Object { $_.Name -ne $Node })) {
+        Write-Step "Joining $($w.Name) to the cluster"
+        vagrant ssh $w.Name -c 'bash /vagrant/join_worker.sh' 2>&1 | ForEach-Object { Write-Host "    $_" }
+    }
+
+    Write-Warn 'FYI: src/cka-lab/bootstrap_cp.sh still installs Flannel on 10.244.0.0/16.'
+    Write-Warn '     It is a Course 1 leftover and disagrees with C02 M03. Worth deleting or updating.'
+}
+else {
+    Write-Success 'A cluster is already answering -- skipping kubeadm init'
+}
+
+#endregion
+
+#region 3. Verify cluster health ------------------------------------------------
+
+Write-Step 'Verifying the cluster the deck promises on slide 19'
+
+# The API server can answer /readyz seconds before the CNI settles, so wait on
+# node readiness rather than trusting the first probe.
+$nodesReady = $false
+foreach ($attempt in 1..40) {
+    $ready = Invoke-Node -Command "kubectl get nodes --no-headers 2>/dev/null | grep -cw Ready"
+    if ($ready -match '^\s*3\s*$') { $nodesReady = $true; break }
+    Start-Sleep -Seconds 5
+}
+
+if ($nodesReady) {
+    Write-Success 'All 3 nodes report Ready'
+}
+else {
+    # KNOWN LAB GOTCHA (same one Invoke-M03Lab.ps1 handles): restoring a
+    # Hyper-V checkpoint invalidates Calico's CNI token, so new pods fail with
+    # "calico ... ClusterInformation: Unauthorized" and nodes sit NotReady
+    # until calico-node is bounced. This course runs CALICO via the Tigera
+    # operator (calico-system/calico-node) -- that is the C02 M03 standard.
+    # The awk still matches generically so a future CNI swap degrades to a
+    # warning instead of a silent no-op.
+    Write-Warn 'Nodes not all Ready -- bouncing calico-node (known checkpoint-restore gotcha)'
+    # NOTE ON QUOTING: an earlier version wrote  print `$1\" \"`$2  inside a
+    # double-quoted PowerShell string. The \" does NOT escape a quote in
+    # PowerShell -- it ends the string -- so the argument silently split and the
+    # awk program reached the node malformed. Single-quoted here-strings avoid
+    # the whole class of bug: nothing is interpolated, so $1 and $2 arrive intact.
+    $cniAwk = @'
+kubectl get ds -A --no-headers 2>/dev/null | awk '/calico-node/{print $1" "$2; exit}'
+'@
+    $cniLine = Invoke-Node -Command $cniAwk
+    if (-not ($cniLine -match '^\S+\s+\S+$')) {
+        Write-Warn 'calico-node daemonset not found -- falling back to any CNI daemonset'
+        $cniFallback = @'
+kubectl get ds -A --no-headers 2>/dev/null | awk '/cilium|flannel|weave/{print $1" "$2; exit}'
+'@
+        $cniLine = Invoke-Node -Command $cniFallback
+    }
+    if ($cniLine -match '^(\S+)\s+(\S+)$') {
+        $cniNs = $Matches[1]; $cniDs = $Matches[2]
+        [void](Invoke-Node -Command "kubectl -n $cniNs rollout restart daemonset/$cniDs")
+        Invoke-Node -Command "kubectl -n $cniNs rollout status daemonset/$cniDs --timeout=150s" | ForEach-Object { Write-Host "    $_" }
+        $ready = Invoke-Node -Command "kubectl get nodes --no-headers 2>/dev/null | grep -cw Ready"
+        if ($ready -match '^\s*3\s*$') { Write-Success 'CNI healed -- all 3 nodes Ready'; $nodesReady = $true }
+    }
+    if (-not $nodesReady) { $Failures.Add('Cluster never reached 3 Ready nodes') }
+}
+
+# `sort -u` collapses to ONE line only when every node agrees. A substring
+# -match would happily pass a mixed 1.34/1.35 cluster because "v1.35" appears
+# somewhere in the blob -- which is exactly the cluster you must not record on.
+# So: require exactly one distinct version, and require it to start with v1.35.
+$version = (Invoke-Node -Command "kubectl get nodes --no-headers -o custom-columns=V:.status.nodeInfo.kubeletVersion | sort -u | tr -d ' '")
+$versions = @($version -split "`n" | Where-Object { $_ -match '\S' } | ForEach-Object { $_.Trim() })
+if ($versions.Count -eq 1 -and $versions[0].StartsWith("v$ExpectMinor.")) {
+    Write-Success "Kubelet version is $($versions[0]) on all 3 nodes"
+}
+elseif ($versions.Count -gt 1) {
+    Write-ErrorMsg "MIXED versions across nodes: $($versions -join ', ') -- do not record on this cluster"
+    $Failures.Add("Mixed Kubernetes versions: $($versions -join ', ')")
+}
+else {
+    Write-ErrorMsg "Expected v$ExpectMinor.x on every node, found: $version"
+    $Failures.Add("Wrong Kubernetes version: $version")
+}
+
+$runtime = Invoke-Node -Command "kubectl get nodes --no-headers -o custom-columns=R:.status.nodeInfo.containerRuntimeVersion | sort -u"
+if ($runtime -match 'containerd') { Write-Success "Container runtime is containerd" }
+else { Write-Warn "Runtime reads '$runtime' -- the deck says containerd on camera" }
+
+#endregion
+
+#region 4. Stage exercise files + contexts --------------------------------------
+
+Write-Step 'Staging the module exercise files on the control plane'
+Push-ModuleAssets
+
+Write-Step 'Ensuring the cka-vagrant admin context exists'
+# kubeadm writes 'kubernetes-admin@kubernetes', which is long and looks identical
+# to every other kubeadm cluster on screen. Rename once so the on-camera context
+# name is unambiguous. Idempotent.
+$ctxOut = Invoke-Node -Command @'
+if kubectl config get-contexts -o name | grep -qx cka-vagrant; then
+  echo "__EXISTS__"
+else
+  kubectl config rename-context kubernetes-admin@kubernetes cka-vagrant && echo "__RENAMED__"
+fi
+kubectl config use-context cka-vagrant >/dev/null
+'@
+if ($ctxOut -match '__EXISTS__')      { Write-Success 'Context cka-vagrant already present' }
+elseif ($ctxOut -match '__RENAMED__') { Write-Success 'Renamed kubernetes-admin@kubernetes -> cka-vagrant' }
+else { Write-Warn "Could not confirm the cka-vagrant context: $ctxOut"; $Failures.Add('cka-vagrant context missing') }
+
+#endregion
+
+#region 5. The fact gate --------------------------------------------------------
+
+Write-Step 'Fact gate -- the seven claims this module makes out loud'
+
+# EVERY remote command below is a SINGLE-QUOTED here-string. That is not style.
+# In a double-quoted PowerShell string, \" does NOT escape a quote -- it ENDS the
+# string, so the argument silently splits and reaches the remote shell malformed.
+# These commands are full of embedded quotes (jsonpath, --overrides JSON, grep
+# patterns), so here-strings are the only safe carrier. Nothing is interpolated,
+# which means $VAR and "quotes" arrive on the node exactly as written.
+
+$GateSecrets = @'
+kubectl create ns gateprobe --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+kubectl -n gateprobe create sa g --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+sleep 2
+echo "SECRETS=[$(kubectl -n gateprobe get sa g -o jsonpath='{.secrets}')]"
+'@
+
+$GateGates = @'
+kubectl get --raw=/metrics 2>/dev/null | grep -c 'name="LegacyServiceAccountToken' || true
+'@
+
+$GateExp3607 = @'
+kubectl -n gateprobe run gp --image=registry.k8s.io/pause:3.10 --restart=Never \
+  --overrides='{"spec":{"serviceAccountName":"g"}}' >/dev/null 2>&1
+for i in $(seq 1 25); do
+  V=$(kubectl -n gateprobe get pod gp -o jsonpath='{range .spec.volumes[*]}{.projected.sources[*].serviceAccountToken.expirationSeconds}{end}' 2>/dev/null)
+  [ -n "$V" ] && break
+  sleep 1
+done
+echo "EXP=$V"
+'@
+
+$GateNoJq = @'
+command -v jq >/dev/null && echo JQ_PRESENT || echo JQ_ABSENT
+'@
+
+$GateFloor = @'
+kubectl -n gateprobe create token g --duration=5m 2>&1 | head -1
+'@
+
+$GateGhost = @'
+kubectl -n gateprobe run ghostgate --image=registry.k8s.io/pause:3.10 --restart=Never \
+  --overrides='{"spec":{"serviceAccountName":"nope"}}' 2>&1 | head -1
+'@
+
+$GateGhostAbsent = @'
+echo "POD=[$(kubectl -n gateprobe get pod ghostgate --ignore-not-found -o name 2>/dev/null)]"
+'@
+
+# Decode the JWT with coreutils only -- jq is not on the node (gate 4 proves it).
+# base64url strips '=' padding and uses -_ , so translate the alphabet AND re-add
+# padding or base64 -d prints "invalid input" and you get a truncated payload.
+$GateExtendedExp = @'
+T=$(kubectl -n gateprobe create token g)
+P=$(printf '%s' "$T" | cut -d. -f2 | tr '_-' '/+')
+case $(( ${#P} % 4 )) in 2) P="${P}==" ;; 3) P="${P}=" ;; esac
+PAY=$(printf '%s' "$P" | base64 -d 2>/dev/null)
+EXP=$(echo "$PAY" | grep -o '"exp":[0-9]*' | head -1 | cut -d: -f2)
+IAT=$(echo "$PAY" | grep -o '"iat":[0-9]*' | head -1 | cut -d: -f2)
+echo "LIFETIME_DAYS=$(( (EXP - IAT) / 86400 ))"
+'@
+
+# CLAIM 1. Creating a ServiceAccount no longer auto-creates a token Secret.
+# That stopped in v1.24, and Demo 1 shows the empty field on camera.
+Test-Gate -Name 'a fresh ServiceAccount has an empty .secrets field' `
+          -Command $GateSecrets -Match 'SECRETS=\[\]'
+
+# CLAIM 2. On v1.35 the legacy-token behavior is unconditional -- all three
+# KEP-2800 feature gates are gone from the binary, so there is nothing to flip.
+# This is the gate that replaces slide 9's wrong "gate in v1.27" clause.
+Test-Gate -Name 'no LegacyServiceAccountToken* feature gate is registered' `
+          -Command $GateGates -Match '^\s*0\s*$'
+
+# CLAIM 3. expirationSeconds is 3607 on the injected volume -- a precise number
+# said out loud on slide 10, which Demo 2 reads off the live object.
+Test-Gate -Name 'expirationSeconds on the injected projected volume is 3607' `
+          -Command $GateExp3607 -Match 'EXP=3607'
+
+# CLAIM 4. jq is NOT on this box. Demo 3 decodes a JWT; if jq ever appears, the
+# lab assumption changed and the coreutils-only claim needs revisiting.
+Test-Gate -Name 'jq is absent (Demo 3 must stay coreutils-only)' `
+          -Command $GateNoJq -Match 'JQ_ABSENT'
+
+# CLAIM 5. The 10-minute floor on --duration. It is why the demo says ten, and
+# Demo 3 shows the rejection deliberately.
+Test-Gate -Name '--duration=5m is refused with the 10-minute floor message' `
+          -Command $GateFloor -Match 'less than 10 minutes'
+
+# CLAIM 6. THE DISPUTED ONE. A Pod naming a missing ServiceAccount is refused at
+# API-server admission and NO Pod object is persisted. The deck is right; the
+# course outline's CreateContainerConfigError claim is wrong.
+Test-Gate -Name 'missing ServiceAccount is rejected at admission (deck is right)' `
+          -Command $GateGhost -Match 'error looking up service account'
+
+Test-Gate -Name 'and no Pod object was persisted for it' `
+          -Command $GateGhostAbsent -Match 'POD=\[\]'
+
+# CLAIM 7. The projected token's exp is extended far past 3607s -- roughly a year
+# -- which is slide 10's subtlest fact and the whole point of Demo 3.
+Test-Gate -Name 'the minted token exp is extended well beyond 3607 seconds' `
+          -Command $GateExtendedExp -Match 'LIFETIME_DAYS=([1-9][0-9]{2,}|[3-9][0-9])'
+
+Write-Step 'Tidying the gate probe namespace'
+[void](Invoke-Node -Command "kubectl delete ns gateprobe --ignore-not-found --wait=false >/dev/null 2>&1; true")
+
+#endregion
+
+#region 6. Scrub to the starting frame ------------------------------------------
+
+Write-Step 'Scrubbing anything a prior take left behind'
+# Delegate to `./lab.sh reset` rather than duplicating the delete list here.
+# ONE definition of "frame zero", used by the host bring-up and by Tim between
+# takes -- so the two can never drift apart. lab.sh guards against a false
+# green (it refuses to report clean when it cannot reach the API server), and
+# its nonzero exit is what we key on.
+# DO NOT append your own __RC__ sentinel here. Invoke-Node already appends one
+# AND strips every `__RC__=<n>` from the text it returns -- so a second sentinel
+# gets stripped too, the match never succeeds, and a perfectly clean reset is
+# reported as a failure. (That exact bug shipped: lab.sh printed READY FOR TAKE
+# and this block still called it not-recording-ready.) Read the status from
+# $Script:LastNodeRC, which is the one place it now lives.
+$scrub = Invoke-Node -Command "cd '$RemoteBase' && ./lab.sh reset"
+$scrubRC = $Script:LastNodeRC
+$scrub -split "`n" | Where-Object { $_ -match '\S' } | ForEach-Object { Write-Host "    $_" }
+if ($scrubRC -eq 0) {
+    Write-Success 'Starting frame is clean -- no dev-team, no frontend-dev'
+}
+else {
+    Write-ErrorMsg "lab.sh reset did not report a clean starting frame (remote exit $scrubRC)."
+    $Failures.Add("Reset to frame zero failed (exit $scrubRC)")
+}
+
+#endregion
+
+#region 7. Checkpoint -----------------------------------------------------------
+
+if ($SkipSnapshot) {
+    Write-Warn '-SkipSnapshot set: no checkpoint written.'
+}
+elseif ($Failures.Count -gt 0) {
+    Write-Warn 'Gates failed -- refusing to checkpoint a lab that is not recording-ready.'
+}
+elseif ($PSCmdlet.ShouldProcess(($AllVMs -join ', '), "Save checkpoint '$SnapshotName'")) {
+    Write-Step "Checkpointing all 3 VMs as '$SnapshotName'"
+    & (Join-Path $PSScriptRoot 'Save-CkaSnapshot.ps1') $SnapshotName
+}
+
+#endregion
+
+#region 8. Verdict --------------------------------------------------------------
+
+Write-Host ""
+Write-Host "$($Script:NeonGreen)===================================================================$($Script:AnsiReset)"
+
+if ($Failures.Count -eq 0) {
+    Write-Success 'Lab is recording-ready for C04 M02'
+    Write-Host ""
+    Write-Host "  Next:  ssh vagrant@$(($LabNodes | Where-Object Name -eq $Node).IP)"
+    Write-Host "         cd ~/m02                            # every script and manifest lives here"
+    Write-Host "         ./lab.sh                            # reset + verify, writes ~/dry-run.txt"
+    Write-Host "         kubectl config current-context      # cka-vagrant"
+    Write-Host ""
+    Write-Host "  Runbook: exercise-files\course-04-rbac-admission\m02-serviceaccounts\c04-m02-demo-runbook.md"
+    Write-Host "           Demo 1 opens at [1.0] -- the context command, not [1.1]"
+    Write-Host "  Safety net if the live mint goes sideways:  ./lab.sh mint"
+    Write-Host ""
+    Write-Host "$($Script:NeonGreen)===================================================================$($Script:AnsiReset)"
+    Pop-Location
+    exit 0
+}
+
+Write-ErrorMsg "NOT recording-ready -- $($Failures.Count) problem(s):"
+$Failures | ForEach-Object { Write-Host "    - $_" }
+Write-Host ""
+Write-Info 'A failed GATE means the cluster disagrees with the deck. Do not record.'
+Write-Info 'Re-ground the affected slide against kubernetes.io before the take.'
+Write-Host "$($Script:NeonGreen)===================================================================$($Script:AnsiReset)"
+Pop-Location
+exit 1
+
+#endregion

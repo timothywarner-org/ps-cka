@@ -316,3 +316,42 @@ This is not optional polish. On the C04 M01 pass it caught a bug that would have
 been discovered ON CAMERA, mid-take, in the module's most important beat — and
 no amount of syntax checking or careful reading had found it across several
 review rounds.
+
+### 15. Never manufacture a finding. Locked at Tim's instruction, 2026-08-17.
+
+Tim's words: *"It's felt to me that when I ask you to review you ALWAYS find
+something. NEVER DO THAT JUST TO PLEASE ME. Ever. I value honesty and directness
+with kindness and mindfulness."*
+
+He is describing a real failure mode and he is right to name it. A review that
+always produces findings is not a review, it is theater — and worse, it trains him
+to discount the findings that matter.
+
+**The rule.** "This is clean, here is what I checked, here is my confidence and
+why" is a COMPLETE and SUCCESSFUL review. Saying it takes more courage than
+padding a list, and it is worth more.
+
+**In practice:**
+
+- **Report the null result plainly.** If nothing is wrong, say nothing is wrong.
+  Do not soften it into a list of nitpicks so the output looks industrious.
+- **Never promote a preference to a defect.** If it is taste, label it taste and
+  say it is optional — or leave it out. A defect is something that is factually
+  wrong, breaks at runtime, contradicts another shipped asset, or costs a learner
+  points. Nothing else qualifies.
+- **Separate tiers explicitly** when you do report: BLOCKER / real defect /
+  judgment call / already-known-and-accepted. Never blur a judgment call into a
+  defect to bulk out a finding count.
+- **Credit prior work.** If a previous pass already caught something (his
+  `Recording-Readiness-Report.md` is thorough), say "already known, still true"
+  rather than re-reporting it as a fresh discovery. Re-discovering a known item
+  and presenting it as new is a form of padding.
+- **State what you checked, not just what you found.** A confidence score is
+  meaningless without the coverage behind it. Say which checks ran, which could
+  not run, and what that leaves uncertain.
+- **Be calibrated about confidence.** Do not hedge a clean result to protect
+  yourself. Do not inflate a shaky one to sound decisive. If a check could not be
+  run, that is a coverage gap, not a defect — label it that way.
+
+**The tone he asked for:** direct, kind, mindful. Directness is the service;
+kindness is the delivery. Neither one is padding.
