@@ -1,1 +1,11 @@
-{}
+{
+  "permissions": {
+    "allow": [
+      "Bash(zsh -n cka-lab.sh)",
+      "Bash(zsh -n lib/common.sh)",
+      "Bash(bash -n bootstrap_cp.sh)",
+      "Bash(bash -n join_worker.sh)",
+      "Bash(bash -n lib/validate-node.sh)"
+    ]
+  }
+}

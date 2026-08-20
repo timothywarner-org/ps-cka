@@ -1,0 +1,67 @@
+VAGRANT COMMANDS (macOS / VMware Fusion)
+
+Provider flag — add to any vagrant command to be explicit:
+  --provider=vmware_desktop
+
+Build all 3 VMs:
+  vagrant up
+  vagrant up --provider=vmware_desktop   # explicit on first run
+
+SSH into a node:
+  vagrant ssh control1
+  vagrant ssh worker1
+  vagrant ssh worker2
+
+Halt all VMs gracefully:
+  vagrant halt
+
+Destroy all VMs:
+  vagrant destroy -f
+
+Re-run provisioning on a VM:
+  vagrant provision control1
+
+Check VM status:
+  vagrant status
+
+Snapshot commands (used by ./cka-lab.sh save/restore/snapshots):
+  vagrant snapshot save    control1 pre-cluster
+  vagrant snapshot restore control1 pre-cluster
+  vagrant snapshot list    control1
+  vagrant snapshot delete  control1 pre-cluster
+
+CKA LAB DISPATCHER (wraps the above):
+  ./cka-lab.sh up
+  ./cka-lab.sh down
+  ./cka-lab.sh status
+  ./cka-lab.sh info
+  ./cka-lab.sh validate
+  ./cka-lab.sh save   pre-cluster
+  ./cka-lab.sh restore pre-cluster
+  ./cka-lab.sh snapshots
+
+KUBERNETES COMMANDS (run inside the VM after vagrant ssh control1)
+
+Initialize cluster (control1 only):
+  bash /vagrant/bootstrap_cp.sh
+  # OR manually:
+  sudo kubeadm init --apiserver-advertise-address=192.168.50.10 \
+    --pod-network-cidr=10.244.0.0/16
+
+Configure kubectl (control1, after kubeadm init):
+  mkdir -p $HOME/.kube
+  sudo cp /etc/kubernetes/admin.conf $HOME/.kube/config
+  sudo chown $USER:$USER $HOME/.kube/config
+
+Install Flannel CNI (pinned tag, not master):
+  kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/v0.24.4/Documentation/kube-flannel.yml
+
+Get join command (generates a fresh 24h token):
+  kubeadm token create --print-join-command
+
+Join a worker (worker1 or worker2 — run inside the worker VM):
+  bash /vagrant/join_worker.sh
+  # OR paste the join command from control1 directly
+
+Verify all nodes Ready:
+  kubectl get nodes
