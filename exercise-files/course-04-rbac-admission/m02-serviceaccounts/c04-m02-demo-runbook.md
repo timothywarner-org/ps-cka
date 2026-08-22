@@ -12,7 +12,7 @@
 
 > **M02 does not depend on M01.** Different namespace (`staging` vs `dev-team`), different objects. All it needs is the `cka-vagrant` context, which survives everything. Run it right after M01 with no rebuild.
 
-> **Deck edit before you record.** Slide 9's third bullet should read *"Auto-generation stopped in Kubernetes v1.24, and no switch brings it back"* — the current *"the gate in v1.27"* is wrong (locked in v1.27, removed in v1.29) and it's trivia the CKA does not test. See `DECK-CORRECTIONS.md` for the other five.
+> **Version note.** Legacy ServiceAccount token auto-generation stopped in Kubernetes v1.24. The `LegacyServiceAccountTokenNoAutoGeneration` gate was locked to its default in v1.27 and removed from the code in v1.29, so on v1.35 the behavior is unconditional — there is no switch to flip. The CKA does not test the gate trivia; it tests that you know tokens are no longer auto-created.
 
 ---
 
@@ -84,7 +84,7 @@ cd ~/m02 && ./lab.sh
 - [ ] `Initialize-C04M02Lab.ps1` ended `[OK]`
 - [ ] On the node: `cd ~/m02`, `./lab.sh reset` printed `READY FOR TAKE`
 - [ ] `kubectl config current-context` reads `cka-vagrant`
-- [ ] **Slide 9 bullet edited** — no "gate in v1.27" on screen
+- [ ] **Slide deck reviewed** — version claims match the v1.35 behavior described above
 - [ ] Deck slide 10 (the three files) on the second monitor for Demo 2
 
 ---
@@ -374,7 +374,6 @@ Deleting the `staging` namespace takes the ServiceAccount, Role, RoleBinding, an
 
 - **Live commands:** `lab.sh` in this folder is the single source of truth. Deck slides 12, 13, and 17 show the same commands on screen.
 - **Manifests:** `deploy-runner.yaml`, `ghost-sa.yaml`, `no-automount.yaml` in this folder.
-- **Corrections:** `DECK-CORRECTIONS.md` — six deck claims, with sources.
 - **Grounding (v1.35):** [Service Accounts](https://kubernetes.io/docs/concepts/security/service-accounts/) · [Configure SA for Pods](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/) · [Managing SAs](https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/) · [kubectl create token](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_create/kubectl_create_token/) · [Authenticating](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#service-account-tokens)
 
 ---
@@ -385,7 +384,7 @@ Deleting the `staging` namespace takes the ServiceAccount, Role, RoleBinding, an
 
 Six-lens research pass, every finding handed to a skeptic instructed to refute it. Confirmed with verbatim quotes: the three projected files and their sources; `expirationSeconds: 3607`; `exp` extended to ~1 year with a `warnafter` claim at the hour; the SA username and group format; `automountServiceAccountToken` placement and Pod precedence; the missing-SA admission rejection text and the fact that **no Pod object is persisted**; the Deployment surfacing path (`FailedCreate` / `ReplicaFailure`); the 10-minute `--duration` floor; **`jq` absent** on stock Ubuntu 22.04.
 
-**Six deck claims corrected** — see `DECK-CORRECTIONS.md`. One is a genuine error a learner could catch (slide 9's "gate in v1.27").
+**Version facts verified** against the Kubernetes `release-1.35` source tree rather than the docs prose, which is inaccurate on the token-gate timeline.
 
 ### UNVERIFIED — not yet run
 
