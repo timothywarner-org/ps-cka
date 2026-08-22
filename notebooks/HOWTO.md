@@ -21,8 +21,8 @@ dotnet interactive jupyter install
 # 3. Verify
 jupyter kernelspec list           # must include .net-powershell
 
-# 4. Project deps (venv lives OUTSIDE Dropbox)
-cd 'L:\Dropbox-2025\Dropbox\pluralsight\tim-warner (1)\CKA-Skill-Path\course-02-kubeadm-cluster-install\notebooks'
+# 4. Project deps (venv lives OUTSIDE the repo)
+cd notebooks
 $env:UV_PROJECT_ENVIRONMENT = "$HOME\.venvs\cka-c02"
 uv sync
 ```
@@ -30,7 +30,7 @@ uv sync
 ## Daily workflow
 
 ```powershell
-cd 'L:\Dropbox-2025\Dropbox\pluralsight\tim-warner (1)\CKA-Skill-Path\course-02-kubeadm-cluster-install\notebooks'
+cd notebooks
 
 # Regenerate notebooks after any runbook edit (idempotent — safe to re-run)
 uv run python tools\runbook_to_ipynb.py ..\m01-linux-host-prep\c02-m01-demo-runbook.md
@@ -85,7 +85,7 @@ Notebooks are **byte-stable** on re-run. Two runs = identical SHA256.
 
 | Symptom | Fix |
 |---|---|
-| `uv sync` creates `.venv\` in Dropbox | You forgot `$env:UV_PROJECT_ENVIRONMENT = "$HOME\.venvs\cka-c02"`. Delete `.venv\` and re-set the var. |
+| `uv sync` creates `.venv\` beside pyproject.toml | You forgot `$env:UV_PROJECT_ENVIRONMENT = "$HOME\.venvs\cka-c02"`. Delete `.venv\` and re-set the var. |
 | JupyterLab won't start | `jupyter kernelspec list` — if `.net-powershell` is missing, re-run `dotnet interactive jupyter install` |
 | Cell hangs forever | You probably clicked Run on a yellow `interactive` cell. Use the Kernel menu → Interrupt. Switch to your VM terminal for that step. |
 | Cells run but output is stale | You forgot `.\clear-outputs.ps1` before the take. Stop, clear, restart. |

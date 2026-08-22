@@ -1,6 +1,6 @@
 # Tim's stuff
 
-temp/
+**/temp/
 reference/
 
 # Pluralsight proprietary work product: never commit raw slide decks, course
@@ -242,3 +242,25 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# ---------------------------------------------------------------------
+# Internal recording and production artifacts. NEVER publish these.
+# Talk tracks are on-camera narration, clip titles are Camtasia ingest
+# metadata, standards-checks quote Pluralsight's internal review docs,
+# and DECK-CORRECTIONS files quote unreleased on-screen slide text.
+# A public repo gets the runbook and the lab scripts, not the notes
+# that produced them.
+# ---------------------------------------------------------------------
+*-talk-track.md
+*-standards-check.md
+*-clip-titles*.md
+*DECK-CORRECTIONS.md
+*-SUPERSEDED.*
+
+# One-shot local helper scripts: hardcoded absolute paths, single-use
+# git drivers, font-registry probes. No learner value, and they leak
+# local filesystem layout.
+dev/archive/_*.ps1
+
+# Demo capture output can contain a real minted ServiceAccount token.
+capture-*.txt

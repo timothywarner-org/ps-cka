@@ -4,7 +4,7 @@ The notebook only works on camera if the lab state and the JupyterLab UI are bot
 
 ## State reset
 
-- [ ] `cd 'L:\Dropbox-2025\Dropbox\pluralsight\tim-warner (1)\CKA-Skill-Path\course-02-kubeadm-cluster-install\notebooks'`
+- [ ] `cd notebooks`
 - [ ] `.\clear-outputs.ps1` — strips stale rehearsal outputs from every .ipynb
 - [ ] `cd C:\github\ps-cka\src\cka-lab`
 - [ ] Module-specific snapshot restore:

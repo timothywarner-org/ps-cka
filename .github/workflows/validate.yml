@@ -1,18 +1,13 @@
 name: Content Validation
 
+# No paths: filter on purpose. The proprietary-content guard below must run on
+# EVERY push and PR -- with a paths filter, a commit adding only a .pptx would
+# never trigger this workflow, which is exactly the case the guard exists for.
 on:
   pull_request:
     branches: [main]
-    paths:
-      - "**.md"
-      - ".markdownlint.json"
-      - ".github/**"
   push:
     branches: [main]
-    paths:
-      - "**.md"
-      - ".markdownlint.json"
-      - ".github/**"
 
 permissions:
   contents: read
@@ -35,14 +30,26 @@ jobs:
       - name: Guard against proprietary work product
         run: |
           echo "Checking for slide decks, outlines, or VM images that must not be committed..."
-          RESULTS=$(git ls-files | grep -iE '\.(pptx|potx|ppt|docx|doc|vhd|vhdx|avhdx|vmcx|vmrs|vsv|vmdk|ova|iso|box)$' || true)
-          if [ -n "$RESULTS" ]; then
+          BINARY=$(git ls-files | grep -iE '\.(pptx|potx|ppt|docx|doc|vhd|vhdx|avhdx|vmcx|vmrs|vsv|vmdk|ova|iso|box)$' || true)
+
+          # Internal recording/production artifacts. These are MARKDOWN, so the
+          # extension check above cannot see them. DECK-CORRECTIONS.md reached
+          # the public repo with CI green precisely because of this gap.
+          INTERNAL=$(git ls-files | grep -iE '(-talk-track\.md|-standards-check\.md|-clip-titles[^/]*\.md|DECK-CORRECTIONS\.md|-SUPERSEDED\.)' || true)
+
+          FAIL=0
+          if [ -n "$BINARY" ]; then
             echo "::error::Proprietary or binary lab artifacts are tracked. Remove them and add to .gitignore:"
-            echo "$RESULTS"
-            exit 1
-          else
-            echo "No proprietary work product tracked. Good."
+            echo "$BINARY"
+            FAIL=1
           fi
+          if [ -n "$INTERNAL" ]; then
+            echo "::error::Internal recording artifacts are tracked (talk tracks, clip titles, standards checks, deck corrections). These must never be public:"
+            echo "$INTERNAL"
+            FAIL=1
+          fi
+          if [ "$FAIL" -eq 1 ]; then exit 1; fi
+          echo "No proprietary work product tracked. Good."
 
       - name: Check for em dashes and curly quotes
         continue-on-error: true

@@ -14,7 +14,7 @@ param()
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
-# Keep the venv OUT of Dropbox (see launch.ps1 for the why).
+# Keep the venv OUT of the repo (see launch.ps1 for the why).
 $env:UV_PROJECT_ENVIRONMENT = Join-Path $HOME '.venvs\cka-c02'
 
 $notebooks = Get-ChildItem -Path . -Filter 'c02-m*.ipynb' -File

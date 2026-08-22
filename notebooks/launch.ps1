@@ -16,8 +16,9 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
-# Keep the venv OUT of Dropbox. Without this, uv puts .venv beside pyproject.toml,
-# which means Dropbox sees ~5000 changing files every time we resolve deps.
+# Keep the venv OUT of the repo. Without this, uv puts .venv beside pyproject.toml,
+# which clutters the working tree and, on a synced folder, churns thousands of
+# files every time we resolve deps.
 $env:UV_PROJECT_ENVIRONMENT = Join-Path $HOME '.venvs\cka-c02'
 
 $cssPath = Join-Path $PSScriptRoot 'assets\recording.css'

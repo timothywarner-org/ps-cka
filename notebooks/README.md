@@ -26,18 +26,18 @@ jupyter kernelspec list   # must show .net-powershell
 # 4) uv (for the parser)
 uv --version              # install via winget if missing
 
-# 5) Project deps — venv lives OUTSIDE Dropbox to avoid sync hell
-cd 'L:\Dropbox-2025\Dropbox\pluralsight\tim-warner (1)\CKA-Skill-Path\course-02-kubeadm-cluster-install\notebooks'
+# 5) Project deps — venv lives OUTSIDE the repo to keep it out of git
+cd notebooks
 $env:UV_PROJECT_ENVIRONMENT = "$HOME\.venvs\cka-c02"
 uv sync
 ```
 
-> **`UV_PROJECT_ENVIRONMENT` matters.** Without it, uv creates `.venv/` next to `pyproject.toml` — which is in Dropbox — and you get ~5000 sync events every time deps resolve. `launch.ps1` and `clear-outputs.ps1` set this var automatically; only direct `uv ...` invocations need it.
+> **`UV_PROJECT_ENVIRONMENT` matters.** Without it, uv creates `.venv/` next to `pyproject.toml`, which clutters the working tree and, on a synced folder, triggers thousands of sync events every time deps resolve. `launch.ps1` and `clear-outputs.ps1` set this var automatically; only direct `uv ...` invocations need it.
 
 ## Daily workflow
 
 ```powershell
-cd 'L:\Dropbox-2025\Dropbox\pluralsight\tim-warner (1)\CKA-Skill-Path\course-02-kubeadm-cluster-install\notebooks'
+cd notebooks
 
 # Regenerate notebooks from the latest runbook content (idempotent)
 uv run python tools\runbook_to_ipynb.py ..\m01-linux-host-prep\c02-m01-demo-runbook.md
