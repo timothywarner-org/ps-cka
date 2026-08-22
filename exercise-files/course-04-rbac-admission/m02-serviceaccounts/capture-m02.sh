@@ -12,7 +12,14 @@
 #  the whole point of running this.
 # =====================================================================
 set -uo pipefail
-OUT="${1:-capture-m02.txt}"
+# Output name is forced into the capture-*.txt shape that .gitignore covers.
+# WHY: step 20 mints a real (10-minute) ServiceAccount JWT into this file. An
+# arbitrary $1 could produce an unignored file holding a live bearer token, so
+# the caller may choose a suffix but not escape the glob.
+OUT="capture-${1:-m02}.txt"
+case "$OUT" in
+    */*) echo "capture: output must be a bare name, not a path" >&2; exit 2 ;;
+esac
 : > "$OUT"
 
 run() {  # run <step-number> <description> <command...>
@@ -55,7 +62,9 @@ run 16 "cat namespace file"      bash -c "kubectl exec -n staging deploy-runner 
 run 17 "expirationSeconds"       bash -c "kubectl get pod deploy-runner -n staging -o jsonpath='{range .spec.volumes[*]}{.projected.sources[*].serviceAccountToken.expirationSeconds}{end}'; echo"
 run 18 "current context"         kubectl config current-context
 run 19 "decode the JWT"          ./lab.sh jwt
-run 20 "mint 10m token"          kubectl create token deploy-bot -n staging --duration=10m
+# Truncated on purpose: the full signed JWT never lands on disk. The prefix is
+# enough to show a token was issued and to eyeball its header.
+run 20 "mint 10m token"          sh -c 'kubectl create token deploy-bot -n staging --duration=10m | cut -c1-40; echo "...[truncated]"' 
 run 21 "mint 5m -- EXPECT FAIL"  kubectl create token deploy-bot -n staging --duration=5m
 run 22 "current context"         kubectl config current-context
 run 23 "ghost SA -- EXPECT FAIL" kubectl apply -f ghost-sa.yaml

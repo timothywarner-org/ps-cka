@@ -264,3 +264,7 @@ dev/archive/_*.ps1
 
 # Demo capture output can contain a real minted ServiceAccount token.
 capture-*.txt
+
+# Machine-local Claude Code tool permissions. Conventionally per-machine, and
+# the place tokens accumulate later. Keep settings.json tracked, not this.
+.claude/settings.local.json
