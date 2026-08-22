@@ -8,11 +8,23 @@
 
 ---
 
-## Coming as recorded
+## Exercise files
 
-This module's exercise files (manifests, scripts, and any demo apps) land here as the module is recorded. Nothing is missing on your end. **Clone the repo and pull periodically**, or watch the repo on GitHub, so you get each module's files the day it ships.
+| File | What it is |
+|------|------------|
+| [`lab.sh`](lab.sh) | The only script you run on the node. Reset, mint, and verify subcommands; asserts both the expected allows and the expected denials. Idempotent. |
+| [`m02.demo.sh`](m02.demo.sh) | Presenter script for the four demos, driving `demo-drive.sh`. |
+| [`demo-drive.sh`](demo-drive.sh) | The presenter engine, with a record/replay output cache for safe retakes. |
+| [`commands.sh`](commands.sh) | Every command from the module in order, to copy or paste-run. |
+| [`check-token-exp.sh`](check-token-exp.sh) | Mints a token and decodes its claims to show TTL and audience. Cleans up the ServiceAccount it creates. |
+| [`capture-m02.sh`](capture-m02.sh) | Captures demo output for review. Writes `capture-m02.txt`, which is gitignored because a real token can appear in it. |
+| [`deploy-runner.yaml`](deploy-runner.yaml) | Deployment whose Pod spec carries no projected volume -- admission adds it, which is the lesson. |
+| [`ghost-sa.yaml`](ghost-sa.yaml) | A ServiceAccount with no Secret, proving auto-generation stopped in v1.24. |
+| [`no-automount.yaml`](no-automount.yaml) | `automountServiceAccountToken: false`, the least-privilege default worth teaching. |
+| [`c04-m02-demo-runbook.md`](c04-m02-demo-runbook.md) | Full runbook with pre-flight and timings. |
+| [`CKA-C04-M02-RUNBOOK.md`](CKA-C04-M02-RUNBOOK.md) | Condensed on-camera prompter. |
 
-Until then, the objectives above tell you exactly what this module covers on the exam.
+Run `./lab.sh` first. It is safe to re-run any number of times.
 
 ---
 

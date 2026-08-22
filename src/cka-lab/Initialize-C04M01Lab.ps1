@@ -377,8 +377,8 @@ if ($apiProbe -match '__NOCLUSTER__' -or $apiProbe -notmatch 'ok') {
         exit 1
     }
 
-    # DELIBERATELY NOT bootstrap_cp.sh. That script installs Flannel on
-    # 10.244.0.0/16, which is a Course 1 leftover -- the course has taught
+    # DELIBERATELY NOT bootstrap_cp.sh. This script owns its own bootstrap so
+    # the Course 4 lab does not depend on a shared file. Both now install
     # CALICO via the Tigera operator since Course 2 Module 3, on pod CIDR
     # 192.168.0.0/16 (Calico's default Installation CR ships that exact
     # range, and C02 M03 Step 1.0 proves the alignment on camera). Booting
@@ -407,7 +407,6 @@ kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.29.1
         vagrant ssh $w.Name -c 'bash /vagrant/join_worker.sh' 2>&1 | ForEach-Object { Write-Host "    $_" }
     }
 
-    Write-Warn 'FYI: src/cka-lab/bootstrap_cp.sh still installs Flannel on 10.244.0.0/16.'
     Write-Warn '     It is a Course 1 leftover and disagrees with C02 M03. Worth deleting or updating.'
 }
 else {

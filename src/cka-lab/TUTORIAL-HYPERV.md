@@ -11,7 +11,7 @@ By the end of this tutorial you will have:
 
 1. Provisioned three Ubuntu 22.04 VMs on an isolated Hyper-V NAT switch
 2. Run `kubeadm init` and joined two workers with a fresh bootstrap token
-3. Installed a CNI (Flannel by default; Cilium and Calico are one line away)
+3. Installed a CNI (Calico by default; Flannel and Cilium are one line away)
 4. Deployed a workload, deliberately broken the cluster, and rolled back with a named Hyper-V checkpoint
 5. Established a 5-minute practice loop you can repeat dozens of times before exam day
 
@@ -209,9 +209,9 @@ cd /vagrant
 `src/cka-lab/bootstrap_cp.sh` does three things:
 
 1. Detects the control plane IP via `hostname -I` and passes it to
-   `kubeadm init --apiserver-advertise-address` with `--pod-network-cidr=10.244.0.0/16`
+   `kubeadm init --apiserver-advertise-address` with `--pod-network-cidr=192.168.0.0/16`
 2. Copies `/etc/kubernetes/admin.conf` to `$HOME/.kube/config` and chowns it
-3. Applies the Flannel v0.24.4 manifest as the CNI
+3. Applies the Calico v3.29.1 manifests (Tigera operator, then the Installation CR) as the CNI
 4. Prints a fresh `kubeadm join` command you *could* copy — but you won't
    need to (see C.2)
 
@@ -231,11 +231,11 @@ kubectl get nodes
 # control1   Ready   control-plane   90s   v1.35.0
 
 kubectl get pods -A
-# flannel, coredns, etcd, apiserver, controller-manager, scheduler — all Running
+# calico-node, coredns, etcd, apiserver, controller-manager, scheduler — all Running
 ```
 
 If `coredns` is stuck in `Pending`, the CNI isn't up yet. Wait 30 seconds.
-Still stuck? Check `kubectl -n kube-flannel get pods` — Flannel has to be
+Still stuck? Check `kubectl -n calico-system get pods` — `calico-node` has to be
 `Running` before CoreDNS can get an IP.
 
 ### C.2 On each worker — run `join_worker.sh`
@@ -301,23 +301,25 @@ Go take a snapshot (see Section F).
 
 ## Section D — Swap the CNI
 
-`bootstrap_cp.sh` defaults to **Flannel v0.24.4** because Flannel is a single
-manifest with zero config and works out of the box. But CKA v1.35 covers
-Cilium and Calico too, and you should practice all three.
+`bootstrap_cp.sh` defaults to **Calico v3.29.1** because that is the course
+standard set in C02 M03, and because Calico actually enforces NetworkPolicy,
+which Course 8 needs. But CKA v1.35 covers Flannel and Cilium too, and you
+should practice all three.
 
 Open `src/cka-lab/bootstrap_cp.sh` and look at the CNI block:
 
 ```bash
-FLANNEL_VERSION="v0.24.4"
-POD_CIDR="10.244.0.0/16"
+CALICO_VERSION="v3.29.1"
+POD_CIDR="192.168.0.0/16"
 ...
-kubectl apply -f "https://raw.githubusercontent.com/flannel-io/flannel/${FLANNEL_VERSION}/Documentation/kube-flannel.yml"
+kubectl create -f "https://raw.githubusercontent.com/projectcalico/calico/${CALICO_VERSION}/manifests/tigera-operator.yaml"
+kubectl create -f "https://raw.githubusercontent.com/projectcalico/calico/${CALICO_VERSION}/manifests/custom-resources.yaml"
 ```
 
 ### Swap to Cilium
 
 ```bash
-# Replace the Flannel apply with:
+# Replace the Calico create lines with:
 CILIUM_VERSION="1.16.3"
 POD_CIDR="10.0.0.0/16"   # Cilium's default; change --pod-network-cidr above to match
 
@@ -330,13 +332,20 @@ helm install cilium cilium/cilium --version $CILIUM_VERSION \
 (Cilium via Helm means you also need `helm` installed on control1 — not a
 default prereq. `apt install helm` or use the shell install.)
 
-### Swap to Calico
+### Swap to Flannel
 
 ```bash
-CALICO_VERSION="v3.28.1"
-POD_CIDR="192.168.0.0/16"   # Calico default
-kubectl apply -f "https://raw.githubusercontent.com/projectcalico/calico/${CALICO_VERSION}/manifests/calico.yaml"
+# Replace the Calico create lines with:
+FLANNEL_VERSION="v0.24.4"
+POD_CIDR="10.244.0.0/16"   # Flannel default; change --pod-network-cidr above to match
+
+kubectl apply -f "https://raw.githubusercontent.com/flannel-io/flannel/${FLANNEL_VERSION}/Documentation/kube-flannel.yml"
 ```
+
+Flannel is the simplest CNI to stand up: one manifest, no operator, no CRDs.
+It is also the reason this lab moved *off* it -- Flannel does not enforce
+NetworkPolicy, so every Course 8 policy would silently appear to work while
+allowing all traffic. Fine for a connectivity demo, wrong for this skill path.
 
 ### The pod-CIDR caveat
 
@@ -684,7 +693,7 @@ ran `kubeadm init` for you, the exam would catch you with your pants down.
 | Missing | Why |
 |---------|-----|
 | **The cluster itself** — no `kubeadm init` has run | Exam objective #1. Do it yourself. |
-| **A CNI** — no pod network is applied by default | `bootstrap_cp.sh` installs Flannel, but only if *you* run it. The exam expects you to pick and install a CNI. |
+| **A CNI** — no pod network is applied by default | `bootstrap_cp.sh` installs Calico, but only if *you* run it. The exam expects you to pick and install a CNI. |
 | **Helm** | Install when a practice scenario needs it. CKA v1.35 covers Helm for installing cluster components (Course 3), so practice `curl \| bash` Helm installs by hand. |
 | **Kustomize** | Comes with kubectl 1.14+ as `kubectl kustomize` — that's installed. Standalone `kustomize` binary? Install if needed. |
 | **An ingress controller** | NodePort is enough for most practice. Install nginx-ingress or Traefik when the scenario calls for it. |
@@ -776,7 +785,7 @@ kubectl get pods -A
 ### Pinned versions
 
 - Kubernetes: **v1.35.0-1.1** (apt pin + `apt-mark hold`)
-- Flannel (default CNI): **v0.24.4**
+- Calico (default CNI): **v3.29.1**
 - Ubuntu box: `generic/ubuntu2204`
 - Container runtime: `containerd` (Ubuntu-packaged, `SystemdCgroup = true`)
 

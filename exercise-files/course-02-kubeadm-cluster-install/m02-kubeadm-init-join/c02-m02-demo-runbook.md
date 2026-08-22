@@ -10,7 +10,7 @@
 
 > **Declarative-first, not flag-soup.** Module 1 verified the host state; Module 2 generates an `init.yaml`, edits four lines, and runs `kubeadm init --config init.yaml`. Slide 9 is the canonical command source. Flag-based init still works, but the v1.35 CKA curriculum expects the declarative path, and so does HA later in Course 3.
 
-> **Lab path reminder:** This module uses the **Vagrant / Hyper-V** lab. The `cka-*.ps1` scripts (`Start-CkaLab`, `cka-status`, `cka-validate`, `cka-snapshot`, `cka-restore`, `cka-info`) are the Vagrant entry points. The `kind-*.ps1` scripts are for Course 1 only.
+> **Lab path reminder:** This module uses the **Vagrant / Hyper-V** lab. The Verb-Noun scripts at `src/cka-lab/` (`Start-CkaLab`, `Get-CkaLabStatus`, `Test-CkaLabReady`, `Save-CkaSnapshot`, `Restore-CkaSnapshot`, `Get-CkaConnectionInfo`) are the Vagrant entry points. The `kind-*.ps1` scripts are for Course 1 only.
 
 > **Course 2 design principle:** No `Start-TutorialMXX` wrapper. You type every command on the real Linux shell. That is the pedagogical bet for this whole course.
 

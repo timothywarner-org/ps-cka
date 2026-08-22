@@ -9,7 +9,7 @@
 
 > **Verify-first, not install-first.** The Vagrantfile provisioner already ran the full slides-7/12/13/15 install sequence on all three nodes at `vagrant up`. So the on-camera demo isn't "type the install commands" — it's "inspect the host and prove every prereq is correct." This is the same skill the CKA exam tests: handed a node that someone else prepared, can you verify it before bootstrapping? Show the deck slides for the install commands, then prove the state on the live VM. **Mention this on camera** with a one-liner like: "The install ran when these VMs booted — that's slides 7, 12, 13, 15 — so on camera we'll verify, the same skill the exam tests on a prepared node."
 
-> **Lab path reminder:** This module uses the **Vagrant / Hyper-V** lab, not KIND. The `cka-*.ps1` scripts (`Start-CkaLab`, `Stop-CkaLab`, `cka-status`, `cka-validate`, `cka-snapshot`, `cka-restore`, `cka-info`) are the Vagrant entry points. The `kind-*.ps1` scripts are for Course 1 only. Don't mix them.
+> **Lab path reminder:** This module uses the **Vagrant / Hyper-V** lab, not KIND. The Verb-Noun scripts at `src/cka-lab/` (`Start-CkaLab`, `Stop-CkaLab`, `Get-CkaLabStatus`, `Test-CkaLabReady`, `Save-CkaSnapshot`, `Restore-CkaSnapshot`, `Get-CkaConnectionInfo`) are the Vagrant entry points. The `kind-*.ps1` scripts are for Course 1 only. Don't mix them.
 
 > **Course 2 design principle:** This runbook has NO `Start-TutorialMXX` wrapper. Course 1 wraps kubectl drills in PowerShell tutorials because the value of those modules is *speed of reps*. Course 2's value is *unwrapped exposure to the real Linux shell* — typing every command yourself is the entire pedagogical bet.
 

@@ -27,7 +27,7 @@ cd ~/m03
 
 ---
 
-# Demo 1 -- LimitRanger writes what you left out
+## Demo 1 -- LimitRanger writes what you left out
 
 ### 1
 
@@ -117,7 +117,7 @@ kubectl describe pod web-1 -n production | grep -A6 -i 'limits\|requests'
 
 ---
 
-# Demo 2 -- The same plugin refuses, and a quota fills up
+## Demo 2 -- The same plugin refuses, and a quota fills up
 
 ### 8
 
@@ -247,7 +247,7 @@ kubectl describe resourcequota production-cap -n production
 
 ---
 
-# Demo 3 -- Give the budget back, then harden a Pod
+## Demo 3 -- Give the budget back, then harden a Pod
 
 ### 18
 
@@ -343,7 +343,7 @@ read-only root filesystem -- exactly what readOnlyRootFilesystem buys you
 
 ---
 
-# Demo 4 -- Pod Security Admission, and reading the refusal
+## Demo 4 -- Pod Security Admission, and reading the refusal
 
 ### 25
 
@@ -442,7 +442,7 @@ kubectl describe pod web-1 -n production | tail -15
 
 ---
 
-# Close -- slides 25 and 26
+## Close -- slides 25 and 26
 
 **Say:** "Checking out with Globomantics. Priya's cluster now says no on its own. LimitRanger fills in what developers leave out and refuses values outside the range. ResourceQuota holds the namespace to a shared budget and returns that budget when work leaves. A security context narrows what a running container can do. Pod Security Admission stopped a privileged Pod before it existed. And when a workload fails, we follow the evidence: Deployment, ReplicaSet, Pod, and events. Authentication proves who you are. Authorization decides what you may do. Admission inspects the object. That is the complete gate, and that is this course."
 
@@ -460,7 +460,7 @@ kubectl describe pod web-1 -n production | tail -15
 
 ---
 
-# Wrap
+## Wrap
 
 **31 commands.** Reset for the next take:
 

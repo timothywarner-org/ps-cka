@@ -14,8 +14,8 @@ One cluster, two namespaces, both running at the same time.
 
 | Environment | Namespace | Replicas | URL |
 |---|---|---|---|
-| Dev | `globo-dev` | 2 | http://192.168.50.10:30080 |
-| Prod | `globo-prod` | 3 | http://192.168.50.10:30081 |
+| Dev | `globo-dev` | 2 | <http://192.168.50.10:30080> |
+| Prod | `globo-prod` | 3 | <http://192.168.50.10:30081> |
 
 **Why namespaces and not two clusters:** the CKA exam puts you in front of several clusters
 and every task names the one it wants. We can't hand every learner a second cluster on a

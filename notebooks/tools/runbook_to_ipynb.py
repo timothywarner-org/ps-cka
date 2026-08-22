@@ -63,6 +63,14 @@ DESTRUCTIVE_RE = re.compile(
     r"|kubeadm\s+reset"
     r"|vagrant\s+destroy"
     r"|vagrant\s+halt"
+    # Current Verb-Noun lab scripts. These MUST stay in sync with
+    # src/cka-lab/ -- a renamed script that falls out of this pattern
+    # silently stops tagging its cell destructive, which is exactly the
+    # cell you want flagged before you hit Run.
+    r"|Restore-CkaSnapshot"
+    r"|Remove-CkaSnapshot"
+    r"|Stop-CkaLab"
+    # Legacy names, kept so older runbooks still tag correctly.
     r"|cka-restore"
     r"|cka-down"
     r"|cka-destroy"

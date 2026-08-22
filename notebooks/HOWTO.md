@@ -48,7 +48,7 @@ uv run python tools\runbook_to_ipynb.py ..\m03-cni-cluster-validation\c02-m03-de
 
 | Cell border | Tag | What to do |
 |---|---|---|
-| **Red** | `destructive` | Verify your snapshot before clicking Run. `kubeadm init`, `kubeadm join`, `cka-restore` live here. |
+| **Red** | `destructive` | Verify your snapshot before clicking Run. `kubeadm init`, `kubeadm join`, `Restore-CkaSnapshot` live here. |
 | **Yellow** | `interactive` | DO NOT click Run. Switch to your VM terminal (vim, vagrant ssh, kubectl edit). The notebook cell is a visual marker, not the executor. |
 | **Blue (left edge)** | `pre-flight` | Pre-recording checks. Run these before hitting record. |
 | **None** | normal | Click Run on camera. |
@@ -76,7 +76,7 @@ See `PRE-RECORD.md`. Short version:
 - **` ```bash ` blocks** → pwsh cell wrapped as `ssh <host> @'...'@`. Host inferred from nearest heading (worker1 / worker2 / all-nodes / default control1)
 - **` ```yaml ` blocks** → here-string written to `$env:TEMP\<name>.yaml` then `scp` to control1
 - **` ```text ` blocks** → markdown cell as expected-output (grey quoted block, not executed)
-- **Destructive regex** (`kubeadm init|join|reset`, `vagrant destroy`, `cka-restore`, `etcdctl snapshot restore`, `rm -rf`) → adds `destructive` tag
+- **Destructive regex** (`kubeadm init|join|reset`, `vagrant destroy`, `Restore-CkaSnapshot`, `etcdctl snapshot restore`, `rm -rf`) → adds `destructive` tag
 - **Interactive regex** (`vim`, `nano`, `vagrant ssh`, `kubectl edit/exec/attach/port-forward`, `less`, `top`, `watch`) → adds `interactive` tag
 
 Notebooks are **byte-stable** on re-run. Two runs = identical SHA256.

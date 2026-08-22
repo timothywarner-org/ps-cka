@@ -10,7 +10,7 @@
 
 > **YAML-first, with Helm as the production sidebar.** The CKA exam still tests `kubectl create -f` against the upstream Calico/Tigera manifests far more often than it tests Helm. So on camera, the primary command path is **two `kubectl create -f` lines** -- the same two lines the exam expects. Helm gets a focused 60-second sidebar showing the production-grade alternative (operator-managed, version-pinned, upgradeable cleanly), because v1.35 added Helm/Kustomize as a curriculum objective. **Slide 11 is the YAML command source. Slide 12 (if present) covers Helm.**
 
-> **Lab path reminder:** This module uses the **Vagrant / Hyper-V** lab. The `cka-*.ps1` scripts (`Start-CkaLab`, `cka-status`, `cka-snapshot`, `cka-restore`, `cka-info`) are the Vagrant entry points. The `kind-*.ps1` scripts are for Course 1 only.
+> **Lab path reminder:** This module uses the **Vagrant / Hyper-V** lab. The Verb-Noun scripts at `src/cka-lab/` (`Start-CkaLab`, `Get-CkaLabStatus`, `Save-CkaSnapshot`, `Restore-CkaSnapshot`, `Get-CkaConnectionInfo`) are the Vagrant entry points. The `kind-*.ps1` scripts are for Course 1 only.
 
 > **Course 2 design principle:** No `Start-TutorialMXX` wrapper. You type every command on the real Linux shell. That is the pedagogical bet for this whole course — and the break-and-fix exercise is the entire reason the course exists.
 

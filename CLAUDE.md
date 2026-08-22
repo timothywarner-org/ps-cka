@@ -74,7 +74,7 @@ Layered on top of the KIND path for the Course 1, Module 2 context drills. Bring
 Three Ubuntu 22.04 VMs (`control1`, `worker1`, `worker2`) with 2 GB / 2 vCPU each, kubeadm v1.35 prereqs pre-installed, static IPs on the `CKA-NAT` Hyper-V switch (`192.168.50.0/24`). Stops before `kubeadm init` so the learner bootstraps the cluster from scratch. Native Hyper-V checkpoints provide the snapshot/restore practice loop. Used primarily for Course 2 (kubeadm install) and any scenario that needs real systemd, a real package manager, or node-level break/fix drills.
 
 - Learner walkthrough: `src/cka-lab/TUTORIAL-HYPERV.md`
-- Reliability features: atomic snapshot/restore, self-sufficient `join_worker.sh`, pinned Flannel + kubeadm versions, NodePort preflight, tutorial cleanup on Ctrl-C.
+- Reliability features: atomic snapshot/restore, self-sufficient `join_worker.sh`, pinned Calico + kubeadm versions, NodePort preflight, tutorial cleanup on Ctrl-C.
 
 Target Kubernetes version for both paths: **v1.35** (exam-aligned).
 
@@ -167,7 +167,7 @@ M01). Read one end to end first. Note: the `cka-course-builder` skill's
 "## Source mapping". The corpus wins. Validators encode assumptions; a failure
 may be the validator's defect, and you must check which.
 
-### 5. One folder per module. Do not scatter.
+### 5. One folder per module. Do not scatter
 
 Everything for a module goes in its `exercise-files/course-NN-*/mNN-*/` folder:
 runbook, scripts, manifests, START-HERE. The only permitted exception is code
@@ -239,9 +239,12 @@ shipped exercise files: 14 `calico-node`, 9 `tigera-operator`, 7 `calico-system`
 - **Known gotcha:** a Hyper-V checkpoint restore invalidates Calico's CNI token;
   nodes sit NotReady until `kubectl -n calico-system rollout restart
   ds/calico-node`. Every bring-up script must heal this before running workloads.
-- **`src/cka-lab/bootstrap_cp.sh` is STALE** — it installs Flannel v0.24.4 on
-  `10.244.0.0/16`, a Course 1 leftover. Do not call it. `Initialize-C04M01Lab.ps1`
-  deliberately does not.
+- **`src/cka-lab/bootstrap_cp.sh` was converted to Calico** (2026-08-22). It now
+  installs Calico v3.29.1 via the Tigera operator on `192.168.0.0/16`, matching
+  C02 M03. It previously installed Flannel v0.24.4 on `10.244.0.0/16`, a Course 1
+  leftover that contradicted three recorded modules. The Course 4
+  `Initialize-C04M0*Lab.ps1` scripts still do their own bootstrap and do not call
+  it; keep the pinned version and kubeadm flags in sync across both.
 
 **The rule this encodes:** when an environment detail is already settled by
 recorded work, go read the recorded work. Counting references across
@@ -318,7 +321,7 @@ been discovered ON CAMERA, mid-take, in the module's most important beat — and
 no amount of syntax checking or careful reading had found it across several
 review rounds.
 
-### 15. Never manufacture a finding. Locked at Tim's instruction, 2026-08-17.
+### 15. Never manufacture a finding. Locked at Tim's instruction, 2026-08-17
 
 Tim's words: *"It's felt to me that when I ask you to review you ALWAYS find
 something. NEVER DO THAT JUST TO PLEASE ME. Ever. I value honesty and directness

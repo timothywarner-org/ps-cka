@@ -617,8 +617,8 @@ if ($apiProbe -match '__NOCLUSTER__' -or $apiProbe -notmatch 'ok') {
         exit 1
     }
 
-    # DELIBERATELY NOT bootstrap_cp.sh. That script installs Flannel on
-    # 10.244.0.0/16, which is a Course 1 leftover -- the course has taught
+    # DELIBERATELY NOT bootstrap_cp.sh. This script owns its own bootstrap so
+    # the Course 4 lab does not depend on a shared file. Both now install
     # CALICO via the Tigera operator since Course 2 Module 3, on pod CIDR
     # 192.168.0.0/16. Booting this lab on Flannel/10.244 would silently
     # contradict recorded modules. Versions pinned to match c02-m03.

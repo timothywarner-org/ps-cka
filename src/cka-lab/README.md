@@ -39,7 +39,7 @@ per-module snapshot/restore loop and the on-rails upgrade/Helm demos.
 | `RECORDING-WORKFLOW.md` | Per-module snapshot/restore loop for recording sessions |
 | `Vagrantfile` | 3 headless Ubuntu 22.04 VMs (control1, worker1, worker2), all prereqs installed, pinned to Kubernetes `1.35.0-1.1`. Stops *before* `kubeadm init`. |
 | `create-nat-switch.ps1` | Builds the `CKA-NAT` switch on `192.168.50.0/24`. Exact-match adapter lookup, /24 collision preflight. |
-| `bootstrap_cp.sh` | kubeadm init on control1 (`set -euo pipefail`, Flannel pinned `v0.24.4`, CNI-swap comments). |
+| `bootstrap_cp.sh` | kubeadm init on control1 (`set -euo pipefail`, Calico pinned `v3.29.1` via the Tigera operator, pod CIDR `192.168.0.0/16`, CNI-swap comments). |
 | `join_worker.sh` | Self-sufficient -- SSHes to control1, fetches a fresh kubeadm token, runs the join locally. |
 | `Start-CkaLab.ps1` / `Stop-CkaLab.ps1` | Boot / graceful shutdown for all VMs. |
 | `Get-CkaLabStatus.ps1` | Read-only Hyper-V state probe -- reports per-VM Running/Off/Saved/Missing plus IP reachability, offers `Stop-CkaLab.ps1` if anything is Running. CI-safe with `-Quiet`. |

@@ -1,6 +1,6 @@
 # CKA Course 4 / Module 1 — Authentication, Authorization, and RBAC Fundamentals
 
-**Target runtime:** ~12 min on camera, four demos
+**Target runtime:** ~9:40 on camera at 165 wpm (~10:10 at 155), four demos
 **Environment:** Admin pwsh 7 → `vagrant ssh control1` → `cd ~/m01`
 **Lab:** Hyper-V + Vagrant, three-node kubeadm cluster (control1/worker1/worker2 on `192.168.50.10/.11/.12`), Ubuntu 22.04, Kubernetes v1.35, containerd, **Calico** via the Tigera operator (pod CIDR `192.168.0.0/16`) — the course standard since C02 M03
 **One script on the node:** `./lab.sh [reset|mint|verify]` — no arg means reset + verify
@@ -441,7 +441,7 @@ Both halves are asserted, so that verdict means something. Specifically confirme
 
 Cluster: 3 nodes Ready, v1.35.0, containerd, Calico. `lab.sh reset` verified clean between runs.
 
-### ALSO PROVEN### ALSO PROVEN — against the Kubernetes `release-1.35` source of truth
+### ALSO PROVEN — against the Kubernetes `release-1.35` source of truth
 
 Checked in `plugin/pkg/auth/authorizer/rbac/bootstrappolicy/policy.go`, the file that *defines* the default ClusterRoles. Verbatim quotes, not summaries.
 
@@ -489,9 +489,9 @@ Everything else in this runbook has now been executed against a live v1.35 clust
 
 **The course standard is Calico, and it is not close.** Evidence from the shipped exercise files: 14 references to `calico-node`, 9 to `tigera-operator`, 7 to `calico-system`, and **zero** to `kube-flannel`. `c02-m03-demo-runbook.md` installs it on camera with two pinned `kubectl create -f` lines (Tigera **v3.29.1**) and its Step 1.0 proves the pod CIDR alignment — kubeadm's `podSubnet: 192.168.0.0/16` matching Calico's default Installation CR. `Invoke-M03Lab.ps1` heals `calico-node` after every restore.
 
-`src/cka-lab/bootstrap_cp.sh` is the **lone dissenter**: it installs Flannel `v0.24.4` on `10.244.0.0/16`. It's a Course 1 leftover. Booting a lab from it would put you on the wrong CNI *and* a pod CIDR that silently contradicts what you proved on camera in C02 M03.
+`src/cka-lab/bootstrap_cp.sh` used to be the **lone dissenter**: it installed Flannel `v0.24.4` on `10.244.0.0/16`, a Course 1 leftover. Booting a lab from it would have put you on the wrong CNI *and* a pod CIDR that silently contradicts what you proved on camera in C02 M03.
 
-**Handled:** `Initialize-C04M01Lab.ps1 -Bootstrap` no longer calls `bootstrap_cp.sh`. It runs `kubeadm init --pod-network-cidr=192.168.0.0/16` and installs Calico with the same two pinned Tigera URLs C02 M03 uses, then prints a warning that `bootstrap_cp.sh` is still stale. **Your call whether to delete that file or update it** — nothing in Course 4 touches it now.
+**Handled:** `Initialize-C04M01Lab.ps1 -Bootstrap` does its own bootstrap — `kubeadm init --pod-network-cidr=192.168.0.0/16` plus the same two pinned Tigera URLs C02 M03 uses. `bootstrap_cp.sh` itself was converted to Calico v3.29.1 on `192.168.0.0/16`, so the repo no longer contradicts itself on the CNI.
 
 ---
 

@@ -71,7 +71,7 @@ All entry-point scripts live flat at the repo root (`src/cka-lab/`) -- there is 
 - **`auto_config: false` in Vagrant**: Vagrant is not allowed to touch the interface -- netplan is authoritative. This prevents Vagrant's `ifdown`/`ifup` dance from fighting cloud-init.
 - **Pinned K8s packages**: `kubelet/kubeadm/kubectl` are installed at exactly `1.35.0-1.1` and then `apt-mark hold`'d. Version drift would invalidate exam-parity. The version is **parameterized** via host env vars `CKA_K8S_MINOR` / `CKA_K8S_PKG_VERSION` (defaults `1.35` / `1.35.0-1.1`); set them before `vagrant up` to build the **v1.34** cluster for the Module 2 upgrade demo. Unset, the defaults reproduce the current lab byte-for-byte.
 - **No password logging**: the `vagrant` user's password is set via a method that doesn't echo to `/var/log/cka-provision.log`.
-- **`bootstrap_cp.sh` hardening**: `set -euo pipefail`; Flannel pinned to `v0.24.4`; a comment block at the top documents how to swap Cilium or Calico in place of Flannel.
+- **`bootstrap_cp.sh` hardening**: `set -euo pipefail`; Calico pinned to `v3.29.1`, installed via the Tigera operator on pod CIDR `192.168.0.0/16` to match C02 M03 and every recorded module since; a comment block at the top documents how to swap in another CNI.
 
 `join_worker.sh` is **self-sufficient** -- it SSHes to control1 at 192.168.50.10, pulls a fresh `kubeadm token create --print-join-command`, and runs the join locally. The old static template is preserved at `join_worker.sh.template` for comparison.
 

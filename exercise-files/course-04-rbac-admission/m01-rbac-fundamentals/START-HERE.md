@@ -1,6 +1,6 @@
 ================================================================
   CKA C04 / M01 -- RBAC FUNDAMENTALS
-  EVERYTHING IS IN THIS FOLDER. TWO SCRIPTS TOTAL.
+  EVERYTHING IS IN THIS FOLDER. TWO SCRIPTS TOTAL
 ================================================================
 
   exercise-files\course-04-rbac-admission\m01-rbac-fundamentals\
@@ -21,7 +21,8 @@
   folder onto the node. Move it and it breaks.
 
 ----------------------------------------------------------------
-  TWO COMMANDS, START TO RECORD
+
+TWO COMMANDS, START TO RECORD
 ----------------------------------------------------------------
 
   1) Administrator PowerShell 7 on Windows:
@@ -45,7 +46,8 @@
   Then:  ./lab.sh reset      (8 sec, prints READY FOR TAKE)
 
 ----------------------------------------------------------------
-  EVERY COMMAND THAT EXISTS. THERE ARE NINE.
+
+EVERY COMMAND THAT EXISTS. THERE ARE NINE
 ----------------------------------------------------------------
 
   HOST  (admin pwsh, in C:\github\ps-cka\src\cka-lab)
@@ -75,7 +77,8 @@
   Save the 90-second VM restore for a broken control plane.
 
 ----------------------------------------------------------------
-  THE LAB, IN FIVE FACTS
+
+THE LAB, IN FIVE FACTS
 ----------------------------------------------------------------
 
   control1 / worker1 / worker2   192.168.50.10 / .11 / .12
@@ -85,19 +88,17 @@
   Admin context: cka-vagrant   (kubeadm's name gets renamed)
 
   Calico is the course standard, set in C02 M03 and used since.
-  NOTE: src\cka-lab\bootstrap_cp.sh still installs FLANNEL on
-  10.244.0.0/16 -- a Course 1 leftover. Initialize-C04M01Lab.ps1
-  deliberately does NOT call it; -Bootstrap runs kubeadm init on
+  Initialize-C04M01Lab.ps1 -Bootstrap runs kubeadm init on
   192.168.0.0/16 and installs Calico with the same two pinned
-  Tigera URLs as C02 M03. Delete or fix bootstrap_cp.sh when you
-  get a spare five minutes.
+  Tigera URLs as C02 M03.
 
   Node NotReady after a checkpoint restore is the known Calico
   token gotcha:
        kubectl -n calico-system rollout restart ds/calico-node
 
 ----------------------------------------------------------------
-  READ THE VERIFICATION LEDGER BEFORE YOU TRUST ANY OF THIS
+
+READ THE VERIFICATION LEDGER BEFORE YOU TRUST ANY OF THIS
 ----------------------------------------------------------------
 
   Bottom of the runbook. It states plainly which claims are
@@ -110,7 +111,8 @@
   and it is step 2 above for exactly that reason.
 
 ----------------------------------------------------------------
-  IF A FACT GATE FAILS, DO NOT RECORD
+
+IF A FACT GATE FAILS, DO NOT RECORD
 ----------------------------------------------------------------
 
   Initialize-C04M01Lab.ps1 asks the LIVE cluster whether five
@@ -126,7 +128,8 @@
   deck, not the gate.
 
 ----------------------------------------------------------------
-  THE ARC  (~12 min including command execution)
+
+THE ARC  (~12 min including command execution)
 ----------------------------------------------------------------
 
   Every demo OPENS with a context command. Non-negotiable at any
@@ -151,7 +154,8 @@
   pairs, or --dry-run=client.
 
 ----------------------------------------------------------------
-  IF THE MINT MISBEHAVES ON CAMERA
+
+IF THE MINT MISBEHAVES ON CAMERA
 ----------------------------------------------------------------
 
        ./lab.sh mint         # idempotent, ~15 sec

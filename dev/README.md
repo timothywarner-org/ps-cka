@@ -31,4 +31,3 @@ The earlier March 29 drafts live in [archive/](archive/):
 Superseded by the final `mNN-demo-runbook.md` files above. Safe to delete once Course 1 ships; kept for reference until then.
 
 ## Placeholders
-

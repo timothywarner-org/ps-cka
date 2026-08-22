@@ -307,7 +307,7 @@ graph LR
 graph TB
     subgraph HOST["Windows 11 Host"]
         subgraph HYPERV["Hyper-V Hypervisor"]
-            subgraph VM_CP["VM: cp<br/>Ubuntu 22.04 | 2 CPU | 2GB RAM<br/>192.168.56.10"]
+            subgraph VM_CP["VM: cp<br/>Ubuntu 22.04 | 2 CPU | 2GB RAM<br/>192.168.50.10"]
                 VCP_CTRD["containerd"]
                 VCP_KUBELET["kubelet"]
                 VCP_KUBEADM["kubeadm"]
@@ -315,24 +315,24 @@ graph TB
                 VCP_SCHED["kube-scheduler"]
                 VCP_CM["kube-controller-manager"]
                 VCP_ETCD["etcd"]
-                VCP_CNI["CNI plugin<br/>(Calico/Flannel)"]
+                VCP_CNI["CNI plugin<br/>(Calico v3.29.1)"]
             end
 
-            subgraph VM_W1["VM: worker1<br/>Ubuntu 22.04 | 2 CPU | 2GB RAM<br/>192.168.56.110"]
+            subgraph VM_W1["VM: worker1<br/>Ubuntu 22.04 | 2 CPU | 2GB RAM<br/>192.168.50.11"]
                 VW1_CTRD["containerd"]
                 VW1_KUBELET["kubelet"]
                 VW1_KUBEADM["kubeadm"]
                 VW1_PODS["User Pods"]
             end
 
-            subgraph VM_W2["VM: worker2<br/>Ubuntu 22.04 | 2 CPU | 2GB RAM<br/>192.168.56.111"]
+            subgraph VM_W2["VM: worker2<br/>Ubuntu 22.04 | 2 CPU | 2GB RAM<br/>192.168.50.12"]
                 VW2_CTRD["containerd"]
                 VW2_KUBELET["kubelet"]
                 VW2_KUBEADM["kubeadm"]
                 VW2_PODS["User Pods"]
             end
 
-            VNET["Private network: 192.168.56.0/24"]
+            VNET["Private network: 192.168.50.0/24"]
         end
 
         VAGRANT["vagrant up<br/>(provisions all 3 VMs)"]
@@ -373,10 +373,10 @@ flowchart TD
     end
 
     subgraph MANUAL["Manual Steps (CKA exam practice)"]
-        M1["5. <b>kubeadm init</b><br/>--apiserver-advertise-address=192.168.56.10<br/>--pod-network-cidr=10.244.0.0/16"]
+        M1["5. <b>kubeadm init</b><br/>--apiserver-advertise-address=192.168.50.10<br/>--pod-network-cidr=192.168.0.0/16"]
         M2["6. Configure kubectl<br/><code>mkdir ~/.kube<br/>cp /etc/kubernetes/admin.conf ~/.kube/config</code>"]
-        M3["7. Install CNI plugin<br/><code>kubectl apply -f calico.yaml</code><br/>or flannel.yaml"]
-        M4["8. Join workers<br/><code>kubeadm join 192.168.56.10:6443<br/>--token &lt;token&gt;<br/>--discovery-token-ca-cert-hash sha256:&lt;hash&gt;</code>"]
+        M3["7. Install CNI plugin<br/><code>kubectl create -f tigera-operator.yaml</code><br/>then custom-resources.yaml"]
+        M4["8. Join workers<br/><code>kubeadm join 192.168.50.10:6443<br/>--token &lt;token&gt;<br/>--discovery-token-ca-cert-hash sha256:&lt;hash&gt;</code>"]
     end
 
     subgraph VERIFY["Verification"]
@@ -420,7 +420,7 @@ graph LR
         V2["Config: Vagrantfile"]
         V3["Provision: vagrant up<br/>(3 Ubuntu VMs)"]
         V4["Bootstrap: kubeadm init + join"]
-        V5["Networking: Real IPs + Calico/Flannel"]
+        V5["Networking: Real IPs + Calico"]
         V6["Teardown: vagrant destroy"]
         V1 --> V2 --> V3 --> V4 --> V5 --> V6
     end
@@ -451,9 +451,9 @@ graph LR
         <li><strong>RAM:</strong> ~6-8 GB total (2GB per VM)</li>
         <li><strong>Nodes:</strong> Full Hyper-V VMs</li>
         <li><strong>Runtime:</strong> containerd (native)</li>
-        <li><strong>CNI:</strong> Calico or Flannel (your choice)</li>
+        <li><strong>CNI:</strong> Calico v3.29.1 via the Tigera operator</li>
         <li><strong>kubeadm:</strong> You run init/join manually</li>
-        <li><strong>Networking:</strong> Real private network (192.168.56.0/24)</li>
+        <li><strong>Networking:</strong> Real private network (192.168.50.0/24)</li>
         <li><strong>Best for:</strong> Cluster setup practice, networking, exam simulation</li>
         <li><strong>Limitation:</strong> Heavier resources, slower iteration</li>
       </ul>
