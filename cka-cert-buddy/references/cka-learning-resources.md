@@ -88,7 +88,7 @@ Phase 4: Practice + sim     [Weeks 10-12]  Mock exams + killer.sh
 | [Troubleshooting Clusters](https://kubernetes.io/docs/tasks/debug/debug-cluster/) | Official guide | Free |
 | [RBAC Authorization](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) | Official reference | Free |
 | [Network Policies](https://kubernetes.io/docs/concepts/services-networking/network-policies/) | Official concepts | Free |
-| [Configure Persistent Volumes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-persistent-volume-storage/) | Official task | Free |
+| [Configure Persistent Volumes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-volume-storage/) | Official task | Free |
 | [Administer a Cluster](https://kubernetes.io/docs/tasks/administer-cluster/) | Official task collection | Free |
 
 ---
@@ -184,7 +184,7 @@ These are the primary documentation pages you should know. They are also the onl
 | Create a cluster with kubeadm | [kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/) |
 | Upgrade a cluster | [kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/) |
 | Backup and restore etcd | [kubernetes.io/docs/tasks/administer-cluster/configure-upgrade-etcd/](https://kubernetes.io/docs/tasks/administer-cluster/configure-upgrade-etcd/) |
-| Configure persistent volume storage | [kubernetes.io/docs/tasks/configure-pod-container/configure-persistent-volume-storage/](https://kubernetes.io/docs/tasks/configure-pod-container/configure-persistent-volume-storage/) |
+| Configure persistent volume storage | [kubernetes.io/docs/tasks/configure-pod-container/configure-persistent-volume-storage/](https://kubernetes.io/docs/tasks/configure-pod-container/configure-volume-storage/) |
 | Configure a Pod to use a ConfigMap | [kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/) |
 | Manage Secrets | [kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-kubectl/](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-kubectl/) |
 | Declare Network Policies | [kubernetes.io/docs/tasks/administer-cluster/declare-network-policy/](https://kubernetes.io/docs/tasks/administer-cluster/declare-network-policy/) |
@@ -448,7 +448,7 @@ These pages are accessible during the exam and worth bookmarking in advance. Pra
 | Persistent Volumes | [kubernetes.io/docs/concepts/storage/persistent-volumes/](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) |
 | Storage Classes | [kubernetes.io/docs/concepts/storage/storage-classes/](https://kubernetes.io/docs/concepts/storage/storage-classes/) |
 | Dynamic provisioning | [kubernetes.io/docs/concepts/storage/dynamic-provisioning/](https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/) |
-| Configure PV storage | [kubernetes.io/docs/tasks/configure-pod-container/configure-persistent-volume-storage/](https://kubernetes.io/docs/tasks/configure-pod-container/configure-persistent-volume-storage/) |
+| Configure PV storage | [kubernetes.io/docs/tasks/configure-pod-container/configure-persistent-volume-storage/](https://kubernetes.io/docs/tasks/configure-pod-container/configure-volume-storage/) |
 
 ### Troubleshooting (30%)
 

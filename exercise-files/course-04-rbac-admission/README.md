@@ -12,9 +12,9 @@ Control who can do what in the cluster: RBAC roles and bindings, ServiceAccounts
 
 | # | Module | Exam objectives | Files |
 | --- | --- | --- | --- |
-| M01 | [RBAC Fundamentals](m01-rbac-fundamentals/README.md) | Roles, ClusterRoles, RoleBindings, ClusterRoleBindings, and verifying access with kubectl auth can-i. | Coming as recorded |
-| M02 | [ServiceAccounts](m02-serviceaccounts/README.md) | ServiceAccounts, token projection, and binding workload identities to RBAC roles. | Coming as recorded |
-| M03 | [Admission Controls](m03-admission-controls/README.md) | Admission controller plugins and validating/mutating admission for cluster policy enforcement. | Coming as recorded |
+| M01 | [RBAC Fundamentals](m01-rbac-fundamentals/README.md) | Roles, ClusterRoles, RoleBindings, ClusterRoleBindings, and verifying access with kubectl auth can-i. | Files shipped |
+| M02 | [ServiceAccounts](m02-serviceaccounts/README.md) | ServiceAccounts, token projection, and binding workload identities to RBAC roles. | Files shipped |
+| M03 | [Admission Controls](m03-admission-controls/README.md) | Admission controller plugins and validating/mutating admission for cluster policy enforcement. | Files shipped |
 
 ---
 
@@ -22,4 +22,4 @@ Control who can do what in the cluster: RBAC roles and bindings, ServiceAccounts
 
 1. Open the module folder for the video you're watching; its **README** lists every file and maps it to the CKA exam objectives.
 2. Spin up a cluster from [`src/cka-lab/`](../../src/cka-lab/) and run the demos yourself.
-3. Manifests target a standard kind cluster (1 control-plane + 2 workers) at Kubernetes **v1.35**.
+3. Manifests target a standard cluster (1 control-plane + 2 workers) at Kubernetes **v1.35**.

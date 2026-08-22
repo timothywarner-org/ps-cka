@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Security
+
+- **Removed a third party's name from PDF metadata.** Eight of the nine slide PDFs carried `/Author(Jacqui Milara)` in the info dictionary and a matching `dc:creator` entry in the XMP packet, inherited from a shared PowerPoint template. All nine now read `Tim Warner`. Note for future exports: deleting `/Metadata` from the catalog only orphans the XMP object, it does not remove the bytes -- verify with a raw byte search, not the metadata API.
+- **Blocked internal production artifacts from the repo.** `.gitignore` now excludes talk tracks, clip-title files, standards-check reports, deck corrections, and superseded drafts as a class, and the CI guard checks those filename patterns instead of only binary extensions. Also removed `.claude/settings.local.json` from tracking.
+- **`capture-m02.sh` can no longer write a live token to an unignored path.** Its output name is forced into the gitignored `capture-*.txt` shape, and the minted ServiceAccount JWT is truncated before it reaches disk.
+- **Scrubbed local filesystem paths** from `notebooks/` and `CLAUDE.md`. Setup instructions are now repo-relative and actually runnable by someone who is not Tim.
+
+### Fixed
+
+- **Documentation now describes the lab that exists.** The KIND-on-Docker fast path (`kind-up.ps1`, `kind-multi-up.ps1`, `Start-Tutorial.ps1`, `lib/tutorials.ps1`, `TUTORIAL-KIND.md`, `configs/`) was removed from `src/cka-lab/` in `b9f37a6`, but roughly 40 documents still described it -- including the root README quickstart, all 33 module READMEs, and the Pluralsight exercise-file download pointers, which told learners to run a script that is not in the repo. All corrected to the Hyper-V Vagrant lab. Courses 2, 3, and 4 were recorded against that lab.
+- **All broken internal links repaired**, 19 to 0 across 266 relative links in 102 markdown files. Included a phantom `src/cka-lab/course-03-lifecycle-upgrades/` subfolder (the Course 3 scripts sit flat in `src/cka-lab/`) and links to a `dev/m02-demo-runbook.md` that has never existed on disk.
+- **Two confirmed dead external URLs fixed** (verified by status code, not assumption): the Kubernetes `configure-persistent-volume-storage` task page now 404s and was cited three times, and the YouTube `/c/TechTrainerTim` vanity URL is dead. Also pinned the Helm installer, which was fetched from a moving `main` branch, and repaired four malformed shields.io badge labels.
+- **Stale lab script names swept from `notebooks/`** -- 73 references to the pre-Verb-Noun `cka-*.ps1` names across the docs and all three notebooks, plus two wrong notebook filenames. The destructive-command regex in `runbook_to_ipynb.py` had silently stopped matching the renamed scripts, so genuinely destructive cells were no longer being tagged.
+- **`src/cka-lab/README.md` documents six previously omitted scripts**, including `Get-CkaSnapshot.ps1` and the three Course 4 lab drivers.
+- Corrected "kind cluster" as the stated test target across 22 files; the topology claim (1 control-plane + 2 workers at v1.35) is unchanged and still accurate.
+
 ### Changed
 
 - **M03 tutorial helper now supports multi-beat sections** via a `-Steps` hashtable array on `Write-TutorialSection`. Six sections (1, 2, 3, 5, 9, 10) split into 2-3 teaching beats each so cause and effect get separate Enter presses (delete pod → watch ReplicaSet resurrect; scale Deployment → watch EndpointSlice grow; switch context → re-prove the ladder). 10-section cap is unchanged; beats live INSIDE a section. Setup beats carry an empty `OutputFields` so the "What you just saw" block is skipped — the next beat's output IS the lesson. Sections 4, 6, 7, 8 stay single-command.
@@ -28,7 +44,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Cross-platform port preflight via `[System.Net.Sockets.TcpListener]` (replaces Windows-only `Get-NetTCPConnection`) so the multi-cluster scripts work from pwsh-in-WSL2.
 - Targeted WSL terminate in `kind-down -Force` (opt-in pruning instead of nuke-all).
 
-### Fixed
+### Fixed (earlier in this cycle)
 
 - Standardized Tim's contact email to `timothywarner316@gmail.com` across `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`.
 - Doc consistency sweep: corrected stale section counts (16/18/57 → 10/10/42) and stale section references (`1/21`, `20/21`, `21/21`, `8/17`) across both CLAUDE.md files, `TUTORIAL-KIND.md`, and the M01/M02 runbooks. The 4 parallel doc audits found 7 drift items; all fixed.

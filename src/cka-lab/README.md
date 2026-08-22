@@ -40,17 +40,23 @@ per-module snapshot/restore loop and the on-rails upgrade/Helm demos.
 | `Vagrantfile` | 3 headless Ubuntu 22.04 VMs (control1, worker1, worker2), all prereqs installed, pinned to Kubernetes `1.35.0-1.1`. Stops *before* `kubeadm init`. |
 | `create-nat-switch.ps1` | Builds the `CKA-NAT` switch on `192.168.50.0/24`. Exact-match adapter lookup, /24 collision preflight. |
 | `bootstrap_cp.sh` | kubeadm init on control1 (`set -euo pipefail`, Calico pinned `v3.29.1` via the Tigera operator, pod CIDR `192.168.0.0/16`, CNI-swap comments). |
+| `Repair-CkaNatSwitch.ps1` | Rebuilds the `vEthernet (CKA-NAT)` adapter when Hyper-V drops it -- the usual cause of VMs booting unreachable. |
 | `join_worker.sh` | Self-sufficient -- SSHes to control1, fetches a fresh kubeadm token, runs the join locally. |
+| `join_worker.sh.template` | Placeholder form (`<TOKEN>` / `<HASH>`) kept for reference; no real token is ever committed. |
 | `Start-CkaLab.ps1` / `Stop-CkaLab.ps1` | Boot / graceful shutdown for all VMs. |
 | `Get-CkaLabStatus.ps1` | Read-only Hyper-V state probe -- reports per-VM Running/Off/Saved/Missing plus IP reachability, offers `Stop-CkaLab.ps1` if anything is Running. CI-safe with `-Quiet`. |
 | `Get-CkaConnectionInfo.ps1` | Live UP/DOWN table + SSH cheat sheet. |
 | `Test-CkaLabReady.ps1` | 9-category health check across all 3 VMs. Pipes `lib/validate-node.sh` over stdin so `$LASTEXITCODE` reflects the inner bash exit. |
 | `Save-CkaSnapshot.ps1` / `Restore-CkaSnapshot.ps1` | Atomic, all-or-nothing Hyper-V checkpoints. Preflight every VM and every checkpoint before writing anything. |
+| `Get-CkaSnapshot.ps1` | Read-only checkpoint inventory across all three VMs -- what save points exist and when they were taken. |
 | `Remove-CkaSnapshot.ps1` | Inventory (default) then prune checkpoint cruft -- keeps the VMs and your save points. |
 | `Build-M02UpgradeLab.ps1` | Rebuild the 3 VMs clean at v1.34 and auto-snapshot for the Module 2 upgrade demo. |
 | `Invoke-M02Upgrade.ps1` | On-rails Module 2 demo: restore v1.34, upgrade to v1.35 live, phase by phase. |
 | `Invoke-M03Lab.ps1` | On-rails Module 3 demo: Helm, Kustomize, CRDs + the exam doc technique, live. |
 | `Invoke-KubeletFlagRepair.ps1` | On-rails repair demo for a stale kubelet flag. |
+| `Initialize-C04M01Lab.ps1` | Course 4 Module 1 (RBAC): boot, health-check, stage the module folder, fact-gate the deck against the live cluster, snapshot. |
+| `Initialize-C04M02Lab.ps1` | Course 4 Module 2 (ServiceAccounts): same shape as M01, staged for the token demos. |
+| `Initialize-C04M03Lab.ps1` | Course 4 Module 3 (admission control): same shape, staged for LimitRange/ResourceQuota/PSA. |
 | `lib/CkaLab.ps1` | Shared module -- output helpers, lab topology (`Get-CkaLabNodes`/`Get-CkaLabVMs`), UTF-8/PATH setup, host memory info. |
 | `lib/validate-node.sh` | Node-level health checks, piped over stdin during `Test-CkaLabReady.ps1`. |
 
@@ -59,7 +65,7 @@ per-module snapshot/restore loop and the on-rails upgrade/Helm demos.
 | Path | What It Does |
 |------|-------------|
 | `archive/` | Retired scripts (legacy multi-action `snapshot.ps1`). Preserved for reference. |
-| `docs/` | Architecture diagrams (HTML, drop into a browser). |
+| `docs/` | Architecture diagrams (HTML, drop into a browser), `vagrant-commands.txt`, and a vim cheat sheet. |
 
 ---
 

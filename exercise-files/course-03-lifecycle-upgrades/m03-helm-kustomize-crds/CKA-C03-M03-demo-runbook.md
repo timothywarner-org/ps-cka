@@ -8,7 +8,7 @@
 **CKA domain:** Cluster Architecture, Installation & Configuration (25%) - "Use Helm and Kustomize to install cluster components" and "Understand CRDs, and install and configure operators" (both Feb 2025 additions)
 
 > **You read THIS; the app runs the commands.** The on-rails app
-> [`Invoke-M03Lab.ps1`](../../../src/cka-lab/course-03-lifecycle-upgrades/Invoke-M03Lab.ps1)
+> [`Invoke-M03Lab.ps1`](../../../src/cka-lab/Invoke-M03Lab.ps1)
 > shows the command, a one-sentence explication, and the live output - it does
 > **NOT** print this talk track. Your spoken narration is the **blockquotes** below.
 >
@@ -125,7 +125,7 @@ kubectl create deployment web --image=nginx --dry-run=client -o yaml
 **[2.1]** We install the Helm client using the canonical one-line installer from helm.sh.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+curl -fsSL https://raw.githubusercontent.com/helm/helm/v3.16.3/scripts/get-helm-3 | bash
 ```
 
 **[2.2]** We register a chart repository and refresh its local index so Helm can find the chart.
@@ -327,6 +327,6 @@ kubectl delete -f m03-crds-demo/backuppolicy-crd.yaml
 
 ---
 
-Source of truth: [`Invoke-M03Lab.ps1`](../../../src/cka-lab/course-03-lifecycle-upgrades/Invoke-M03Lab.ps1).
+Source of truth: [`Invoke-M03Lab.ps1`](../../../src/cka-lab/Invoke-M03Lab.ps1).
 Manifests: [`m03-kustomize-demo/`](m03-kustomize-demo/) + [`m03-crds-demo/`](m03-crds-demo/) (this folder).
-Lab controls + snapshots: [`course-03-lifecycle-upgrades/README.md`](../../../src/cka-lab/course-03-lifecycle-upgrades/README.md).
+Lab controls + snapshots: [`course-03-lifecycle-upgrades/README.md`](../../../src/cka-lab/README.md).

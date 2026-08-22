@@ -17,7 +17,7 @@ Aligned to the **CKA v1.35 (February 2025) curriculum** revision.
 
 <p align="center">
   <a href="https://github.com/timothywarner-org/ps-cka">
-    <img src="https://img.shields.io/badge/GO%20TO%20THE%20REPO-timothywarner-org%2Fps--cka-2EA043?style=for-the-badge&logo=github&logoColor=white&labelColor=0D1117" alt="Go to the repo" height="60">
+    <img src="https://img.shields.io/badge/GO%20TO%20THE%20REPO-timothywarner--org%2Fps--cka-2EA043?style=for-the-badge&logo=github&logoColor=white&labelColor=0D1117" alt="Go to the repo" height="60">
   </a>
 </p>
 
@@ -37,11 +37,9 @@ Welcome — I'm Tim, and here's the lay of the land when you arrive at [github.c
 
 - **`exercise-files/`** — All course manifests, organized by `course-NN-topic/mNN-module-name/`. Each module's YAML, scripts, and supporting assets live here.
 - **`exercise-files/shared/apps/`** — Reusable demo applications (`catalog-api`, `fleet-dashboard`, `telemetry-worker`) backing the **Globomantics** storyline you'll see throughout the skill path.
-- **`src/cka-lab/`** — A two-path lab environment so you can pick the right tool for the scenario:
-  - **KIND path (fast, Docker-based)** — `kind-up.ps1` spins up a multi-node cluster in under 30 seconds. Pick from four topologies via interactive menu: **Simple** (1 CP + 1 worker), **Standard** (1 CP + 2 workers — the CKA exam topology), **HA** (3 CP + 2 workers), or **Workloads** (1 CP + 3 workers). Four on-rails tutorials walk you through architecture, kubectl workflows, core resources, and the diagnostic ladder.
-  - **Hyper-V Vagrant path (exam-shaped)** — Three Ubuntu 22.04 VMs (`control1`, `worker1`, `worker2`) with kubeadm v1.35 prereqs pre-installed, static IPs on a dedicated `CKA-NAT` switch, and a native checkpoint-based snapshot/restore loop for unlimited practice resets.
-- **`dev/m01-demo-runbook.md`**, **`dev/m02-demo-runbook.md`**, **`dev/m03-demo-runbook.md`** — Per-module recording runbooks containing my actual talk track, click paths, and timing — a peek behind the curtain so you can replay every demo at your own pace.
-- **Multi-cluster context lab** — `kind-multi-up.ps1` stands up `cka-dev` and `cka-prod` side-by-side so you can drill `kubectl config use-context`, `--context`, `rename-context`, and `set-context --current --namespace` against two real clusters.
+- **`src/cka-lab/`** — The exam-shaped lab environment:
+  - **Hyper-V Vagrant path** — Three Ubuntu 22.04 VMs (`control1`, `worker1`, `worker2`) with kubeadm v1.35 prereqs pre-installed, static IPs on a dedicated `CKA-NAT` switch, and a native checkpoint-based snapshot/restore loop for unlimited practice resets.
+- **`dev/m01-demo-runbook.md`** and **`dev/m03-demo-runbook.md`** — Per-module recording runbooks containing my actual talk track, click paths, and timing — a peek behind the curtain so you can replay every demo at your own pace.
 
 ---
 
@@ -50,10 +48,10 @@ Welcome — I'm Tim, and here's the lay of the land when you arrive at [github.c
 ```powershell
 git clone https://github.com/timothywarner-org/ps-cka.git
 cd ps-cka/src/cka-lab
-./kind-up.ps1                      # interactive menu: pick topology + tutorial
+./Start-CkaLab.ps1                 # boots control1, worker1, worker2
 ```
 
-That's it. The script handles Docker startup, prerequisite checks, NodePort preflight, and post-create labelling — you just pick a topology and start learning.
+Run that from an **elevated** PowerShell 7 prompt — Hyper-V and Vagrant both require it. Then `./Test-CkaLabReady.ps1` to confirm prerequisites and `./Get-CkaConnectionInfo.ps1` for SSH details. Full walkthrough: [`src/cka-lab/TUTORIAL-HYPERV.md`](../src/cka-lab/TUTORIAL-HYPERV.md).
 
 ---
 
@@ -77,7 +75,7 @@ If you've studied the older CKA curriculum, these are the deltas. If you're new 
 
 <p align="center">
   <a href="https://github.com/timothywarner-org/ps-cka">
-    <img src="https://img.shields.io/badge/CLONE%20THE%20REPO-github.com%2Ftimothywarner-org%2Fps--cka-2EA043?style=for-the-badge&logo=github&logoColor=white&labelColor=0D1117" alt="Clone the repo" height="60">
+    <img src="https://img.shields.io/badge/CLONE%20THE%20REPO-github.com%2Ftimothywarner--org%2Fps--cka-2EA043?style=for-the-badge&logo=github&logoColor=white&labelColor=0D1117" alt="Clone the repo" height="60">
   </a>
 </p>
 

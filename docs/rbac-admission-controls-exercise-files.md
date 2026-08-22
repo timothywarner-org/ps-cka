@@ -117,8 +117,6 @@ Course 4 records against the **Hyper-V Vagrant path**, because signing certifica
 - Admin context: **`cka-vagrant`**
 - `Initialize-C04M01Lab.ps1` boots, health-checks, stages the module folder onto the node, snapshots, and **fact-gates the deck against the live cluster** - it asks the cluster whether five sentences I say on camera are still true
 
-The **KIND path** (`kind-up.ps1`) still works and is faster if you just want to drill RBAC verbs. Pick the **Standard topology (1 control plane + 2 workers)** - that's the CKA exam shape. The certificate-signing demo works on KIND too; the node-level break/fix drills want the VMs.
-
 > **Not on Windows?** The Vagrantfile pattern is identical on **VirtualBox 7.x** for macOS and Linux. Same three VMs, same provisioning, same commands. I record on Hyper-V because that's my rig, not because the lab requires it.
 
 ---
@@ -145,7 +143,7 @@ cd ~/m01 && ./lab.sh               # reset + verify all four M1 demos
 
 Exit 0 from `lab.sh` means every expected allow was allowed and every expected 403 was denied. Exit 1 names the check that drifted. Between practice reps, `./lab.sh reset` puts you back at frame zero in about 8 seconds.
 
-**Prefer KIND?** `cd src/cka-lab; ./kind-up.ps1`, choose **Standard**, then run `setup-contexts.sh` against that cluster instead.
+**On another cluster?** The manifests and `setup-contexts.sh` are portable to any conformant Kubernetes v1.35 cluster; only the node-level break/fix drills need the VMs.
 
 ---
 
@@ -359,7 +357,7 @@ Kubernetes moves fast, and stale study guides get these exact points wrong. Veri
 
 | Claim | Status |
 |---|---|
-| **PodSecurityPolicy** | **Removed** in v1.35. Deprecated v1.21, removed v1.25. If any source tells you to write a PSP, that source is at least four years stale. The current answer is **always** Pod Security Admission plus the Pod Security Standards. |
+| **PodSecurityPolicy** | **Removed** in v1.25 (deprecated v1.21), so it is four releases gone before the exam version. If any source tells you to write a PSP, that source is at least four years stale. The current answer is **always** Pod Security Admission plus the Pod Security Standards. |
 | **Pod Security Admission** | **Stable since v1.25**, built in, enabled by default. Driven by namespace labels. |
 | **ValidatingAdmissionPolicy** | **GA / stable since v1.30** on `admissionregistration.k8s.io/v1`, default-enabled. Recognize it; it isn't a named CKA objective. |
 | **MutatingAdmissionPolicy** | **Beta and off by default in v1.35** - the exam version. Heads up: it went **stable in v1.36**, so the live docs page now reads "stable, enabled by default." Both statements are true, one version apart. Treat it as mention-only either way. |
@@ -445,7 +443,7 @@ Thanks for taking this course - it genuinely means a lot. If you hit a snag, spo
 
 - **Website:** [TechTrainerTim.com](https://TechTrainerTim.com)
 - **Email:** [tim@techtrainertim.com](mailto:tim@techtrainertim.com)
-- **YouTube:** [youtube.com/c/TechTrainerTim](https://www.youtube.com/c/TechTrainerTim)
+- **YouTube:** [youtube.com/@TechTrainerTim](https://www.youtube.com/@TechTrainerTim)
 - **LinkedIn:** [linkedin.com/in/timothywarner](https://www.linkedin.com/in/timothywarner)
 - **Pluralsight author page:** [pluralsight.com/authors/tim-warner](https://www.pluralsight.com/authors/tim-warner)
 - **Microsoft MVP profile:** [mvp.microsoft.com/timothywarner](https://mvp.microsoft.com/en-US/mvp/profile/e9a13bca-2798-4247-be56-f116f780869d)

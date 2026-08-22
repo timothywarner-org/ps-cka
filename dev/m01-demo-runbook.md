@@ -173,4 +173,4 @@ Expect `Address: 10.96.0.1`. Call it out: "That's the Kubernetes service — a s
 
 ## Source mapping
 
-Every command above comes from [`src/cka-lab/lib/tutorials.ps1`](../src/cka-lab/lib/tutorials.ps1) → `Start-TutorialM01` (line 278). When you want to edit narration permanently, edit that file — **don't drift this runbook**. This runbook is the on-camera script; that file is the single source of truth for commands + output-field explainers.
+Every command above came from `src/cka-lab/lib/tutorials.ps1` → `Start-TutorialM01` (line 278). **That file was removed from the repo in `b9f37a6`**, so this runbook is now the surviving record of the Course 1 Module 1 demo rather than a pointer into live code.

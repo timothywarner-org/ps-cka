@@ -394,7 +394,7 @@ kubectl config use-context kind-cka-lab          # always end on the recording c
 
 ## Source mapping
 
-Commands and narration come from [`src/cka-lab/lib/tutorials.ps1`](../src/cka-lab/lib/tutorials.ps1) → `Start-TutorialM03` (line 491; the `Write-TutorialBeatBody` helper at line 99 is what renders both the multi-beat `-Steps` path and the legacy single-`-Command` path). The `try/finally` cleanup block is around line 692 (after the multi-cluster guard) — verify those deletions against your pre-flight `kubectl get pods -A` before each take.
+Commands and narration came from `src/cka-lab/lib/tutorials.ps1` → `Start-TutorialM03` (**removed in `b9f37a6`**; this runbook is now the surviving record) (line 491; the `Write-TutorialBeatBody` helper at line 99 is what renders both the multi-beat `-Steps` path and the legacy single-`-Command` path). The `try/finally` cleanup block is around line 692 (after the multi-cluster guard) — verify those deletions against your pre-flight `kubectl get pods -A` before each take.
 
 The diagnostic ladder (GET → DESCRIBE → LOGS → EVENTS) shows up again in Course 9 (troubleshoot clusters) and Course 10 (troubleshoot workloads). Keep the narration **identical** across modules — learners should be able to recite it back by Course 3. The `--previous` flag callout in section 9/10 is the seed for Course 10's CrashLoopBackOff scenarios.
 

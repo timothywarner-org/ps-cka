@@ -237,7 +237,7 @@ Wait-Enter
 #region Phase 2 -- Helm: install, release, upgrade, rollback ---------------------
 Write-PhaseBanner -Number 2 -Total $TOTAL -Title 'Helm: install, release, upgrade, rollback'
 Invoke-Beat -Tag '2.1' -Explain 'We install the Helm client using the canonical one-line installer from helm.sh.' `
-    -Command "curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | ${helmEnv}bash"
+    -Command "curl -fsSL https://raw.githubusercontent.com/helm/helm/v3.16.3/scripts/get-helm-3 | ${helmEnv}bash"
 Invoke-Beat -Tag '2.2' -Explain 'We register a chart repository and refresh its local index so Helm can find the chart.' `
     -Command 'helm repo add podinfo https://stefanprodan.github.io/podinfo && helm repo update'
 Invoke-Beat -Tag '2.3' -Explain 'helm upgrade --install deploys the release, creating it the first time and upgrading it on later runs.' `

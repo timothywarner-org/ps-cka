@@ -17,7 +17,7 @@ Aligned to the **CKA v1.35 (February 2025) curriculum** revision.
 
 <p align="center">
   <a href="https://github.com/timothywarner-org/ps-cka">
-    <img src="https://img.shields.io/badge/GO%20TO%20THE%20REPO-timothywarner-org%2Fps--cka-2EA043?style=for-the-badge&logo=github&logoColor=white&labelColor=0D1117" alt="Go to the course repository on GitHub" height="60">
+    <img src="https://img.shields.io/badge/GO%20TO%20THE%20REPO-timothywarner--org%2Fps--cka-2EA043?style=for-the-badge&logo=github&logoColor=white&labelColor=0D1117" alt="Go to the course repository on GitHub" height="60">
   </a>
 </p>
 
@@ -55,8 +55,7 @@ Welcome - I'm Tim, and here's the lay of the land when you arrive at [github.com
 - **`m01-linux-host-prep/`** - Module 1 demo runbook, Vagrantfile, provisioning scripts. Kernel modules, sysctl, swap, containerd install, kubeadm/kubelet/kubectl install from `pkgs.k8s.io`, version pinning with `apt-mark hold`.
 - **`m02-kubeadm-init-join/`** - Module 2 demo runbook. `kubeadm init` on the control plane, walkthrough of the static pod manifests in `/etc/kubernetes/manifests/`, admin kubeconfig setup, `kubeadm join` on the workers, bootstrap token refresh with `kubeadm token create --print-join-command`.
 - **`m03-cni-cluster-validation/`** - Module 3 demo runbook. Calico install, transition from `NotReady` to `Ready`, CoreDNS health check, cross-node pod connectivity test, intentional kubelet break/fix drill with `journalctl -u kubelet`, NodePort smoke test with nginx.
-- **`src/cka-lab/`** - Both lab paths in one place:
-  - **KIND path** (carried over from Course 1) - for quick kubectl practice between kubeadm drills.
+- **`src/cka-lab/`** - The lab environment:
   - **Hyper-V Vagrant lab** - three Ubuntu 22.04 VMs (`control1`, `worker1`, `worker2`), 2 GB / 2 vCPU each, static IPs on the `CKA-NAT` Hyper-V switch, kubeadm v1.35 prereqs pre-installed. Stops **before** `kubeadm init` so you bootstrap from scratch, the same way the exam does.
 - **`src/cka-lab/TUTORIAL-HYPERV.md`** - The full learner walkthrough for the Vagrant lab, including the native Hyper-V checkpoint snapshot/restore loop.
 
@@ -69,7 +68,7 @@ Welcome - I'm Tim, and here's the lay of the land when you arrive at [github.com
 ```powershell
 git clone https://github.com/timothywarner-org/ps-cka.git
 cd ps-cka
-./src/cka-lab/Start-HyperVLab.ps1     # provisions 3 VMs, stops before kubeadm init
+./src/cka-lab/Start-CkaLab.ps1        # provisions 3 VMs, stops before kubeadm init
 ```
 
 That's it. Open the Module 1 runbook, follow along with the video, and the cluster you build will carry forward into Modules 2 and 3.
@@ -255,7 +254,7 @@ Every link below was verified live. Grouped by module so you can read alongside 
 
 <p align="center">
   <a href="https://github.com/timothywarner-org/ps-cka">
-    <img src="https://img.shields.io/badge/CLONE%20THE%20REPO-github.com%2Ftimothywarner-org%2Fps--cka-2EA043?style=for-the-badge&logo=github&logoColor=white&labelColor=0D1117" alt="Clone the course repository" height="60">
+    <img src="https://img.shields.io/badge/CLONE%20THE%20REPO-github.com%2Ftimothywarner--org%2Fps--cka-2EA043?style=for-the-badge&logo=github&logoColor=white&labelColor=0D1117" alt="Clone the course repository" height="60">
   </a>
 </p>
 
@@ -267,7 +266,7 @@ Thanks for taking this course - it genuinely means a lot. If you hit a snag, spo
 
 - **Website:** [TechTrainerTim.com](https://TechTrainerTim.com)
 - **Email:** [tim@techtrainertim.com](mailto:tim@techtrainertim.com)
-- **YouTube:** [youtube.com/c/TechTrainerTim](https://www.youtube.com/c/TechTrainerTim)
+- **YouTube:** [youtube.com/@TechTrainerTim](https://www.youtube.com/@TechTrainerTim)
 - **LinkedIn:** [linkedin.com/in/timothywarner](https://www.linkedin.com/in/timothywarner)
 - **Microsoft MVP profile:** [mvp.microsoft.com/timothywarner](https://mvp.microsoft.com/en-US/mvp/profile/e9a13bca-2798-4247-be56-f116f780869d)
 - **Repo issues:** [github.com/timothywarner-org/ps-cka/issues](https://github.com/timothywarner-org/ps-cka/issues)

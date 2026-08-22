@@ -4,9 +4,9 @@ JupyterLab notebooks for **on-camera recording** of the three Course 2 demo modu
 
 ## Architecture
 
-- **Kernel:** `.NET Interactive` PowerShell kernel (`.net-powershell`). Every code cell is real `pwsh` 7. `vagrant`, `.\cka-restore.ps1`, `ssh control1 kubectl get nodes` all work natively.
+- **Kernel:** `.NET Interactive` PowerShell kernel (`.net-powershell`). Every code cell is real `pwsh` 7. `vagrant`, `.\Restore-CkaSnapshot.ps1`, `ssh control1 kubectl get nodes` all work natively.
 - **Host:** native Windows 11 pwsh 7 in Windows Terminal. No WSL2, no bash kernel.
-- **Source of truth:** `../mXX-*/c02-mXX-demo-runbook.md`. The parser at `tools/runbook_to_ipynb.py` walks the markdown and emits a notebook.
+- **Source of truth:** `../exercise-files/course-02-kubeadm-cluster-install/mXX-*/c02-mXX-demo-runbook.md`. The parser at `tools/runbook_to_ipynb.py` walks the markdown and emits a notebook.
 - **Lab:** the existing `C:\github\ps-cka\src\cka-lab` Vagrant + Hyper-V environment. Unchanged.
 
 ## One-time bootstrap (Windows pwsh 7)
@@ -40,9 +40,9 @@ uv sync
 cd notebooks
 
 # Regenerate notebooks from the latest runbook content (idempotent)
-uv run python tools\runbook_to_ipynb.py ..\m01-linux-host-prep\c02-m01-demo-runbook.md
-uv run python tools\runbook_to_ipynb.py ..\m02-kubeadm-init-join\c02-m02-demo-runbook.md
-uv run python tools\runbook_to_ipynb.py ..\m03-cni-cluster-validation\c02-m03-demo-runbook.md
+uv run python tools\runbook_to_ipynb.py ..\exercise-files\course-02-kubeadm-cluster-install\m01-linux-host-prep\c02-m01-demo-runbook.md
+uv run python tools\runbook_to_ipynb.py ..\exercise-files\course-02-kubeadm-cluster-install\m02-kubeadm-init-join\c02-m02-demo-runbook.md
+uv run python tools\runbook_to_ipynb.py ..\exercise-files\course-02-kubeadm-cluster-install\m03-cni-cluster-validation\c02-m03-demo-runbook.md
 
 # Launch JupyterLab (Simple Mode for recording)
 .\launch.ps1
@@ -53,8 +53,8 @@ uv run python tools\runbook_to_ipynb.py ..\m03-cni-cluster-validation\c02-m03-de
 Before every take, see **`PRE-RECORD.md`**. The short version:
 
 1. `.\clear-outputs.ps1`
-2. `..\..\src\cka-lab\cka-restore.ps1 <module-starting-snapshot>`
-3. `..\..\src\cka-lab\cka-validate.ps1` returns `ALL NODES READY`
+2. `..\..\src\cka-lab\Restore-CkaSnapshot.ps1 <module-starting-snapshot>`
+3. `..\..\src\cka-lab\Test-CkaLabReady.ps1` returns `ALL NODES READY`
 4. JupyterLab → View → Simple Interface
 5. Browser zoom 125%
 6. Snapshot to `pre-record`
@@ -69,9 +69,9 @@ Before every take, see **`PRE-RECORD.md`**. The short version:
 | `clear-outputs.ps1` | `jupyter nbconvert --clear-output --inplace *.ipynb` |
 | `assets/recording.css` | Hides JupyterLab chrome and highlights destructive cells |
 | `PRE-RECORD.md` | On-camera pre-flight checklist |
-| `c02-m01-host-prep.ipynb` | Generated from m01 runbook |
+| `c02-m01-linux-host-prep.ipynb` | Generated from m01 runbook |
 | `c02-m02-kubeadm-init-join.ipynb` | Generated from m02 runbook |
-| `c02-m03-cni-validation.ipynb` | Generated from m03 runbook |
+| `c02-m03-cni-cluster-validation.ipynb` | Generated from m03 runbook |
 
 ## Cell tags
 

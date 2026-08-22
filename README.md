@@ -36,7 +36,7 @@ graph LR
 | 1 | [Kubernetes Foundations](exercise-files/course-01-foundations/README.md) | Cross-domain | 75 min | Recorded |
 | 2 | [Installing Clusters with kubeadm](exercise-files/course-02-kubeadm-cluster-install/README.md) | Architecture (25%) | 90 min | Recorded |
 | 3 | [Managing Cluster Lifecycle and Upgrades](exercise-files/course-03-lifecycle-upgrades/README.md) | Architecture (25%) | 75 min | Recorded |
-| 4 | [Securing Access with RBAC and Admission Controls](exercise-files/course-04-rbac-admission/README.md) | Architecture (25%) | 75 min | Coming as recorded |
+| 4 | [Securing Access with RBAC and Admission Controls](exercise-files/course-04-rbac-admission/README.md) | Architecture (25%) | 75 min | Files shipped |
 | 5 | [Managing Workloads and Scheduling](exercise-files/course-05-workloads-scheduling/README.md) | Workloads (15%) | 90 min | Coming as recorded |
 | 6 | [Managing Storage](exercise-files/course-06-storage/README.md) | Storage (10%) | 75 min | Coming as recorded |
 | 7 | [Services, Ingress, and Gateway API](exercise-files/course-07-services-ingress-gateway/README.md) | Networking (20%) | 90 min | Coming as recorded |
@@ -51,7 +51,7 @@ graph LR
 
 Every course folder has a **README** that maps each module to its files and CKA exam
 objectives. Click a course above, then open the module you're watching. Recorded
-courses (1-3) ship their manifests, scripts, and demo runbooks today; the rest land
+courses (1-4) ship their manifests, scripts, and demo runbooks today; the rest land
 as each module is recorded.
 
 - **Course 1 -- Foundations:** [`exercise-files/course-01-foundations/`](exercise-files/course-01-foundations/README.md)
@@ -75,35 +75,9 @@ pie title CKA v1.35 Exam Domains
 
 ## Lab Environment -- Two Paths
 
-The lab environment lives in [`src/cka-lab/`](src/cka-lab/) and gives you two ways to practice. Both target Kubernetes **v1.35** and live on the same Windows 11 host -- pick based on what the module is teaching.
+The lab environment lives in [`src/cka-lab/`](src/cka-lab/). It targets Kubernetes **v1.35** on a Windows 11 host.
 
-### Fast path -- KIND on Docker (sub-30-second cluster)
-
-Best for: most demos, kubectl reps, the diagnostic ladder, anything where you want a clean cluster *now*. PowerShell 7 interactive menus pick the topology, optionally start a tutorial, and tear down cleanly.
-
-```powershell
-cd src/cka-lab
-.\kind-up.ps1            # menu: topology + optional tutorial
-.\Start-Tutorial.ps1     # run a tutorial against a live cluster
-.\kind-down.ps1          # menu: cluster only or full Docker shutdown
-```
-
-Walkthrough -> [`src/cka-lab/TUTORIAL-KIND.md`](src/cka-lab/TUTORIAL-KIND.md)
-
-#### Multi-cluster add-on for kubectl context practice
-
-For Course 1 Module 2 context drills, a second pair of scripts stands up two clusters side by side (`cka-dev` and `cka-prod`) so you can practice `kubectl config use-context`, `--context`, `rename-context`, and namespace switching.
-
-```powershell
-cd src/cka-lab
-.\kind-multi-up.ps1         # creates cka-dev (30100/30180) + cka-prod (30200/30280)
-.\Start-ContextPractice.ps1 # 8-drill interactive walkthrough
-.\kind-multi-down.ps1       # teardown (-ClearRenamed to drop renamed contexts)
-```
-
-All three scripts have `#!/usr/bin/env pwsh` shebangs, so `./kind-multi-up.ps1` also works from bash in WSL2.
-
-### Exam-shaped path -- Hyper-V VMs with kubeadm
+### Hyper-V VMs with kubeadm
 
 Best for: Course 2, anything that needs real systemd, a real package manager, or node-level break/fix drills. Three Ubuntu 22.04 VMs (`control1`, `worker1`, `worker2`) on a dedicated `CKA-NAT` switch (`192.168.50.0/24`). Vagrant brings them up with all kubeadm v1.35 prereqs installed -- you run `kubeadm init` yourself. Native Hyper-V checkpoints give you the practice loop.
 
@@ -158,11 +132,10 @@ If you arrived here from a Pluralsight **Exercise Files** download, the file you
 
 ## Recording Runbooks (Course 1)
 
-Per-module demo runbooks for the Foundations course live in [`dev/`](dev/). Each includes pre-flight, camera checklist, click path, timed demos mapped to [`src/cka-lab/lib/tutorials.ps1`](src/cka-lab/lib/tutorials.ps1) sections, reset-between-takes, and a recovery cheat sheet.
+Per-module demo runbooks for the Foundations course live in [`dev/`](dev/). Each includes pre-flight, camera checklist, click path, timed demos, reset-between-takes, and a recovery cheat sheet. They document the KIND-based tutorial flow that Course 1 was recorded against; those scripts are no longer in the repo, so read these as a record of what was recorded rather than as runnable instructions.
 
-- [`dev/m01-demo-runbook.md`](dev/m01-demo-runbook.md) -- Architecture & Lab Setup (~13 min)
-- [`dev/m02-demo-runbook.md`](dev/m02-demo-runbook.md) -- kubectl Workflows (~13 min; Demo 5 uses the multi-cluster lab)
-- [`dev/m03-demo-runbook.md`](dev/m03-demo-runbook.md) -- Core Resources & Diagnostic Ladder (~14 min)
+- [`dev/m01-demo-runbook.md`](dev/m01-demo-runbook.md) -- Architecture & Lab Setup (12-13 min)
+- [`dev/m03-demo-runbook.md`](dev/m03-demo-runbook.md) -- Core Resources & Diagnostic Ladder (16-18 min)
 
 ## What's New in the February 2025 CKA Curriculum
 
@@ -194,7 +167,7 @@ All demos follow **Globomantics**, a fictional company migrating their monolithi
 This repo includes a **GitHub Copilot agent** for CKA exam practice in the [`cka-cert-buddy/`](cka-cert-buddy/) directory. Open it as a VS Code workspace to access:
 
 - **Practice scenarios** -- exam-realistic tasks with two-phase delivery (scenario first, solution on request)
-- **Guided labs** -- hands-on exercises on kind clusters with validation gates and cleanup
+- **Guided labs** -- hands-on exercises with validation gates and cleanup
 - **Study planner** -- personalized plans based on your confidence across the five exam domains
 - **Reference docs** -- comprehensive command guide, exam lifecycle guide, and curated learning resources
 

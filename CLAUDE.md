@@ -8,16 +8,17 @@ This is Tim Warner's **Certified Kubernetes Administrator (CKA) v1.35 Skill Path
 
 ## Repository Structure
 
-- `exercise-files/` -- All course content, organized as `course-NN-topic/mNN-module-name/`. **Every course folder and every module folder has a `README.md`** (navigation hub at the course level, file table + CKA objectives at the module level). Recorded courses (1, 2, 3) ship real learner resources; Courses 4-11 module READMEs carry a "coming as recorded" boilerplate until each is recorded. Course 3 is fully populated (etcd backup/restore scripts, kubeadm upgrade scripts, Helm/Kustomize/CRD demos) sourced from the shipped course folders. Manifests get written as each course is recorded.
-- `exercise-files/shared/apps/` -- Reusable demo applications (catalog-api, fleet-dashboard, telemetry-worker) for the Globomantics storyline. Also placeholder folders today.
+- `exercise-files/` -- All course content, organized as `course-NN-topic/mNN-module-name/`. **Every course folder and every module folder has a `README.md`** (navigation hub at the course level, file table + CKA objectives at the module level). Courses 1 through 4 ship real learner resources; Courses 5-11 module READMEs carry a "coming as recorded" boilerplate until each is recorded. Courses 3 and 4 are fully populated (etcd backup/restore scripts, kubeadm upgrade scripts, Helm/Kustomize/CRD demos, and the RBAC/ServiceAccount/admission lab harnesses) sourced from the shipped course folders. Manifests get written as each course is recorded.
+- `exercise-files/shared/apps/` -- Reusable demo applications for the Globomantics storyline. `globo-shop/` is real and shipping (Dockerfile, `src/`, `manifests/`, `load-image.sh`, `m02-ready.sh`, plus the `globo-shop-image.yml` CI workflow); `catalog-api`, `fleet-dashboard`, and `telemetry-worker` are still placeholder folders.
 - `exercise-files/K8S/` -- Reference book directories (Bayfield, Muschko, Qin, Sachdeva, etc.). Tracked as `.gitkeep` stubs; PDFs are pulled in locally and not committed.
 - `docs/` -- Pluralsight per-course download pointers plus standalone lab diagrams. Each `*-exercise-files.md` is the single Markdown file Pluralsight serves as a course's "Exercise Files" download; it points learners back to the GitHub repo for everything real (manifests, lab scripts, runbooks). One per recorded course: `k8s-foundations-` (C1), `installing-clusters-kubeadm-` (C2), `rbac-admission-controls-` (C4). Treat as learner-facing copy: tone, badges, and link targets all matter. The `diagram-*.html` files are self-contained Mermaid lab diagrams.
 - `scripts/` -- Host-side PowerShell wrappers for the Course 2 Vagrant lab (`c02-vagrant.ps1`, `c02-snapshots.ps1`). Thin convenience shims; the real lab tooling is in `src/cka-lab/`.
-- `src/cka-lab/` -- The lab environment (KIND console app + Hyper-V Vagrant lab). See `src/cka-lab/CLAUDE.md` for internal architecture.
+- `src/cka-lab/` -- The lab environment (Hyper-V Vagrant lab). See `src/cka-lab/CLAUDE.md` for internal architecture.
 - `cka-cert-buddy/` -- **Separate** GitHub Copilot agent workspace for CKA practice scenarios, labs, and study plans. Primary runtime is GitHub Copilot Chat, not Claude Code. Has its own `cka-cert-buddy/CLAUDE.md` with authoring rules. Do not duplicate the lab-runner code here.
 - `dev/` -- Recording-only assets: per-module demo runbooks for Course 1 (`m01-` and `m03-demo-runbook.md`; there is no `m02-` runbook on disk). `dev/archive/` holds superseded drafts and one-shot helper scripts, both gitignored. Nothing in `dev/` ships to learners.
 - `reference/` -- **Gitignored.** Tim's local strategic reference: official CKA candidate handbook + curriculum PDFs/MD, LLM research outputs (`cka-research-{chatgpt,claude,gemini}.md`), `tim-proposed-skill-path.md`, working module decks. Read it for context, but do not author against it as if it were repo content.
-- `temp/` -- **Gitignored.** Transient working files: course outlines (DOCX), slide decks (PPTX), in-flight research.
+- `notebooks/` -- uv/Jupyter project that regenerates the Course 2 demo runbooks as executable `.ipynb` notebooks (`tools/runbook_to_ipynb.py`). Outputs are cleared before every commit via `clear-outputs.ps1`; a destructive-command regex tags risky cells so you verify a snapshot before running them.
+- `**/temp/` -- **Gitignored** at any depth. Transient working files: course outlines (DOCX), slide decks (PPTX), in-flight research. No `temp/` exists at the repo root today; `src/cka-lab/temp/` does.
 
 ## Public-repo hygiene (HARD RULES)
 
@@ -48,26 +49,16 @@ This is a **public** repo at `timothywarner-org/ps-cka` (note: the org, not the 
 
 Course 11 is the exam-prep capstone. Course 1 establishes the shared lab cluster and diagnostic ladder pattern used throughout.
 
-## Two Lab Paths
+## The Lab
 
-Both paths live under `src/cka-lab/`. Pick based on the module scenario.
+The lab lives under `src/cka-lab/`.
 
-### Fast path -- KIND console app
-
-PowerShell 7 interactive menus that spin up multi-node clusters as Docker containers on Windows/WSL2. Sub-30-second create, four topology choices in the `kind-up.ps1` menu (`Simple` 1+1, `Standard` 1+2 = CKA exam topology, `HA` 3+2, `Workloads` 1+3), four guided tutorials dot-sourced from `lib/tutorials.ps1`. Entry points: `kind-up.ps1`, `kind-down.ps1`, `Start-Tutorial.ps1`. Status probes (read-only, CI-safe): `kind-status.ps1` (universal), `kind-multi-status.ps1` (cka-dev/cka-prod pair), `cka-status.ps1` (Hyper-V VMs). Used for the vast majority of demos across all 11 courses.
-
-- Learner walkthrough: `src/cka-lab/TUTORIAL-KIND.md`
-- Internal architecture: `src/cka-lab/CLAUDE.md`
-
-### Multi-cluster add-on -- kubectl context practice
-
-Layered on top of the KIND path for the Course 1, Module 2 context drills. Brings up TWO clusters side by side so learners can practice `kubectl config use-context`, `--context`, `rename-context`, and `set-context --current --namespace`.
-
-- `kind-multi-up.ps1` -- creates `cka-dev` (1 CP + 1 worker, host ports 30100/30180) and `cka-prod` (1 CP + 2 workers, host ports 30200/30280)
-- `kind-multi-down.ps1` -- teardown; `-ClearRenamed` also removes the `dev` / `prod` renamed contexts
-- `Start-ContextPractice.ps1` -- 8-drill interactive walkthrough
-- Configs: `src/cka-lab/configs/cka-dev.yaml`, `src/cka-lab/configs/cka-prod.yaml`
-- All three scripts carry `#!/usr/bin/env pwsh` shebangs, so `./kind-multi-up.ps1` works from bash in WSL2 -- not only `pwsh ./kind-multi-up.ps1`
+**History note:** this repo once shipped a second, KIND-on-Docker "fast path"
+(`kind-up.ps1`, `kind-multi-up.ps1`, `Start-Tutorial.ps1`, `lib/tutorials.ps1`,
+`TUTORIAL-KIND.md`, `configs/*.yaml`). Those files were removed in `b9f37a6`
+and the docs that described them were corrected on 2026-08-22. Courses 2, 3,
+and 4 were all recorded against the Hyper-V Vagrant lab. Do not reintroduce
+KIND instructions unless the scripts come back with them.
 
 ### Exam-shaped path -- Hyper-V Vagrant lab
 
@@ -85,28 +76,35 @@ Target Kubernetes version for both paths: **v1.35** (exam-aligned).
 - **Globomantics storyline**: All demos follow a fictional company migrating to Kubernetes. Maintain this narrative when creating exercise content.
 - **Diagnostic ladder pattern**: `get > describe > logs > events` -- introduced in Course 1, Module 3, and reinforced in every subsequent course.
 - **Imperative-first demos**: Use `kubectl run`, `kubectl create`, `kubectl expose` with `--dry-run=client -o yaml` pipeline for exam speed. Write YAML only when imperative shortcuts don't exist.
-- **Standard test target** (per `CONTRIBUTING.md`): manifests must work on a default kind cluster (1 CP + 2 workers) at Kubernetes v1.35.
+- **Standard test target** (per `CONTRIBUTING.md`): manifests must work on a default cluster (1 CP + 2 workers) at Kubernetes v1.35.
 - **Course outline format**: DOCX following the Pluralsight author template.
 - **Slide decks**: PPTX built from the Pluralsight 2026.03.a brand template.
+
+### Tutorial conventions (HISTORICAL -- `lib/tutorials.ps1` no longer exists)
+
+These rules governed the KIND-path interactive tutorials that were removed in
+`b9f37a6`. Kept because the Course 1 runbooks in `dev/` still describe that
+flow, and because the pacing rules are worth reusing if on-rails tutorials
+ever return. They do NOT describe any script currently in this repo.
+
 - **On-rails tutorials cap at 10 sections**: every interactive tutorial in `src/cka-lab/lib/tutorials.ps1` (Module functions `Start-TutorialM0X`) is sized for on-camera pacing — 10 sections max, every section carries `-CommandBreakdown` and (where output is shown) `-OutputFields`. Bar is exam-relevance × pacing, not comprehensive coverage. Drop or merge to fit; the demo runbook in `dev/` must match the section numbers exactly. Never let a tutorial drift past 10.
 - **Sections may contain multiple beats**: 10 SECTIONS is still the hard cap, but a section may split into 2-3 BEATS via the `-Steps` array on `Write-TutorialSection` when teaching a cause/effect arc that needs an Enter press between cause and effect (e.g. delete pod -> watch ReplicaSet resurrect; scale Deployment -> watch EndpointSlice grow). M03 uses this on sections 1, 2, 3, 5, 9, 10 (14 multi-beats across those six sections; sections 4, 6, 7, 8 stay single-command). Render rule the helper enforces: an Enter press belongs in front of a teaching output, never in front of setup or `Start-Sleep`. Setup beats may carry an empty `OutputFields` so the "What you just saw" block is skipped — the next beat's output IS the lesson.
 - **Tutorial breathing-room render**: `Write-TutorialBeatBody` frames every block (beat header, command line, breakdown, command output, output-fields, terminator dashes) with blank-line padding so the on-camera frame doesn't crowd. Yellow Command line + Wong sky-blue command output = instant cause/effect contrast. If you add or edit a tutorial, render through the helper -- do not bypass it with raw Write-Output blocks or the breathing-room rhythm desyncs.
 
 ## Working with Exercise Files
 
-Exercise files are Kubernetes YAML manifests, shell scripts, and kind/Vagrant configs. When creating new exercise files:
+Exercise files are Kubernetes YAML manifests, shell scripts, and Vagrant configs. When creating new exercise files:
 
 1. Place them in the correct `course-NN/mNN-module/` directory.
 2. Use descriptive filenames matching the demo scenario (e.g., `broken-deployment.yaml`, `networkpolicy-deny-all.yaml`).
 3. Include comments linking to CKA exam objectives where relevant.
-4. Ensure manifests work on both lab paths with Kubernetes v1.35.
+4. Ensure manifests work on the Hyper-V Vagrant lab at Kubernetes v1.35.
 
 ## Per-Module Demo Runbooks
 
-Recording runbooks for Course 1 (Foundations) live in `dev/`. Each has pre-flight, camera checklist, exact Enter-press click path, timed demos mapped to section numbers in `src/cka-lab/lib/tutorials.ps1`, reset-between-takes, and a recovery cheat sheet.
+Recording runbooks for Course 1 (Foundations) live in `dev/`. Each has pre-flight, camera checklist, exact Enter-press click path, timed demos, reset-between-takes, and a recovery cheat sheet. They target the removed KIND tutorial flow (see the history note above), so treat them as a record of what was recorded rather than as runnable instructions. Only `m01-` and `m03-demo-runbook.md` exist; there is no `m02-`.
 
 - `dev/m01-demo-runbook.md` -- Architecture & Lab Setup (~12-13 min)
-- `dev/m02-demo-runbook.md` -- kubectl Workflows (~10-12 min; section 5/10 is the scripted `kubectl apply -f` round-trip + `get all` "all is a lie" callout; multi-cluster intentionally NOT in this module)
 - `dev/m03-demo-runbook.md` -- Core Resources & Diagnostic Ladder (~16-18 min; sections 1, 2, 3, 5, 9, 10 are multi-beat via `-Steps` -- the runbook click path enumerates each beat's Enter press; the diagnostic ladder anchors the module: rung 1 GET (status), rung 2 DESCRIBE (events), rung 3 LOGS (with `--previous` for CrashLoopBackOff), rung 4 EVENTS (timeline); section 10/10 covers multi-cluster context switching with a graceful skip if `cka-dev`/`cka-prod` aren't up; uses EndpointSlices not legacy Endpoints)
 
 Older drafts under `dev/archive/` are superseded -- kept around, not authoritative.

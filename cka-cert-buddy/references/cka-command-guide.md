@@ -1237,8 +1237,11 @@ kubectl cluster-info dump
 kubectl api-resources
 kubectl api-versions
 
-# Check component statuses
-kubectl get componentstatuses
+# Check control plane health.
+# NOTE: `kubectl get componentstatuses` (cs) is DEPRECATED since v1.19 and
+# returns unreliable output on modern kubeadm clusters. Use these instead.
+kubectl get --raw='/readyz?verbose'
+kubectl -n kube-system get pods -l tier=control-plane
 ```
 
 ---

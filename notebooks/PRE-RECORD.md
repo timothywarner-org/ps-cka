@@ -8,16 +8,16 @@ The notebook only works on camera if the lab state and the JupyterLab UI are bot
 - [ ] `.\clear-outputs.ps1` — strips stale rehearsal outputs from every .ipynb
 - [ ] `cd C:\github\ps-cka\src\cka-lab`
 - [ ] Module-specific snapshot restore:
-    - **m01:** `.\cka-up.ps1` (or `.\cka-restore.ps1 fresh-vms` if recordings have polluted state)
-    - **m02:** `.\cka-restore.ps1 post-prereqs`
-    - **m03:** `.\cka-restore.ps1 post-init-join`
-- [ ] `.\cka-validate.ps1` — must end with `ALL NODES READY`
+    - **m01:** `.\Start-CkaLab.ps1` (or `.\Restore-CkaSnapshot.ps1 fresh-vms` if recordings have polluted state)
+    - **m02:** `.\Restore-CkaSnapshot.ps1 post-prereqs`
+    - **m03:** `.\Restore-CkaSnapshot.ps1 post-init-join`
+- [ ] `.\Test-CkaLabReady.ps1` — must end with `ALL NODES READY`
 
 ## JupyterLab UI
 
 - [ ] Launch JupyterLab via `notebooks\launch.ps1`
 - [ ] **View → Simple Interface** (hides left sidebar, file browser, etc.)
-- [ ] Open the module's notebook (e.g., `c02-m01-host-prep.ipynb`)
+- [ ] Open the module's notebook (e.g., `c02-m01-linux-host-prep.ipynb`)
 - [ ] Confirm kernel shows `.NET (PowerShell)` in the top-right
 - [ ] Browser zoom set to **125%** for screen recording
 - [ ] Notifications muted (Windows Focus Assist on, Slack DND, Teams Do Not Disturb)
@@ -28,9 +28,9 @@ The notebook only works on camera if the lab state and the JupyterLab UI are bot
 - [ ] Take a `pre-record` snapshot AFTER all of the above passes:
     ```powershell
     cd C:\github\ps-cka\src\cka-lab
-    .\cka-snapshot.ps1 pre-record
+    .\Save-CkaSnapshot.ps1 pre-record
     ```
-- [ ] If anything goes sideways mid-take, `.\cka-restore.ps1 pre-record` rewinds in 60-90 sec.
+- [ ] If anything goes sideways mid-take, `.\Restore-CkaSnapshot.ps1 pre-record` rewinds in 60-90 sec.
 
 ## During the take
 

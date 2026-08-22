@@ -8,7 +8,7 @@
 **CKA domain:** Cluster Architecture, Installation & Configuration (25%) - "Perform a version upgrade on a Kubernetes cluster using kubeadm"
 
 > **This MD mirrors the app. The on-rails console app
-> [`Invoke-M02Upgrade.ps1`](../../../src/cka-lab/course-03-lifecycle-upgrades/Invoke-M02Upgrade.ps1)
+> [`Invoke-M02Upgrade.ps1`](../../../src/cka-lab/Invoke-M02Upgrade.ps1)
 > is the SOURCE OF TRUTH** for this demo - it runs the real commands, phase by
 > phase, with this exact talk track on screen. This document is the readable
 > companion: same 8 phases, same names, same narration, same tips. Edit the app,
@@ -313,5 +313,5 @@ kubectl get pods -A | grep -E 'globo-shop|kube-system|calico'
 
 ---
 
-Source of truth: [`Invoke-M02Upgrade.ps1`](../../../src/cka-lab/course-03-lifecycle-upgrades/Invoke-M02Upgrade.ps1).
-Lab controls + snapshots: [`course-03-lifecycle-upgrades/README.md`](../../../src/cka-lab/course-03-lifecycle-upgrades/README.md).
+Source of truth: [`Invoke-M02Upgrade.ps1`](../../../src/cka-lab/Invoke-M02Upgrade.ps1).
+Lab controls + snapshots: [`course-03-lifecycle-upgrades/README.md`](../../../src/cka-lab/README.md).

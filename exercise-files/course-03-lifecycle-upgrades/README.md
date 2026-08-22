@@ -22,8 +22,8 @@ Keep a cluster healthy over time: back up and restore etcd, run a live kubeadm v
 
 1. Open the module folder for the video you're watching; its **README** lists every file and maps it to the CKA exam objectives.
 2. Spin up a cluster from [`src/cka-lab/`](../../src/cka-lab/) and run the demos yourself.
-3. Manifests target a standard kind cluster (1 control-plane + 2 workers) at Kubernetes **v1.35**.
+3. Manifests target a standard cluster (1 control-plane + 2 workers) at Kubernetes **v1.35**.
 
 ### Course 3 lab drivers
 
-Course 3 records off the Hyper-V Vagrant lab using plain-English control scripts in [`src/cka-lab/course-03-lifecycle-upgrades/`](../../src/cka-lab/course-03-lifecycle-upgrades/) (`Start-CkaLab`, `Save-CkaSnapshot`, `Restore-CkaSnapshot`, and the on-rails `Invoke-M02Upgrade.ps1` / `Invoke-M03Lab.ps1` demo runners). See that folder's [README](../../src/cka-lab/course-03-lifecycle-upgrades/README.md) for the full map.
+Course 3 records off the Hyper-V Vagrant lab using plain-English control scripts in [`src/cka-lab/`](../../src/cka-lab/) (`Start-CkaLab`, `Save-CkaSnapshot`, `Restore-CkaSnapshot`, and the on-rails `Invoke-M02Upgrade.ps1` / `Invoke-M03Lab.ps1` demo runners). See that folder's [README](../../src/cka-lab/README.md) for the full map.

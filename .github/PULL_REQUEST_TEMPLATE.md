@@ -8,7 +8,7 @@
 
 ## Checklist
 
-- [ ] Manifests tested on a kind cluster (Kubernetes v1.35)
+- [ ] Manifests tested on a cluster (Kubernetes v1.35)
 - [ ] Files placed in the correct `course-NN/mNN-module/` directory
 - [ ] Filenames are descriptive and match the demo scenario
 - [ ] No secrets, tokens, or credentials included

@@ -6,7 +6,7 @@ Thank you for your interest in contributing to the CKA Skill Path exercise files
 
 1. **Fork** this repository
 2. **Create a branch** for your change (`git checkout -b fix/broken-manifest`)
-3. **Make your changes** and test them against a kind cluster running Kubernetes v1.35
+3. **Make your changes** and test them against a cluster running Kubernetes v1.35
 4. **Commit** with a descriptive message (`git commit -m "fix: correct selector label in networkpolicy-deny-all.yaml"`)
 5. **Push** to your fork and open a **Pull Request**
 
@@ -19,7 +19,7 @@ Thank you for your interest in contributing to the CKA Skill Path exercise files
 
 ## Guidelines
 
-- All Kubernetes manifests must work on a standard kind cluster (1 control-plane + 2 workers)
+- All Kubernetes manifests must work on a standard cluster (1 control-plane + 2 workers)
 - Target Kubernetes v1.35 unless a specific version is required for the demo
 - Use descriptive filenames that match the demo scenario
 - Include comments linking to CKA exam objectives where relevant

@@ -33,9 +33,9 @@ uv sync
 cd notebooks
 
 # Regenerate notebooks after any runbook edit (idempotent — safe to re-run)
-uv run python tools\runbook_to_ipynb.py ..\m01-linux-host-prep\c02-m01-demo-runbook.md
-uv run python tools\runbook_to_ipynb.py ..\m02-kubeadm-init-join\c02-m02-demo-runbook.md
-uv run python tools\runbook_to_ipynb.py ..\m03-cni-cluster-validation\c02-m03-demo-runbook.md
+uv run python tools\runbook_to_ipynb.py ..\exercise-files\course-02-kubeadm-cluster-install\m01-linux-host-prep\c02-m01-demo-runbook.md
+uv run python tools\runbook_to_ipynb.py ..\exercise-files\course-02-kubeadm-cluster-install\m02-kubeadm-init-join\c02-m02-demo-runbook.md
+uv run python tools\runbook_to_ipynb.py ..\exercise-files\course-02-kubeadm-cluster-install\m03-cni-cluster-validation\c02-m03-demo-runbook.md
 
 # Launch (opens browser to JupyterLab)
 .\launch.ps1
@@ -60,8 +60,8 @@ Always: **View → Simple Interface** in JupyterLab. Hides the sidebar/toolbar s
 See `PRE-RECORD.md`. Short version:
 
 1. `.\clear-outputs.ps1`
-2. `cd C:\github\ps-cka\src\cka-lab` → `.\cka-restore.ps1 <module-snapshot>` (m01→`fresh-vms`, m02→`post-prereqs`, m03→`post-init-join`)
-3. `.\cka-validate.ps1` must say `ALL NODES READY`
+2. `cd C:\github\ps-cka\src\cka-lab` → `.\Restore-CkaSnapshot.ps1 <module-snapshot>` (m01→`fresh-vms`, m02→`post-prereqs`, m03→`post-init-join`)
+3. `.\Test-CkaLabReady.ps1` must say `ALL NODES READY`
 4. JupyterLab Simple Mode, 125% browser zoom, notifications off
 5. Take a `pre-record` snapshot
 
@@ -95,7 +95,7 @@ Notebooks are **byte-stable** on re-run. Two runs = identical SHA256.
 
 - Run cells against the actual VMs (you do that on camera)
 - Validate `kubeadm` exit codes
-- Replace your `cka-validate.ps1` cross-node check
+- Replace your `Test-CkaLabReady.ps1` cross-node check
 - Course 1 or Course 3 (deferred — prove m01 on camera first)
 
 ## Files at a glance

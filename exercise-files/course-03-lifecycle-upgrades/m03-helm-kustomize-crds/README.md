@@ -5,11 +5,16 @@ package management with **Helm**, template-free customization with **Kustomize**
 and extending the API with **Custom Resource Definitions (CRDs)**.
 
 The on-rails demo driver is `Invoke-M03Lab.ps1` in
-`src/cka-lab/course-03-lifecycle-upgrades/`. It pushes this tree to the lab node
+`src/cka-lab/`. It pushes this tree to the lab node
 and runs every command live. You can also run the commands yourself against any
 v1.35 cluster.
 
 The module slide deck (PDF) is [`m03-helm-kustomize-crds-slides.pdf`](m03-helm-kustomize-crds-slides.pdf).
+
+Two more files in this folder:
+
+- [`CKA-C03-M03-demo-runbook.md`](CKA-C03-M03-demo-runbook.md) -- the recording runbook: pre-flight, timed demo beats, and the exam doc-lookup technique.
+- [`m03-helm-demo.sh`](m03-helm-demo.sh) -- the Helm half of the demo as a standalone script, if you would rather drive it yourself than use the on-rails driver.
 
 ## Kustomize -- `m03-kustomize-demo/`
 
