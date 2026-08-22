@@ -110,10 +110,10 @@ Best for: Course 2, anything that needs real systemd, a real package manager, or
 ```powershell
 cd src/cka-lab
 vagrant up --provider=hyperv   # admin pwsh required
-.\cka-validate.ps1             # confirm prereqs
-.\cka-snapshot.ps1             # save "pre-cluster" baseline
+.\Test-CkaLabReady.ps1         # confirm prereqs
+.\Save-CkaSnapshot.ps1         # save "pre-cluster" baseline
 vagrant ssh control1           # bootstrap the cluster yourself
-.\cka-restore.ps1              # nuke it, go again
+.\Restore-CkaSnapshot.ps1      # nuke it, go again
 ```
 
 Walkthrough -> [`src/cka-lab/TUTORIAL-HYPERV.md`](src/cka-lab/TUTORIAL-HYPERV.md)
@@ -154,7 +154,7 @@ Each module folder contains Kubernetes YAML manifests, shell scripts, and config
 
 ## Pluralsight Course 1 Download
 
-If you arrived here from the Pluralsight Course 1 ("Kubernetes Foundations") **Exercise Files** download, the file you grabbed (`k8s-foundations-exercise-files.md`) is a pointer back to this repo. All manifests, lab scripts, and recording runbooks live here -- clone the repo and keep it open while you watch the videos.
+If you arrived here from a Pluralsight **Exercise Files** download, the file you grabbed (one of the pointers in [`docs/`](docs/)) is a signpost back to this repo. All manifests, lab scripts, and recording runbooks live here -- clone the repo and keep it open while you watch the videos.
 
 ## Recording Runbooks (Course 1)
 

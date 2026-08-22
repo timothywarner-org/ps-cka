@@ -1,20 +1,15 @@
-# Course 3 -- Cluster Lifecycle & Upgrades -- Lab Controls
+# CKA Lab -- Recording Workflow
 
-These are your **Course 3 lab controls**: the same Hyper-V Vagrant lab as always
-(3 VMs -- **control1**, **worker1**, **worker2**), with **plain-English script names**
-so you always know which one to run.
-
-> **The lab itself lives one level up** (`..\` = `src\cka-lab` -- the Vagrantfile,
-> the `lib\` folder, and your existing VMs). The scripts in here drive **those same
-> VMs**. They do **not** create a second cluster, and they do **not** touch your
-> working setup -- they just wrap it with clearer names.
+The lab is a single Hyper-V + Vagrant 3-node cluster (**control1**, **worker1**,
+**worker2**), driven by the **plain-English scripts** in this folder so you always
+know which one to run.
 
 ## How to run
 
 Open an **Administrator PowerShell 7** window, then:
 
 ```powershell
-cd C:\github\ps-cka\src\cka-lab\course-03-lifecycle-upgrades
+cd C:\github\ps-cka\src\cka-lab
 .\Start-CkaLab.ps1
 ```
 
@@ -23,19 +18,20 @@ The snapshot pair supports `-WhatIf` (safe dry run that changes nothing).
 
 ## Which script does what
 
-| Run this | What it does | (was) |
-|---|---|---|
-| **Start-CkaLab.ps1** | Boot the 3 VMs (no re-provision), then show how to connect | cka-up.ps1 |
-| **Build-M02UpgradeLab.ps1** | Rebuild the 3 VMs clean at **v1.34** and auto-snapshot `m02-pre-upgrade` (for the M02 upgrade demo) | (new) |
-| **Stop-CkaLab.ps1** | Gracefully halt the 3 VMs (end of session) | cka-down.ps1 |
-| **Save-CkaSnapshot.ps1** `<name>` | Checkpoint all 3 VMs -- your "save point" before a take | cka-snapshot.ps1 |
-| **Restore-CkaSnapshot.ps1** `<name>` | Rewind all 3 VMs to a checkpoint -- the "re-record" button | cka-restore.ps1 |
-| **Remove-CkaSnapshot.ps1** | Inventory (default) then prune checkpoint cruft -- keeps the VMs and your save points | (new) |
-| **Invoke-M02Upgrade.ps1** | On-rails M02 demo: restore v1.34, upgrade to v1.35 live, phase by phase | (new) |
-| **Invoke-M03Lab.ps1** | On-rails M03 demo: Helm, Kustomize, CRDs + the exam doc technique, live | (new) |
-| **Get-CkaLabStatus.ps1** | Show each VM's power + ping state (offers graceful halt) | cka-status.ps1 |
-| **Get-CkaConnectionInfo.ps1** | Show node IPs + SSH commands | cka-info.ps1 |
-| **Test-CkaLabReady.ps1** | Check kubeadm prereqs on all 3 VMs | cka-validate.ps1 |
+| Run this | What it does |
+|---|---|
+| **Start-CkaLab.ps1** | Boot the 3 VMs (no re-provision), then show how to connect |
+| **Stop-CkaLab.ps1** | Gracefully halt the 3 VMs (end of session) |
+| **Get-CkaLabStatus.ps1** | Show each VM's power + ping state (offers graceful halt) |
+| **Get-CkaConnectionInfo.ps1** | Show node IPs + SSH commands |
+| **Test-CkaLabReady.ps1** | Check kubeadm prereqs on all 3 VMs |
+| **Save-CkaSnapshot.ps1** `<name>` | Checkpoint all 3 VMs -- your "save point" before a take |
+| **Restore-CkaSnapshot.ps1** `<name>` | Rewind all 3 VMs to a checkpoint -- the "re-record" button |
+| **Remove-CkaSnapshot.ps1** | Inventory (default) then prune checkpoint cruft -- keeps the VMs and your save points |
+| **Build-M02UpgradeLab.ps1** | Rebuild the 3 VMs clean at **v1.34** and auto-snapshot `m02-pre-upgrade` (for the M02 upgrade demo) |
+| **Invoke-M02Upgrade.ps1** | On-rails M02 demo: restore v1.34, upgrade to v1.35 live, phase by phase |
+| **Invoke-M03Lab.ps1** | On-rails M03 demo: Helm, Kustomize, CRDs + the exam doc technique, live |
+| **Invoke-KubeletFlagRepair.ps1** | On-rails repair demo for a stale kubelet flag |
 
 All output uses **text labels** (`[OK]` / `[INFO]` / `[WARN]` / `[ERROR]`) on the
 colorblind-safe palette -- nothing depends on color alone.
@@ -97,9 +93,8 @@ by phase. Same harness as `Invoke-M02Upgrade.ps1`.
 .\Save-CkaSnapshot.ps1 m03-pre-helm
 
 # 2) Record the module. The script restores to pristine v1.35 on launch, so every
-#    take starts from the identical frame. -OpenDocs also pops kubernetes.io at
-#    each documentation beat:
-.\Invoke-M03Lab.ps1            # or:  .\Invoke-M03Lab.ps1 -OpenDocs
+#    take starts from the identical frame:
+.\Invoke-M03Lab.ps1
 
 # 3) Re-record any time -- the launch restore is the rewind. Or do it by hand:
 .\Restore-CkaSnapshot.ps1 m03-pre-helm
@@ -137,7 +132,3 @@ clear the pile but keep the VMs and your save points:
 The VMs are never touched -- only checkpoints. Removing a checkpoint merges its
 `.avhdx` back into the parent in the background, which is how the disk space comes
 back. Names in `-Keep` are never removed, even if you also name them in `-Name`.
-
-> The original generic `cka-*.ps1` scripts in the parent `src\cka-lab` folder still
-> work and are unchanged -- they are the shared engine. **For Course 3, use the
-> clearly-named scripts in this folder.**

@@ -4,12 +4,12 @@
 **Environment:** Admin pwsh 7 on Windows 11 → `vagrant ssh control1` (Ubuntu 22.04)
 **Lab:** **Hyper-V + Vagrant** (NOT KIND) — `src/cka-lab` with control1, worker1, worker2 on `192.168.50.10/.11/.12`
 **Authoritative command source:** Deck slides 7 / 12 / 13 / 15 show the install commands; `src/cka-lab/Vagrantfile` already ran them at `vagrant up` time. The demo VERIFIES state, doesn't install.
-**Validator:** `src/cka-lab/cka-validate.ps1` (run from the Windows host; SSHes all three VMs in sequence)
+**Validator:** `src/cka-lab/Test-CkaLabReady.ps1` (run from the Windows host; SSHes all three VMs in sequence)
 **Cleanup between takes:** None — every check is read-only or idempotent. Snapshot to `m02-start` at the end and Module 2 starts from a known-good baseline.
 
 > **Verify-first, not install-first.** The Vagrantfile provisioner already ran the full slides-7/12/13/15 install sequence on all three nodes at `vagrant up`. So the on-camera demo isn't "type the install commands" — it's "inspect the host and prove every prereq is correct." This is the same skill the CKA exam tests: handed a node that someone else prepared, can you verify it before bootstrapping? Show the deck slides for the install commands, then prove the state on the live VM. **Mention this on camera** with a one-liner like: "The install ran when these VMs booted — that's slides 7, 12, 13, 15 — so on camera we'll verify, the same skill the exam tests on a prepared node."
 
-> **Lab path reminder:** This module uses the **Vagrant / Hyper-V** lab, not KIND. The `cka-*.ps1` scripts (`cka-up`, `cka-down`, `cka-status`, `cka-validate`, `cka-snapshot`, `cka-restore`, `cka-info`) are the Vagrant entry points. The `kind-*.ps1` scripts are for Course 1 only. Don't mix them.
+> **Lab path reminder:** This module uses the **Vagrant / Hyper-V** lab, not KIND. The `cka-*.ps1` scripts (`Start-CkaLab`, `Stop-CkaLab`, `cka-status`, `cka-validate`, `cka-snapshot`, `cka-restore`, `cka-info`) are the Vagrant entry points. The `kind-*.ps1` scripts are for Course 1 only. Don't mix them.
 
 > **Course 2 design principle:** This runbook has NO `Start-TutorialMXX` wrapper. Course 1 wraps kubectl drills in PowerShell tutorials because the value of those modules is *speed of reps*. Course 2's value is *unwrapped exposure to the real Linux shell* — typing every command yourself is the entire pedagogical bet.
 
@@ -43,17 +43,17 @@ cd C:\github\ps-cka\src\cka-lab
 ### Step 1 — Confirm VM state (Vagrant/Hyper-V status probe)
 
 ```powershell
-.\cka-status.ps1
+.\Get-CkaLabStatus.ps1
 ```
 
 **Expected:** all three VMs listed as `Running` with IPs `.10/.11/.12` reachable.
 **If any VM is `Off` or `Saved`:** go to Step 2.
-**If `cka-status.ps1` reports NO VMs at all** (Day 1 of recording or post-`vagrant destroy`): skip to Step 2b.
+**If `Get-CkaLabStatus.ps1` reports NO VMs at all** (Day 1 of recording or post-`vagrant destroy`): skip to Step 2b.
 
 ### Step 2 — Boot VMs (warm boot, no re-provision)
 
 ```powershell
-.\cka-up.ps1
+.\Start-CkaLab.ps1
 ```
 
 This wraps `vagrant up --no-provision` — fast, no provisioner re-run.
@@ -69,7 +69,7 @@ vagrant up --provider=hyperv
 ### Step 3 — Sanity-check all prereqs across 3 VMs
 
 ```powershell
-.\cka-validate.ps1
+.\Test-CkaLabReady.ps1
 ```
 
 **Must end with:** `ALL NODES READY — safe to snapshot or run kubeadm init on control1`. If it doesn't, recording is blocked — fix before Step 4.
@@ -77,10 +77,10 @@ vagrant up --provider=hyperv
 ### Step 4 — Snapshot the pre-record state
 
 ```powershell
-.\cka-snapshot.ps1 pre-record
+.\Save-CkaSnapshot.ps1 pre-record
 ```
 
-Atomic checkpoint across all 3 VMs. A failed take = `cka-restore.ps1 pre-record` in ~60-90 sec.
+Atomic checkpoint across all 3 VMs. A failed take = `Restore-CkaSnapshot.ps1 pre-record` in ~60-90 sec.
 
 ### Step 5 — Dry-run the demo OFF camera
 
@@ -93,8 +93,8 @@ Inside the VM, walk Demos 1-4 below. Confirm muscle memory. Idempotent re-runs a
 ### Camera checklist (final scan before recording)
 
 - [ ] Admin pwsh, font 16pt+, 140 cols wide, prompt trimmed
-- [ ] `.\cka-info.ps1` shows all 3 nodes **UP** with their `.10/.11/.12` IPs
-- [ ] `.\cka-validate.ps1` ended with `ALL NODES READY`
+- [ ] `.\Get-CkaConnectionInfo.ps1` shows all 3 nodes **UP** with their `.10/.11/.12` IPs
+- [ ] `.\Test-CkaLabReady.ps1` ended with `ALL NODES READY`
 - [ ] Only one terminal window visible — no chat apps, no notifications
 - [ ] Screen recorder set to 1080p, no HiDPI blur, no taskbar
 - [ ] Deck slide 5 (kernel modules table) open on second monitor for reference
@@ -111,8 +111,8 @@ Inside the VM, walk Demos 1-4 below. Confirm muscle memory. Idempotent re-runs a
 6. **Demo 4** — VERIFY packages installed + held (3 read-only checks, see Demo 4 section)
 7. `exit` → ENTER → back to `vagrant@control1:~$`
 8. `exit` → ENTER → back to admin pwsh on Windows
-9. **Demo 5** — `.\cka-validate.ps1` → ENTER (cross-node verifier)
-10. **Snapshot** — `.\cka-snapshot.ps1 m02-start` → ENTER
+9. **Demo 5** — `.\Test-CkaLabReady.ps1` → ENTER (cross-node verifier)
+10. **Snapshot** — `.\Save-CkaSnapshot.ps1 m02-start` → ENTER
 
 **Total ENTERs:** ~25 across the whole module. Slow is smooth, smooth is fast.
 
@@ -435,7 +435,7 @@ Expected: `C:\github\ps-cka\src\cka-lab`. If not, `cd` there.
 ### Step 5.4 — Run the validator
 
 ```powershell
-.\cka-validate.ps1
+.\Test-CkaLabReady.ps1
 ```
 
 **Narrate while it runs:**
@@ -455,12 +455,12 @@ Expected: `C:\github\ps-cka\src\cka-lab`. If not, `cd` there.
 ### Step 6.1 — Atomic checkpoint
 
 ```powershell
-.\cka-snapshot.ps1 m02-start
+.\Save-CkaSnapshot.ps1 m02-start
 ```
 
 **Snapshot narration (verbatim):**
 
-> "Atomic Hyper-V checkpoint across all three VMs, named `m02-start`. **Atomic** means all three or none — if even one VM doesn't exist or already has that checkpoint, the script aborts before touching any of them. A partial snapshot is worse than no snapshot. Now Module 2 starts from a known-good baseline: every prereq verified, every node ready, zero cluster state. **One `cka-restore.ps1 m02-start` away from a clean dress rehearsal of `kubeadm init`.**"
+> "Atomic Hyper-V checkpoint across all three VMs, named `m02-start`. **Atomic** means all three or none — if even one VM doesn't exist or already has that checkpoint, the script aborts before touching any of them. A partial snapshot is worse than no snapshot. Now Module 2 starts from a known-good baseline: every prereq verified, every node ready, zero cluster state. **One `Restore-CkaSnapshot.ps1 m02-start` away from a clean dress rehearsal of `kubeadm init`.**"
 
 ### Slide 19 — Globomantics checkout (~30 sec)
 
@@ -488,7 +488,7 @@ Every command in this module is idempotent. A failed take doesn't require a tear
 ### Fast rewind (most common)
 
 ```powershell
-.\cka-restore.ps1 pre-record
+.\Restore-CkaSnapshot.ps1 pre-record
 ```
 
 ~60-90 sec. Back to the pre-record snapshot from Pre-flight Step 4.
@@ -496,7 +496,7 @@ Every command in this module is idempotent. A failed take doesn't require a tear
 ### Redo Demo 5 only (no SSH needed)
 
 ```powershell
-.\cka-validate.ps1
+.\Test-CkaLabReady.ps1
 ```
 
 ### Nuke everything and rebuild from absolute zero
@@ -511,8 +511,8 @@ vagrant up --provider=hyperv
 ### Snapshot library to build during dry-runs
 
 ```powershell
-.\cka-snapshot.ps1 pre-record       # baseline before each take
-.\cka-snapshot.ps1 m02-start     # after Demo 5 — Module 2's starting point
+.\Save-CkaSnapshot.ps1 pre-record       # baseline before each take
+.\Save-CkaSnapshot.ps1 m02-start     # after Demo 5 — Module 2's starting point
 ```
 
 ---
@@ -521,14 +521,14 @@ vagrant up --provider=hyperv
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `vagrant ssh control1` hangs at the prompt | VM is `Saved`, not `Running` | `.\cka-up.ps1` from admin pwsh first |
-| `cka-status.ps1` shows no VMs at all | Day 1 of recording, or post-`vagrant destroy` | `vagrant up --provider=hyperv` (~10-15 min cold, ~5 min on box cache) |
+| `vagrant ssh control1` hangs at the prompt | VM is `Saved`, not `Running` | `.\Start-CkaLab.ps1` from admin pwsh first |
+| `Get-CkaLabStatus.ps1` shows no VMs at all | Day 1 of recording, or post-`vagrant destroy` | `vagrant up --provider=hyperv` (~10-15 min cold, ~5 min on box cache) |
 | `sudo: command not found` for any tool | Provisioner didn't complete on this VM | `vagrant provision control1` re-runs the installer idempotently |
 | `crictl info` errors with `permission denied` on the socket | You're running as `vagrant`, not `root` — skipped `sudo -i` from the click path | `sudo -i` then re-run. The containerd socket is `0660 root:root` by design |
 | `dpkg -l ... \| grep ^ii` returns empty but packages ARE installed | Packages are **held** (`hi` prefix), not plain installed (`ii`) | Use `grep ^hi` (or `grep -E '^[ih]i'`) — see Step 4.1's status-prefix table |
 | `crictl info` errors with `connect: no such file or directory` | containerd not running | `sudo systemctl start containerd` — then root-cause via `journalctl -xeu containerd` |
 | `kubectl` works on the host but not inside the VM | Expected — no `~/.kube/config` until `kubeadm init` in Module 2 | Not a problem. Don't fix it. |
-| `cka-validate.ps1` shows a single FAIL on one node | Drift on that VM | `vagrant ssh <node>` → re-run the relevant Demo 1-4 block on that node only |
+| `Test-CkaLabReady.ps1` shows a single FAIL on one node | Drift on that VM | `vagrant ssh <node>` → re-run the relevant Demo 1-4 block on that node only |
 | Apt repo errors (`pkgs.k8s.io` 403/404) | Network or VPN interfering with HTTPS to k8s.io | Check VPN, then `sudo apt-get update` — if fixed, re-run from Demo 4 |
 | `(activating)` kubelet from Demo 4 becomes `inactive (dead)` | systemd gave up after restart budget | `sudo systemctl reset-failed kubelet && sudo systemctl start kubelet` — still crashloops, still healthy |
 | "Subnet 192.168.50.0/24 already routed via interface ..." | Another Vagrant env, Docker bridge, WSL2 distro, or VPN owns the subnet | Free the subnet or edit `$Subnet`/`$GatewayIP` in `create-nat-switch.ps1` |
@@ -539,24 +539,24 @@ vagrant up --provider=hyperv
 ## Source mapping
 
 - **Live commands:** Deck slides 7 (kernel/sysctl), 12 (containerd), 13 (crictl), 15 (packages). One-to-one with what you type on camera.
-- **Validator:** `src/cka-lab/cka-validate.ps1` (PowerShell wrapper) → `src/cka-lab/lib/validate-node.sh` (the 9 bash checks). Edit the bash if you want to add a check; the wrapper picks it up automatically.
+- **Validator:** `src/cka-lab/Test-CkaLabReady.ps1` (PowerShell wrapper) → `src/cka-lab/lib/validate-node.sh` (the 9 bash checks). Edit the bash if you want to add a check; the wrapper picks it up automatically.
 - **VM provisioner** (off-camera, ran once at `vagrant up`): `src/cka-lab/Vagrantfile` — same commands as the demo, baked into a shell provisioner. **That's why every command in the demo is idempotent.**
-- **Snapshot helpers:** `src/cka-lab/cka-snapshot.ps1` and `src/cka-lab/cka-restore.ps1` — atomic, all-or-nothing across the three VMs.
+- **Snapshot helpers:** `src/cka-lab/Save-CkaSnapshot.ps1` and `src/cka-lab/Restore-CkaSnapshot.ps1` — atomic, all-or-nothing across the three VMs.
 - **Vagrant lab walkthrough (deeper context):** `src/cka-lab/TUTORIAL-HYPERV.md`.
 
 ---
 
 ## Appendix — How the lab scripts work (mermaids)
 
-### `cka-up.ps1` — what happens when you boot the lab
+### `Start-CkaLab.ps1` — what happens when you boot the lab
 
 ```mermaid
 flowchart TD
-    A["<b>.\\cka-up.ps1</b><br/>admin pwsh required<br/>(#Requires -RunAsAdministrator)"] --> B["vagrant up --no-provision"]
+    A["<b>.\\Start-CkaLab.ps1</b><br/>admin pwsh required<br/>(#Requires -RunAsAdministrator)"] --> B["vagrant up --no-provision"]
     B --> C{"VMs already<br/>exist in Hyper-V?"}
     C -->|Yes, all 3| D["Boot existing VMs<br/>(warm boot, ~30 sec)"]
     C -->|No / partial| E["Vagrant falls through<br/>to FULL provision<br/>(~10-15 min)"]
-    D --> F[".\\cka-info.ps1"]
+    D --> F[".\\Get-CkaConnectionInfo.ps1"]
     E --> F
     F --> G["Print connection table:<br/>control1, worker1, worker2<br/>IPs + UP/DOWN status"]
     G --> H["Return to admin pwsh"]
@@ -567,7 +567,7 @@ flowchart TD
     style G fill:#3a3a3a,stroke:#fff,color:#fff
 ```
 
-**Key insight:** `--no-provision` is the safety. On already-built VMs it's a fast boot (~30 sec). On missing/half-built VMs, Vagrant ignores `--no-provision` and runs the full provisioner anyway. That's why the first `cka-up` after a fresh `vagrant destroy` takes 10-15 min — it's secretly a `vagrant up` with full provisioning.
+**Key insight:** `--no-provision` is the safety. On already-built VMs it's a fast boot (~30 sec). On missing/half-built VMs, Vagrant ignores `--no-provision` and runs the full provisioner anyway. That's why the first `Start-CkaLab` after a fresh `vagrant destroy` takes 10-15 min — it's secretly a `vagrant up` with full provisioning.
 
 ---
 

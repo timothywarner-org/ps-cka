@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>How cka-up.ps1 Works — CKA Lab</title>
+<title>How Start-CkaLab.ps1 Works — CKA Lab</title>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <style>
   body {
@@ -65,7 +65,7 @@
 </head>
 <body>
 
-<h1>How <code>cka-up.ps1</code> Works</h1>
+<h1>How <code>Start-CkaLab.ps1</code> Works</h1>
 <p><strong>Two-line PowerShell wrapper around <code>vagrant up --no-provision</code>.</strong> The interesting behavior is what happens when VMs are missing — <code>--no-provision</code> silently falls through to a full provision because Vagrant can't skip provisioning on a VM that doesn't exist yet.</p>
 
 <div class="legend">
@@ -78,11 +78,11 @@
 <div class="diagram-container">
 <pre class="mermaid">
 flowchart TD
-    A["<b>.\cka-up.ps1</b><br/>admin pwsh required<br/>#Requires -RunAsAdministrator"] --> B["vagrant up --no-provision"]
+    A["<b>.\Start-CkaLab.ps1</b><br/>admin pwsh required<br/>#Requires -RunAsAdministrator"] --> B["vagrant up --no-provision"]
     B --> C{"VMs already<br/>exist in Hyper-V?"}
     C -->|Yes, all 3| D["Warm boot existing VMs<br/>~30 sec"]
     C -->|No / partial| E["Vagrant falls through to<br/>FULL provision<br/>~10-15 min cold<br/>~5 min on box cache"]
-    D --> F[".\cka-info.ps1"]
+    D --> F[".\Get-CkaConnectionInfo.ps1"]
     E --> F
     F --> G["Print connection table:<br/>control1, worker1, worker2<br/>IPs + UP/DOWN status"]
     G --> H["Return to admin pwsh"]
@@ -96,21 +96,21 @@ flowchart TD
 </div>
 
 <div class="key-insight">
-<strong>Key insight:</strong> <code>--no-provision</code> only saves time when VMs already exist. On missing or half-built VMs, Vagrant ignores the flag and runs the full provisioner anyway. That's why the first <code>cka-up</code> after a <code>vagrant destroy</code> takes 10-15 minutes — it's secretly a full <code>vagrant up</code> with provisioning, not a warm boot.
+<strong>Key insight:</strong> <code>--no-provision</code> only saves time when VMs already exist. On missing or half-built VMs, Vagrant ignores the flag and runs the full provisioner anyway. That's why the first <code>Start-CkaLab</code> after a <code>vagrant destroy</code> takes 10-15 minutes — it's secretly a full <code>vagrant up</code> with provisioning, not a warm boot.
 </div>
 
 <h2>What the script actually contains</h2>
-<pre style="background:#000;color:#f5d000;padding:20px;border-radius:6px;overflow-x:auto;font-family:'Consolas','Monaco',monospace;font-size:1.05em;font-weight:600;line-height:1.5;border:2px solid #f5d000;"><code style="background:transparent;color:#f5d000;font-size:1em;"># cka-up.ps1 — Boot all CKA lab VMs (no re-provisioning)
+<pre style="background:#000;color:#f5d000;padding:20px;border-radius:6px;overflow-x:auto;font-family:'Consolas','Monaco',monospace;font-size:1.05em;font-weight:600;line-height:1.5;border:2px solid #f5d000;"><code style="background:transparent;color:#f5d000;font-size:1em;"># Start-CkaLab.ps1 — Boot all CKA lab VMs (no re-provisioning)
 #Requires -RunAsAdministrator
 
 Write-Host "`n=== Starting CKA lab VMs ===" -ForegroundColor Cyan
 vagrant up --no-provision
 Write-Host ""
-.\cka-info.ps1</code></pre>
+.\Get-CkaConnectionInfo.ps1</code></pre>
 
 <h2>When to use it</h2>
 <ul>
-  <li><strong>Every morning</strong> — VMs are <code>Off</code> from <code>cka-down.ps1</code> the night before; <code>cka-up</code> brings them back in ~30 sec</li>
+  <li><strong>Every morning</strong> — VMs are <code>Off</code> from <code>Stop-CkaLab.ps1</code> the night before; <code>Start-CkaLab</code> brings them back in ~30 sec</li>
   <li><strong>After Hyper-V Manager → Save State</strong> — same warm-boot use case</li>
   <li><strong>NOT after <code>vagrant destroy</code></strong> — you'll think you're warm-booting and watch the screen for 15 minutes wondering what's wrong</li>
 </ul>

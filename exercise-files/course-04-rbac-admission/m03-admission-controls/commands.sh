@@ -7,13 +7,24 @@
 #
 # PREREQUISITE: ../setup-contexts.sh has run once.
 #
+# START EVERY RUN WITH:  ./lab.sh reset
+# Every command below keeps the exact form it has on the deck code
+# slides, which means none of them are individually idempotent. `reset`
+# is what makes the module re-runnable -- run it between takes and the
+# creates never hit AlreadyExists.
+#
 # NOTE FOR THE TAKE: the deck's diagnostic slide shows the quota error
 # from the Kubernetes docs, which names mem-cpu-demo. Live output here
 # names production-cap. Say the shape of the message, not the name.
 #
 # These commands are byte-identical to the deck code slides + runbook.
 # =====================================================================
-set -euo pipefail
+# NOT `set -e`. This module's demos are refusals: the oversized Pod, the
+# filled quota, and the privileged Deployment are all SUPPOSED to come
+# back non-zero. With -e the script would end at exactly the teaching
+# moment. This matches demo-drive.sh, so commands.sh and the driver now
+# behave identically.
+set -uo pipefail
 
 M3_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -40,7 +51,7 @@ kubectl apply -f "${M3_DIR}/limitrange-ceiling.yaml"
 kubectl describe limitrange production-defaults -n production
 
 # Half one: the PER-CONTAINER maximum. Rejected on the validating pass.
-kubectl apply -f "${M3_DIR}/oversized-pod.yaml" || true
+kubectl apply -f "${M3_DIR}/oversized-pod.yaml"
 
 # Half two: the NAMESPACE total. Add the quota, then fill it.
 kubectl apply -f "${M3_DIR}/resourcequota.yaml"
@@ -52,6 +63,20 @@ kubectl create deployment filler --image=nginx:1.27 --replicas=6 -n production
 sleep 5
 kubectl get deployment,replicaset -n production
 kubectl describe rs -n production | tail -25          # the Forbidden lives here
+kubectl describe resourcequota production-cap -n production
+
+# --- Beat 2.6: Give the budget back -----------------------------------
+# REQUIRED, not optional. By this point `filler` holds every millicore
+# of limits.cpu: web-1 took 500m, and three filler replicas took 1500m,
+# which is the 2-core hard cap exactly. hardened-pod.yaml declares
+# requests but no limits, so LimitRanger fills in a 500m limit and
+# ResourceQuota refuses the Pod -- then `kubectl wait` below sits there
+# for the full 90 seconds with nothing to wait for.
+#
+# It also teaches better than skipping it: a quota is a live ledger, not
+# a one-time gate. Free the budget and the very next Pod is admitted.
+kubectl delete deployment filler -n production
+kubectl wait --for=delete pod -l app=filler -n production --timeout=60s
 kubectl describe resourcequota production-cap -n production
 
 # --- Beat 3: Harden a Pod and prove which user it runs as -------------
@@ -93,4 +118,6 @@ kubectl describe quota,limitrange -n production
 kubectl describe pod web-1 -n production | tail -15
 
 # --- Reset to zero for the next take ----------------------------------
-# kubectl delete namespace production
+# Use the script, not this comment -- it waits for the namespace to
+# actually go away, which `delete namespace` alone does not:
+#     ./lab.sh reset

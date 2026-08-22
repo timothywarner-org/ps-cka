@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Shared functions for CKA lab scripts.
-    Dot-sourced by kind-up.ps1, kind-down.ps1, and Start-Tutorial.ps1.
+    Dot-sourced by every Hyper-V/Vagrant lab control script in this folder.
 #>
 
 #region Output Helpers
@@ -56,10 +56,11 @@ function Write-Warn {
 
 #region Lab Topology (single source of truth)
 
-# The CKA Course 3 lab is a fixed 3-node Hyper-V cluster. These helpers are the
-# ONE place the node names and IPs are defined, so every wrapper (cka-snapshot,
-# cka-restore, cka-status, cka-info, cka-validate) agrees and the names can never
-# drift apart. If a node is ever renamed or added, change it HERE and nowhere else.
+# The CKA lab is a fixed 3-node Hyper-V cluster. These helpers are the ONE place
+# the node names and IPs are defined, so every wrapper (Save-CkaSnapshot,
+# Restore-CkaSnapshot, Get-CkaLabStatus, Get-CkaConnectionInfo, Test-CkaLabReady)
+# agrees and the names can never drift apart. If a node is ever renamed or added,
+# change it HERE and nowhere else.
 
 function Get-CkaLabNodes {
     <#
@@ -93,7 +94,7 @@ function Initialize-LabEncoding {
         Forces the console and PowerShell pipeline to UTF-8.
 
     .DESCRIPTION
-        KIND, kubectl, and docker emit UTF-8 (bullets, checkmarks, emoji). The
+        vagrant, ssh, and kubectl emit UTF-8 (bullets, checkmarks, emoji). The
         default Windows console code page is cp437 / cp1252, so those bytes
         render as garbage like "ΓÇó Γ£ô ≡ƒû╝". Setting both the OS code page
         and PowerShell's OutputEncoding fixes it without altering any command.
@@ -164,155 +165,6 @@ function Initialize-LabPath {
 
 #endregion
 
-#region Docker Desktop Management
-
-function Test-DockerReady {
-    <#
-    .SYNOPSIS
-        Returns $true if the Docker daemon is responding.
-    #>
-    try {
-        $null = docker info 2>$null
-        return ($LASTEXITCODE -eq 0)
-    } catch {
-        return $false
-    }
-}
-
-function Start-DockerDesktop {
-    <#
-    .SYNOPSIS
-        Launches Docker Desktop if not already running.
-        Returns $true if it was already running, $false if launched.
-
-        On Linux / WSL2 PowerShell: cannot launch Docker Desktop from here
-        (it lives on the Windows host). Report readiness and return without
-        attempting to Start-Process a Windows .exe.
-    #>
-    if (Test-DockerReady) {
-        Write-Info "Docker Desktop is already running"
-        return $true
-    }
-
-    if (-not $IsWindows) {
-        Write-Info "Docker daemon not responding from this shell. In WSL2, start Docker Desktop on the Windows host (or use -SkipDdStart once it's running)."
-        return $false
-    }
-
-    $ddExe = "C:\Program Files\Docker\Docker\Docker Desktop.exe"
-    if (Test-Path -Path $ddExe) {
-        Write-Info "Launching Docker Desktop..."
-        Start-Process -FilePath $ddExe -WindowStyle Minimized
-    } else {
-        Write-Info "Docker Desktop.exe not found at expected path - assuming it will be started manually"
-    }
-
-    return $false
-}
-
-function Wait-DockerReady {
-    <#
-    .SYNOPSIS
-        Polls Docker daemon until it responds or timeout is reached.
-        Returns the elapsed seconds. Exits with error on timeout.
-    #>
-    param(
-        [int]$TimeoutSeconds = 120,
-        [int]$PollInterval = 5
-    )
-
-    Write-Info "Waiting for Docker daemon to become ready (timeout: ${TimeoutSeconds}s)..."
-
-    $elapsed = 0
-    while ($elapsed -lt $TimeoutSeconds) {
-        if (Test-DockerReady) {
-            Write-Success "Docker daemon is ready (took ~${elapsed}s)"
-            return $elapsed
-        }
-        $remaining = $TimeoutSeconds - $elapsed
-        Write-Output "  ... Docker not ready yet (${remaining}s remaining)"
-        Start-Sleep -Seconds $PollInterval
-        $elapsed += $PollInterval
-    }
-
-    Write-ErrorMsg "Docker Desktop failed to start within ${TimeoutSeconds} seconds. Check Docker Desktop for errors."
-    throw "Docker Desktop failed to become ready within $TimeoutSeconds seconds"
-}
-
-function Stop-DockerDesktop {
-    <#
-    .SYNOPSIS
-        Force-stops Docker Desktop and its backend processes.
-
-        On Linux / WSL2 PowerShell: Docker Desktop runs on the Windows host.
-        We can't Stop-Process Windows processes from here; log and skip.
-    #>
-    if (-not $IsWindows) {
-        Write-Info "Skipping Docker Desktop stop (runs on Windows host; stop it there manually if needed)."
-        return
-    }
-
-    if (Get-Command docker -ErrorAction SilentlyContinue) {
-        Write-Info "Sending Docker Desktop quit signal..."
-        Stop-Process -Name "Docker Desktop" -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 3
-    }
-
-    Stop-Process -Name "com.docker.backend" -Force -ErrorAction SilentlyContinue
-    Stop-Process -Name "com.docker.proxy" -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 2
-}
-
-#endregion
-
-#region Prerequisites
-
-function Test-Prerequisites {
-    <#
-    .SYNOPSIS
-        Checks that docker, kind, and kubectl are on PATH.
-        Returns an array of missing tool descriptions (empty = all good).
-    #>
-    $missing = @()
-
-    if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-        $missing += "docker (Docker Desktop not installed, or docker.exe not on PATH)"
-    }
-    if (-not (Get-Command kind -ErrorAction SilentlyContinue)) {
-        $missing += "KIND (install with: winget install Kubernetes.kind)"
-    }
-    if (-not (Get-Command kubectl -ErrorAction SilentlyContinue)) {
-        $missing += "kubectl (usually ships with Docker Desktop)"
-    }
-
-    return $missing
-}
-
-#endregion
-
-#region KIND Cluster Operations
-
-function Get-KindClusters {
-    <#
-    .SYNOPSIS
-        Returns an array of KIND cluster names currently running.
-    #>
-    $raw = kind get clusters 2>$null
-    if ($LASTEXITCODE -ne 0) { return @() }
-    return ($raw -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" })
-}
-
-function Test-ClusterExists {
-    <#
-    .SYNOPSIS
-        Returns $true if the named cluster exists.
-    #>
-    param([string]$ClusterName)
-    return ($ClusterName -in (Get-KindClusters))
-}
-
-#endregion
-
 #region Host Info
 
 function Get-HostMemoryInfo {
@@ -344,6 +196,3 @@ function Write-HostMemory {
 }
 
 #endregion
-
-# Auto-source tutorial functions
-. (Join-Path -Path $PSScriptRoot -ChildPath "tutorials.ps1")

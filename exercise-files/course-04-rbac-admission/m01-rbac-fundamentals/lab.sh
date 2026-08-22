@@ -109,6 +109,36 @@ expect_allow() {
 }
 
 # ---------------------------------------------------------------------
+# ensure -- idempotent state-building create.
+#
+# WHY THIS EXISTS: expect_allow requires exit 0, which is correct when
+# the point is "prove this subject IS permitted." But the five creates
+# below run as cluster-admin to BUILD the scene, and a second `verify`
+# without a reset makes them exit non-zero with AlreadyExists. That
+# produced a false FAIL on a re-run -- the opposite failure mode from
+# the false green expect_allow was written to prevent.
+#
+# So: exit 0 passes, AlreadyExists passes and says so out loud, and
+# anything else still counts as a real failure. A genuine 403 here is
+# still caught.
+# ---------------------------------------------------------------------
+ensure() {
+  local label="$1"; shift
+  local out rc
+  out="$("$@" 2>&1)"; rc=$?
+  if [[ $rc -eq 0 ]]; then
+    echo "${G}[ALLOWED as expected]${R} $label"
+    [[ -n "$out" ]] && echo "${B}    $(head -2 <<<"$out")${R}"
+  elif grep -qiE 'already exists|AlreadyExists' <<<"$out"; then
+    echo "${G}[ALLOWED as expected]${R} $label ${B}(already present -- idempotent)${R}"
+  else
+    err "$label -- expected this to SUCCEED, it failed."
+    echo "    $(head -2 <<<"$out")"
+    FAILURES=$((FAILURES + 1))
+  fi
+}
+
+# ---------------------------------------------------------------------
 # reset -- back to frame zero
 # ---------------------------------------------------------------------
 do_reset() {
@@ -245,7 +275,7 @@ do_verify() {
   ctx "$ADMIN_CTX" || return 1
   kubectl config get-contexts
   tag 1.1 "Namespace first (a Role is namespaced, so the order is tested)"
-  expect_allow "create namespace $NS" kubectl create namespace "$NS"
+  ensure "create namespace $NS" kubectl create namespace "$NS"
   tag 1.2 "Mint a real user from an X.509 client certificate"
   do_mint || return 1
   tag 1.3 "Switch identity, then ask who you are (system:basic-user makes this free)"
@@ -261,11 +291,11 @@ do_verify() {
   tag 2.0 "Confirm the context before creating anything"
   kubectl config current-context
   tag 2.1 "Create the Role  (empty Resource Names = all Pods in this namespace)"
-  expect_allow "create role pod-reader" \
+  ensure "create role pod-reader" \
     kubectl create role pod-reader --verb=get,list,watch --resource=pods -n "$NS"
   kubectl describe role pod-reader -n "$NS"
   tag 2.2 "Bind it -- Role says WHAT, binding says WHO"
-  expect_allow "create rolebinding ${USER_CN}-reads" \
+  ensure "create rolebinding ${USER_CN}-reads" \
     kubectl create rolebinding "${USER_CN}-reads" --role=pod-reader --user="$USER_CN" -n "$NS"
   tag 2.3 "Switch in. Same command as [1.4] -- 'No resources found' IS the success"
   ctx "$USER_CN" || return 1
@@ -296,7 +326,7 @@ do_verify() {
   tag 3.0 "Confirm you are the admin again"
   kubectl config current-context
   tag 3.1 "Attach view with a NAMESPACED RoleBinding"
-  expect_allow "create rolebinding view-in-$NS" \
+  ensure "create rolebinding view-in-$NS" \
     kubectl create rolebinding "view-in-$NS" --clusterrole=view --user="$USER_CN" -n "$NS"
   tag 3.2 "Three questions -- expect allow, deny, deny"
   ctx "$USER_CN" || return 1
@@ -305,7 +335,7 @@ do_verify() {
   expect_deny  "get namespaces (cluster-scoped)" kubectl get namespaces
   ctx "$ADMIN_CTX" || return 1
   tag 3.3 "SAME ClusterRole, ClusterRoleBinding this time (no -n: it has no namespace)"
-  expect_allow "create clusterrolebinding ${USER_CN}-views-all" \
+  ensure "create clusterrolebinding ${USER_CN}-views-all" \
     kubectl create clusterrolebinding "${USER_CN}-views-all" --clusterrole=view --user="$USER_CN"
   tag 3.4 "The identical three questions -- expect allow, allow, allow"
   ctx "$USER_CN" || return 1

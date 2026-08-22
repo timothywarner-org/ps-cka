@@ -215,7 +215,7 @@ If you can do this in a minute on every manifest in this repo's
 
 ## See also
 
-- [TUTORIAL-KIND.md](../TUTORIAL-KIND.md) — the lab walkthrough that gives
+- [TUTORIAL-HYPERV.md](../TUTORIAL-HYPERV.md) — the lab walkthrough that gives
   you YAML to practice on.
 - `kubectl explain <resource> --recursive` — for when you forget a field
   name mid-edit.

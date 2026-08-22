@@ -58,9 +58,9 @@
     Continue against the cluster's current state without rewinding.
 
 .NOTES
-    Author: Tim Warner | CKA Course 3 lab (control1, worker1, worker2)
+    Author: Tim Warner | CKA lab (control1, worker1, worker2)
     Run as: Administrator PowerShell 7+, from a window OTHER than your recording SSH
-            session, in C:\github\ps-cka\src\cka-lab\course-03-lifecycle-upgrades
+            session, in C:\github\ps-cka\src\cka-lab
     Pairs with: CKA-C03-M03-demo-runbook.md (your spoken talk track + the same beat tags)
 #>
 
@@ -84,10 +84,9 @@ $ErrorActionPreference = 'Stop'
 # Teaching demo: a remote command that exits nonzero must NOT halt the script.
 $PSNativeCommandUseErrorActionPreference = $false
 
-. (Join-Path -Path $PSScriptRoot -ChildPath '..\lib\CkaLab.ps1')
+. (Join-Path -Path $PSScriptRoot -ChildPath 'lib\CkaLab.ps1')
 Initialize-LabEncoding
 
-$env:VAGRANT_CWD = Split-Path -Parent $PSScriptRoot
 $AllVMs     = (Get-CkaLabVMs)
 $RemoteBase = '/home/vagrant/m03-demo'
 
@@ -144,7 +143,7 @@ function Push-DemoTree {
     # Copy the repo's m03 manifest tree onto the node as text (LF-normalized) over
     # the same stdin->ssh path the validator uses. One source of truth, no
     # synced-folder dependency.
-    $src = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..\exercise-files\course-03-lifecycle-upgrades\m03-helm-kustomize-crds')).Path
+    $src = (Resolve-Path (Join-Path $PSScriptRoot '..\..\exercise-files\course-03-lifecycle-upgrades\m03-helm-kustomize-crds')).Path
     $files = Get-ChildItem -Path $src -Recurse -File -Filter *.yaml
     [void](vagrant ssh $Node -c "rm -rf '$RemoteBase'")
     foreach ($f in $files) {

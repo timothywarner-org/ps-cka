@@ -11,14 +11,14 @@
     .\Get-CkaConnectionInfo.ps1
 
 .NOTES
-    Author: Tim Warner | CKA Course 3 lab (control1, worker1, worker2)
-    Run as: Administrator PowerShell 7+, from C:\github\ps-cka\src\cka-lab\course-03-lifecycle-upgrades
+    Author: Tim Warner | CKA lab (control1, worker1, worker2)
+    Run as: Administrator PowerShell 7+, from C:\github\ps-cka\src\cka-lab
 #>
 
 #Requires -Version 7.0
 #Requires -RunAsAdministrator
 
-. (Join-Path -Path $PSScriptRoot -ChildPath '..\lib\CkaLab.ps1')
+. (Join-Path -Path $PSScriptRoot -ChildPath 'lib\CkaLab.ps1')
 Initialize-LabEncoding
 
 $Nodes = Get-CkaLabNodes

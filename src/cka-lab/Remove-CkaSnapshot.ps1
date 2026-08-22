@@ -72,8 +72,8 @@
     Dry run of a prune that also protects the M01 save point. Changes nothing.
 
 .NOTES
-    Author: Tim Warner | CKA Course 3 lab (control1, worker1, worker2)
-    Run as: Administrator PowerShell 7+, from C:\github\ps-cka\src\cka-lab\course-03-lifecycle-upgrades
+    Author: Tim Warner | CKA lab (control1, worker1, worker2)
+    Run as: Administrator PowerShell 7+, from C:\github\ps-cka\src\cka-lab
     Pairs with: Save-CkaSnapshot.ps1 (create), Restore-CkaSnapshot.ps1 (rewind),
                 Get-CkaLabStatus.ps1 (inspect)
 #>
@@ -98,7 +98,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-. (Join-Path -Path $PSScriptRoot -ChildPath '..\lib\CkaLab.ps1')
+. (Join-Path -Path $PSScriptRoot -ChildPath 'lib\CkaLab.ps1')
 Initialize-LabEncoding
 
 # One definition of the node list lives in lib\CkaLab.ps1 (Get-CkaLabVMs),

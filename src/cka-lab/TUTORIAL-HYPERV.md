@@ -109,7 +109,7 @@ Expect ~10-15 min on the first run, ~5 min on rebuilds (box cached).
 ### A.2 Validate
 
 ```powershell
-.\cka-validate.ps1
+.\Test-CkaLabReady.ps1
 ```
 
 This SSHes into all three VMs and runs 9 categories of checks. You want to
@@ -118,7 +118,7 @@ see `ALL NODES READY — safe to snapshot`. Details in Section G.
 ### A.3 Snapshot
 
 ```powershell
-.\cka-snapshot.ps1
+.\Save-CkaSnapshot.ps1
 ```
 
 Takes a Hyper-V checkpoint named `pre-cluster` on all three VMs. This is the
@@ -171,7 +171,7 @@ Direct-SSH credentials:
 Live connection status any time:
 
 ```powershell
-.\cka-info.ps1
+.\Get-CkaConnectionInfo.ps1
 ```
 
 Output looks like:
@@ -365,30 +365,30 @@ This is the whole game. The reason to use VMs instead of a cloud cluster is
 that you can do this loop over and over for $0:
 
 ```
-┌────────────────────────────────────────────────────────────┐
-│                                                            │
-│   1.  .\cka-restore.ps1           Reset VMs to baseline    │
-│                                                            │
-│   2.  .\cka-validate.ps1          Confirm 9 checks PASS    │
-│                                                            │
-│   3.  vagrant ssh control1 -c "./bootstrap_cp.sh"          │
-│                                                                │
-│   4.  (optional) swap CNI in step 3                        │
-│                                                            │
-│   5.  vagrant ssh worker1 -c "./join_worker.sh"            │
-│       vagrant ssh worker2 -c "./join_worker.sh"            │
-│                                                            │
-│   6.  kubectl get nodes           All three Ready          │
-│                                                            │
-│   7.  Deploy something real                                │
-│                                                            │
-│   8.  Break something on purpose                           │
-│                                                            │
-│   9.  Diagnose and fix it (or give up — both teach you)    │
-│                                                            │
-│  10.  .\cka-restore.ps1           Back to baseline — again │
-│                                                            │
-└────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                                                                        │
+│   1.  .\Restore-CkaSnapshot.ps1        Reset VMs to baseline          │
+│                                                                        │
+│   2.  .\Test-CkaLabReady.ps1           Confirm 9 checks PASS          │
+│                                                                        │
+│   3.  vagrant ssh control1 -c "./bootstrap_cp.sh"                     │
+│                                                                        │
+│   4.  (optional) swap CNI in step 3                                   │
+│                                                                        │
+│   5.  vagrant ssh worker1 -c "./join_worker.sh"                       │
+│       vagrant ssh worker2 -c "./join_worker.sh"                       │
+│                                                                        │
+│   6.  kubectl get nodes                All three Ready                │
+│                                                                        │
+│   7.  Deploy something real                                           │
+│                                                                        │
+│   8.  Break something on purpose                                      │
+│                                                                        │
+│   9.  Diagnose and fix it (or give up — both teach you)               │
+│                                                                        │
+│  10.  .\Restore-CkaSnapshot.ps1        Back to baseline — again       │
+│                                                                        │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Why the loop matters
@@ -418,7 +418,7 @@ button is your safety net — use it aggressively.
 
 ### Atomic all-or-nothing
 
-Both `cka-snapshot.ps1` and `cka-restore.ps1` run a **pre-flight check
+Both `Save-CkaSnapshot.ps1` and `Restore-CkaSnapshot.ps1` run a **pre-flight check
 before touching any VM**. Snapshot aborts if any of the three VMs doesn't
 exist. Restore aborts if any VM is missing the named checkpoint. This is
 deliberate: a partial snapshot state — where `control1` has `post-init`
@@ -431,24 +431,24 @@ Build a library of checkpoints, one per milestone:
 
 ```powershell
 # After first vagrant up + validate
-.\cka-snapshot.ps1                   # default name: "pre-cluster"
+.\Save-CkaSnapshot.ps1                   # default name: "pre-cluster"
 
 # After kubeadm init + CNI (cluster is green, no workloads)
-.\cka-snapshot.ps1 "post-init"
+.\Save-CkaSnapshot.ps1 "post-init"
 
 # After swapping to Cilium
-.\cka-snapshot.ps1 "with-cilium"
+.\Save-CkaSnapshot.ps1 "with-cilium"
 
 # After deploying nginx + some services
-.\cka-snapshot.ps1 "with-workloads"
+.\Save-CkaSnapshot.ps1 "with-workloads"
 ```
 
 Now your practice-loop entry point is a choice:
 
 ```powershell
-.\cka-restore.ps1                    # back to "pre-cluster" — do it all yourself
-.\cka-restore.ps1 "post-init"        # skip init, go straight to scheduling practice
-.\cka-restore.ps1 "with-workloads"   # practice break/fix on a populated cluster
+.\Restore-CkaSnapshot.ps1                    # back to "pre-cluster" — do it all yourself
+.\Restore-CkaSnapshot.ps1 "post-init"        # skip init, go straight to scheduling practice
+.\Restore-CkaSnapshot.ps1 "with-workloads"   # practice break/fix on a populated cluster
 ```
 
 ### Seeing what checkpoints exist
@@ -463,7 +463,7 @@ Checkpoints are native Hyper-V — they show up in Hyper-V Manager too.
 
 ## Section G — The Validator
 
-`cka-validate.ps1` SSHes into all 3 VMs and runs `lib/validate-node.sh` against
+`Test-CkaLabReady.ps1` SSHes into all 3 VMs and runs `lib/validate-node.sh` against
 each. **Implementation detail:** the script is piped via stdin to `bash -s`
 rather than passed as a `vagrant ssh -c "long heredoc"` argument. Windows
 OpenSSH truncates long inline commands, and `$LASTEXITCODE` only reflects
@@ -518,7 +518,7 @@ WARNs don't fail the run. Any FAIL and the wrapper exits 1.
 
 ```powershell
 cd C:\github\ps-cka\src\cka-lab
-.\cka-up.ps1             # wraps 'vagrant up --no-provision' + shows info
+.\Start-CkaLab.ps1             # wraps 'vagrant up --no-provision' + shows info
 ```
 
 `--no-provision` is important: you do **not** want to re-run the provisioner
@@ -528,19 +528,19 @@ booted.
 ### During the day
 
 ```powershell
-.\cka-info.ps1           # live status + SSH commands
-.\cka-validate.ps1       # sanity check after suspicious behavior
-.\cka-snapshot.ps1 "foo" # save a good state
-.\cka-restore.ps1 "foo"  # return to it
+.\Get-CkaConnectionInfo.ps1           # live status + SSH commands
+.\Test-CkaLabReady.ps1       # sanity check after suspicious behavior
+.\Save-CkaSnapshot.ps1 "foo" # save a good state
+.\Restore-CkaSnapshot.ps1 "foo"  # return to it
 ```
 
 ### Evening
 
 ```powershell
-.\cka-down.ps1           # graceful 'vagrant halt' on all 3 VMs
+.\Stop-CkaLab.ps1           # graceful 'vagrant halt' on all 3 VMs
 ```
 
-VMs power off cleanly. Tomorrow morning `.\cka-up.ps1` brings them back in
+VMs power off cleanly. Tomorrow morning `.\Start-CkaLab.ps1` brings them back in
 ~30 seconds.
 
 ---
@@ -583,7 +583,7 @@ Then re-run `vagrant up`.
 **This is normal.** Kubelet starts, finds no cluster config, crashes,
 systemd restarts it, it crashes again. It will keep doing this until you
 run `kubeadm init` (on control1) or `kubeadm join` (on workers). If
-`cka-validate.ps1` passes, ignore the crashloop — it'll settle the moment
+`Test-CkaLabReady.ps1` passes, ignore the crashloop — it'll settle the moment
 the cluster exists.
 
 Post-init, any crashloop is a real problem:
@@ -655,8 +655,8 @@ to prove to yourself that the whole pipeline works end-to-end:
 ```powershell
 vagrant destroy -f                   # wipe all 3 VMs (NAT switch survives)
 vagrant up --provider=hyperv         # rebuild from scratch
-.\cka-validate.ps1                   # 9 checks, all PASS
-.\cka-snapshot.ps1                   # new "pre-cluster" save point
+.\Test-CkaLabReady.ps1                   # 9 checks, all PASS
+.\Save-CkaSnapshot.ps1                   # new "pre-cluster" save point
 ```
 
 Total time: ~10 min if the Ubuntu box is already cached, ~15-20 min on a
@@ -716,20 +716,20 @@ Pin this to your monitor. Print it. Tattoo it.
 vagrant up --provider=hyperv
 
 # Daily on/off
-.\cka-up.ps1           # morning — boot VMs, show status
-.\cka-down.ps1         # evening — graceful halt
+.\Start-CkaLab.ps1           # morning — boot VMs, show status
+.\Stop-CkaLab.ps1         # evening — graceful halt
 
 # Status + info
-.\cka-info.ps1         # connection table with live UP/DOWN
+.\Get-CkaConnectionInfo.ps1         # connection table with live UP/DOWN
 
 # Save / load
-.\cka-snapshot.ps1                  # save "pre-cluster"
-.\cka-snapshot.ps1 "post-init"      # save with custom name
-.\cka-restore.ps1                   # load "pre-cluster"
-.\cka-restore.ps1 "post-init"       # load custom name
+.\Save-CkaSnapshot.ps1                  # save "pre-cluster"
+.\Save-CkaSnapshot.ps1 "post-init"      # save with custom name
+.\Restore-CkaSnapshot.ps1                   # load "pre-cluster"
+.\Restore-CkaSnapshot.ps1 "post-init"       # load custom name
 
 # Verify node health (9 checks × 3 VMs)
-.\cka-validate.ps1
+.\Test-CkaLabReady.ps1
 
 # Nuclear
 vagrant destroy -f
@@ -788,12 +788,12 @@ kubectl get pods -A
 | `src/cka-lab/create-nat-switch.ps1` | Creates `CKA-NAT` switch (called by Vagrantfile trigger) |
 | `src/cka-lab/bootstrap_cp.sh` | `kubeadm init` + CNI on control1 |
 | `src/cka-lab/join_worker.sh` | Self-sufficient worker join (fetches fresh token) |
-| `src/cka-lab/cka-up.ps1` | Boot VMs (no re-provisioning) |
-| `src/cka-lab/cka-down.ps1` | Graceful halt |
-| `src/cka-lab/cka-info.ps1` | Connection table + live status |
-| `src/cka-lab/cka-validate.ps1` | 9-check health verification |
-| `src/cka-lab/cka-snapshot.ps1` | Atomic all-or-nothing checkpoint |
-| `src/cka-lab/cka-restore.ps1` | Atomic all-or-nothing restore |
+| `src/cka-lab/Start-CkaLab.ps1` | Boot VMs (no re-provisioning) |
+| `src/cka-lab/Stop-CkaLab.ps1` | Graceful halt |
+| `src/cka-lab/Get-CkaConnectionInfo.ps1` | Connection table + live status |
+| `src/cka-lab/Test-CkaLabReady.ps1` | 9-check health verification |
+| `src/cka-lab/Save-CkaSnapshot.ps1` | Atomic all-or-nothing checkpoint |
+| `src/cka-lab/Restore-CkaSnapshot.ps1` | Atomic all-or-nothing restore |
 | `src/cka-lab/lib/validate-node.sh` | The 9 checks (runs inside VMs via stdin) |
 
 ---

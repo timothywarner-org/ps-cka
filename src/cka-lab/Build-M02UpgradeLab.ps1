@@ -80,9 +80,8 @@
     snapshot it WOULD do, and changes nothing.
 
 .NOTES
-    Author: Tim Warner | CKA Course 3 lab (control1, worker1, worker2)
-    Run as: Administrator PowerShell 7+, from
-            C:\github\ps-cka\src\cka-lab\course-03-lifecycle-upgrades
+    Author: Tim Warner | CKA lab (control1, worker1, worker2)
+    Run as: Administrator PowerShell 7+, from C:\github\ps-cka\src\cka-lab
     Pairs with: Restore-CkaSnapshot.ps1 m02-pre-upgrade (rewind to re-record),
                 Save-CkaSnapshot.ps1 (manual checkpoints),
                 Start-CkaLab.ps1 (normal v1.35 boot), README.md (cheat sheet)
@@ -115,12 +114,12 @@ param(
 
     # Where the exported baseline lands. Defaults to a dated folder beside the lab.
     [ValidateNotNullOrEmpty()]
-    [string]$ExportPath = (Join-Path -Path (Split-Path -Parent $PSScriptRoot) -ChildPath 'baseline-exports')
+    [string]$ExportPath = (Join-Path -Path $PSScriptRoot -ChildPath 'baseline-exports')
 )
 
 $ErrorActionPreference = 'Stop'
 
-. (Join-Path -Path $PSScriptRoot -ChildPath '..\lib\CkaLab.ps1')
+. (Join-Path -Path $PSScriptRoot -ChildPath 'lib\CkaLab.ps1')
 Initialize-LabEncoding
 
 # Derive the minor (1.34) from the package string (1.34.6-1.1) so the two can
@@ -135,10 +134,6 @@ $minor = $Matches[1]
 Write-Step "Building the Module 2 upgrade lab at v$minor (package $PackageVersion)"
 Write-Info  "Target snapshot after provisioning: '$SnapshotName'"
 Write-Warn  "This DESTROYS the current lab VMs and rebuilds them clean at v$minor."
-
-# The Course 3 controls live one level down from the lab. Point Vagrant at the
-# parent (src\cka-lab) so it drives the SAME VMs and reads the SAME Vagrantfile.
-$env:VAGRANT_CWD = Split-Path -Parent $PSScriptRoot
 
 # These two are what flip the Vagrantfile off its v1.35 default. They must be set
 # in THIS process before 'vagrant up' runs; the Vagrantfile does ENV.fetch on them.

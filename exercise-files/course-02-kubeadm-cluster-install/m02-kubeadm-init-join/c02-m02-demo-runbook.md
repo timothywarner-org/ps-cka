@@ -6,11 +6,11 @@
 **Starting state:** `m02-start` snapshot from Module 1 (every prerequisite verified, zero cluster state).
 **Authoritative command source:** Deck slides 9 (declarative `init.yaml`), 13 (`kubeadm token create --print-join-command`), 15 (`mkdir/cp/chown` for kubectl).
 **Validator:** Module 2 ends with the cluster validation built into the kubeadm output plus `kubectl get nodes` / `kubectl get pods -n kube-system`. The cross-node CNI validation lives in Module 3.
-**Cleanup between takes:** `cka-restore.ps1 m02-start` rewinds in 60-90 sec. Snapshot to `post-init-join` at the end so Module 3 starts from a known-good baseline.
+**Cleanup between takes:** `Restore-CkaSnapshot.ps1 m02-start` rewinds in 60-90 sec. Snapshot to `post-init-join` at the end so Module 3 starts from a known-good baseline.
 
 > **Declarative-first, not flag-soup.** Module 1 verified the host state; Module 2 generates an `init.yaml`, edits four lines, and runs `kubeadm init --config init.yaml`. Slide 9 is the canonical command source. Flag-based init still works, but the v1.35 CKA curriculum expects the declarative path, and so does HA later in Course 3.
 
-> **Lab path reminder:** This module uses the **Vagrant / Hyper-V** lab. The `cka-*.ps1` scripts (`cka-up`, `cka-status`, `cka-validate`, `cka-snapshot`, `cka-restore`, `cka-info`) are the Vagrant entry points. The `kind-*.ps1` scripts are for Course 1 only.
+> **Lab path reminder:** This module uses the **Vagrant / Hyper-V** lab. The `cka-*.ps1` scripts (`Start-CkaLab`, `cka-status`, `cka-validate`, `cka-snapshot`, `cka-restore`, `cka-info`) are the Vagrant entry points. The `kind-*.ps1` scripts are for Course 1 only.
 
 > **Course 2 design principle:** No `Start-TutorialMXX` wrapper. You type every command on the real Linux shell. That is the pedagogical bet for this whole course.
 
@@ -44,7 +44,7 @@ cd C:\github\ps-cka\src\cka-lab
 ### Step 1 — Restore the Module 1 finish line
 
 ```powershell
-.\cka-restore.ps1 m02-start
+.\Restore-CkaSnapshot.ps1 m02-start
 ```
 
 Atomic restore across all three VMs. ~60-90 sec. **Every recording of M2 starts from this exact state.** No drift, no surprises.
@@ -52,8 +52,8 @@ Atomic restore across all three VMs. ~60-90 sec. **Every recording of M2 starts 
 ### Step 2 — Confirm VM state + prereqs are still clean
 
 ```powershell
-.\cka-status.ps1
-.\cka-validate.ps1
+.\Get-CkaLabStatus.ps1
+.\Test-CkaLabReady.ps1
 ```
 
 **Must end with:** `ALL NODES READY — safe to snapshot or run kubeadm init on control1`. If it doesn't, the M1 snapshot is bad — rebuild before continuing.
@@ -61,10 +61,10 @@ Atomic restore across all three VMs. ~60-90 sec. **Every recording of M2 starts 
 ### Step 3 — Snapshot the pre-record state
 
 ```powershell
-.\cka-snapshot.ps1 pre-record-m2
+.\Save-CkaSnapshot.ps1 pre-record-m2
 ```
 
-Take this every recording session. A failed take = `.\cka-restore.ps1 pre-record-m2` in ~60-90 sec.
+Take this every recording session. A failed take = `.\Restore-CkaSnapshot.ps1 pre-record-m2` in ~60-90 sec.
 
 ### Step 4 — Dry-run the demo OFF camera
 
@@ -72,12 +72,12 @@ Take this every recording session. A failed take = `.\cka-restore.ps1 pre-record
 vagrant ssh control1
 ```
 
-Inside the VM, walk Demos 1-4. Confirm muscle memory. Then `exit` twice to get back to admin pwsh, then `.\cka-restore.ps1 pre-record-m2` to rewind.
+Inside the VM, walk Demos 1-4. Confirm muscle memory. Then `exit` twice to get back to admin pwsh, then `.\Restore-CkaSnapshot.ps1 pre-record-m2` to rewind.
 
 ### Camera checklist (final scan before recording)
 
 - [ ] Admin pwsh, font 16pt+, 140 cols wide, prompt trimmed
-- [ ] `.\cka-info.ps1` shows all 3 nodes **UP** with their `.10/.11/.12` IPs
+- [ ] `.\Get-CkaConnectionInfo.ps1` shows all 3 nodes **UP** with their `.10/.11/.12` IPs
 - [ ] No leftover Kubernetes state (`vagrant ssh control1` → `ls /etc/kubernetes/` should be empty or absent — if not, restore again)
 - [ ] Only one terminal window visible — no chat apps, no notifications
 - [ ] Screen recorder set to 1080p, no HiDPI blur, no taskbar
@@ -99,7 +99,7 @@ Inside the VM, walk Demos 1-4. Confirm muscle memory. Then `exit` twice to get b
 10. `vagrant ssh worker2` → paste the join command, **prepend `sudo`** before pressing Enter → wait for success banner → `exit`
 11. `vagrant ssh control1` → `kubectl get nodes -o wide` (three nodes, all NotReady — works as vagrant) → `kubectl get pods -n kube-system`
 12. `exit` → ENTER → back to admin pwsh
-13. `.\cka-snapshot.ps1 post-init-join` → ENTER
+13. `.\Save-CkaSnapshot.ps1 post-init-join` → ENTER
 
 **Total ENTERs:** ~30 across the whole module. Slow is smooth, smooth is fast.
 
@@ -533,12 +533,12 @@ exit   # leave control1
 ```
 
 ```powershell
-.\cka-snapshot.ps1 post-init-join
+.\Save-CkaSnapshot.ps1 post-init-join
 ```
 
 **Snapshot narration (verbatim):**
 
-> "Atomic Hyper-V checkpoint across all three VMs, named `post-init-join`. Module 3 starts from this exact state. Three nodes registered, all NotReady, control plane Running, CoreDNS Pending. **One `.\cka-restore.ps1 post-init-join` away from a clean dress rehearsal of CNI install.**"
+> "Atomic Hyper-V checkpoint across all three VMs, named `post-init-join`. Module 3 starts from this exact state. Three nodes registered, all NotReady, control plane Running, CoreDNS Pending. **One `.\Restore-CkaSnapshot.ps1 post-init-join` away from a clean dress rehearsal of CNI install.**"
 
 ### Slide 17 — Globomantics checkout (~30 sec)
 
@@ -570,7 +570,7 @@ Every command in this module is idempotent against `kubeadm reset`, but the clea
 ### Fast rewind (most common)
 
 ```powershell
-.\cka-restore.ps1 pre-record-m2
+.\Restore-CkaSnapshot.ps1 pre-record-m2
 ```
 
 ~60-90 sec. Back to the pre-record baseline (m02-start from Module 1).
@@ -590,8 +590,8 @@ Repeat on worker1 and worker2. Slower than restore but works if the snapshot is 
 ### Snapshot library to build during dry-runs
 
 ```powershell
-.\cka-snapshot.ps1 pre-record-m2        # baseline before each M2 take
-.\cka-snapshot.ps1 post-init-join       # after Demo 4 — Module 3's starting point
+.\Save-CkaSnapshot.ps1 pre-record-m2        # baseline before each M2 take
+.\Save-CkaSnapshot.ps1 post-init-join       # after Demo 4 — Module 3's starting point
 ```
 
 ---
@@ -600,7 +600,7 @@ Repeat on worker1 and worker2. Slower than restore but works if the snapshot is 
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `kubeadm init` fails at preflight | Module 1 work drifted (e.g., swap re-enabled) | `.\cka-restore.ps1 m02-start` and start over |
+| `kubeadm init` fails at preflight | Module 1 work drifted (e.g., swap re-enabled) | `.\Restore-CkaSnapshot.ps1 m02-start` and start over |
 | `kubeadm init` hangs at "waiting for the kubelet" | containerd not running or wrong cgroup driver | `sudo systemctl status containerd`; if down, `sudo systemctl restart containerd` |
 | `kubeadm init` exits with "controlPlaneEndpoint not reachable" | Wrong IP in `controlPlaneEndpoint` or NIC down | `ip -4 addr show eth0` on control1 — must show `192.168.50.10/24` |
 | `kubeadm join` returns "invalid token" | Token expired (>24h) | Regenerate with `sudo kubeadm token create --print-join-command` on control1 |
@@ -617,7 +617,7 @@ Repeat on worker1 and worker2. Slower than restore but works if the snapshot is 
 
 - **Live commands:** Deck slides 9 (declarative init.yaml + kubeadm init + kubectl setup + join), 13 (kubeadm token create --print-join-command). One-to-one with what you type on camera.
 - **Lab setup from Module 1:** `src/cka-lab/Vagrantfile` provisioner already ran prereqs at `vagrant up`. Module 2 picks up at `m02-start` snapshot.
-- **Snapshot helpers:** `src/cka-lab/cka-snapshot.ps1` and `src/cka-lab/cka-restore.ps1` — atomic, all-or-nothing across the three VMs.
+- **Snapshot helpers:** `src/cka-lab/Save-CkaSnapshot.ps1` and `src/cka-lab/Restore-CkaSnapshot.ps1` — atomic, all-or-nothing across the three VMs.
 
 ---
 

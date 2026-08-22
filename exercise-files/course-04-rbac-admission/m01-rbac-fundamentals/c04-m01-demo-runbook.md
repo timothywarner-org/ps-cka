@@ -6,7 +6,7 @@
 **One script on the node:** `./lab.sh [reset|mint|verify]` — no arg means reset + verify
 **One script on the host:** `src/cka-lab/Initialize-C04M01Lab.ps1` — boot, health-check, stage, gate, reset, checkpoint
 **Cleanup between takes:** `./lab.sh reset` — 8 seconds, no VM restore
-**Last verified: 2026-08-17** — cluster health and all five fact gates PASSED live on control1; runbook↔`lab.sh` coherence verified command-for-command (38/39, two documented divergences). The four demos themselves are still unrun; see the Verification ledger.
+**Last verified: 2026-08-17** — **FULL GREEN.** `./lab.sh` walked all four demos live on control1 and exited 0: every expected ALLOW succeeded, every expected DENY returned 403. Fact gates, cluster health, and runbook↔`lab.sh` coherence all verified. See the Verification ledger.
 
 > **Everything is idempotent.** Run anything twice. `reset` cascades the namespace delete, `mint` clears the spent CSR before resubmitting, `verify` exits 0 or names the check that drifted. Nothing here is worth restoring a checkpoint for — save that for a broken control plane.
 
@@ -416,29 +416,32 @@ Rebuild from absolute zero (~15-20 min, rare): `vagrant destroy -f ; vagrant up 
 
 Read this before you trust anything above. **No command in this runbook has been executed against any Kubernetes cluster.** Your VMs were powered off during authoring (SSH on `.10/.11/.12` refused), and this authoring environment blocks container registries, so no substitute cluster could be built either. Every "Expected" line above is a prediction until `./lab.sh` says otherwise.
 
-### PROVEN — on Tim's live cluster, 2026-08-16
+### PROVEN — end to end on Tim's live cluster, 2026-08-17
 
-`Initialize-C04M01Lab.ps1` ran against control1/worker1/worker2 and **all five fact gates passed**:
+`./lab.sh` ran all four demos against control1 and **exited 0**:
 
 ```
-[OK] All 3 nodes report Ready
-[OK] Kubelet version is v1.35.0 on all 3 nodes
-[OK] Container runtime is containerd
-[OK] GATE PASS  system:basic-user is bound to system:authenticated
-[OK] GATE PASS  view has NO rule mentioning Secrets
-[OK] GATE PASS  edit can write Secrets (create/delete/patch/update)
-[OK] GATE PASS  view covers Namespaces (cluster-scoped reach for Beat 3)
-[OK] GATE PASS  edit is composed via aggregationRule, not hand-written rules
+[OK] Every expected ALLOW succeeded and every expected DENY returned 403.
 ```
 
-That is the whole deck-claim surface, confirmed by the cluster rather than by anybody's assertion. Demo 3's
-`get namespaces` payoff and Demo 4's `view`/`edit` Secrets contrast are now backed by this box, not just by
-upstream source. `lab.sh reset` also ran clean here and printed `READY FOR TAKE`.
+Both halves are asserted, so that verdict means something. Specifically confirmed on camera-identical commands:
 
-Still unrun as of that pass: the four demos end to end (`./lab.sh`). Until that exits 0, the per-command
-expectations below remain predictions.
+| Beat | Live result |
+|---|---|
+| Fact gates (all five) | PASS — before the demos even started |
+| Demo 1 `[1.4]` | `403 Forbidden` for `frontend-dev` on pods in `dev-team` |
+| Demo 2 `[2.3]` | `get pods` succeeded after the RoleBinding — the payoff lands |
+| Demo 2 `[2.4]` **write wall** | **403 on the named delete** — the audit's headline fix, proven. The old `delete --all` would have exited 0 here and killed the beat. |
+| Demo 3 `[3.2]` | `get configmaps -n dev-team` **allowed**; `-n kube-system` and `get namespaces` both **Forbidden** |
+| Demo 3 `[3.4]` | all three **allowed** after the ClusterRoleBinding — same ClusterRole, scope changed |
+| Demo 4 `[4.2]` | `NO secrets rule in view (confirmed by a describe that actually ran)`, and `edit` shows `secrets [get list watch create delete deletecollection patch update]` |
+| Demo 4 `[4.2b]` | `aggregationRule` / `clusterRoleSelectors` present |
 
-### ALSO PROVEN — against the Kubernetes `release-1.35` source of truth
+> **The near-miss, closed.** Demo 3's `get configmaps -n dev-team` returning `kube-root-ca.crt` is the live proof that **`view` does include configmaps** — the fact a summarizing pass reported *backwards*, and that only a forced verbatim quote of `viewRules()` caught. Had the summary been trusted, this exact line would have thrown a 403 on camera and collapsed the scope experiment.
+
+Cluster: 3 nodes Ready, v1.35.0, containerd, Calico. `lab.sh reset` verified clean between runs.
+
+### ALSO PROVEN### ALSO PROVEN — against the Kubernetes `release-1.35` source of truth
 
 Checked in `plugin/pkg/auth/authorizer/rbac/bootstrappolicy/policy.go`, the file that *defines* the default ClusterRoles. Verbatim quotes, not summaries.
 
@@ -472,17 +475,15 @@ that would have shown up on camera:
 | A `\"` inside a double-quoted PowerShell string | Does not escape a quote in PowerShell — it *ends the string*. The CNI-heal awk reached the node malformed. Now a single-quoted here-string. |
 | `rm -rf ~/m01` on every staging run | Yanked the working directory out from under any SSH session already sitting there. Now clears contents, keeps the directory. |
 
-### UNVERIFIED — nobody has run these, including me
+### UNVERIFIED — what is genuinely left
 
-| Unverified | Risk | How `./lab.sh` closes it |
+| Unverified | Risk | Note |
 |---|---|---|
-| Every command in every demo | High | `./lab.sh` runs all four demos and exits nonzero on any drift |
-| Exact 403 wording on v1.35 | Low — format is stable, but I predicted it | It prints live; fix the "Expected" line if it differs |
-| CSR signing latency on your hardware | Low | `mint` polls 20× at 1s instead of a blind sleep |
-| `Initialize-C04M01Lab.ps1` actually working | **High** | Never executed. PowerShell **parses** clean (1360 tokens) — that is all that has been proven |
-| `lab.sh` actually working | **High** | `bash -n` clean only. Syntax, not behavior. |
-| The ~12 min runtime | Medium | Arithmetic from word count + ~38 ENTERs. **Not a stopwatch.** Time your dry run. |
-| Your VMs' real state | — | Powered off at authoring time. Version, node count, CNI all unconfirmed. |
+| `Initialize-C04M01Lab.ps1 -Bootstrap` path | Low | Never exercised — the cluster already existed every run. The Calico/kubeadm block in it is untested. |
+| A checkpoint restore + CNI heal | Low | `Restore-CkaSnapshot` + `calico-node` bounce has not been round-tripped this session |
+| Exact spoken runtime | Low | ~9:40 is arithmetic from 1,421 words. Stopwatch the first take. |
+
+Everything else in this runbook has now been executed against a live v1.35 cluster.
 
 ### One repo inconsistency — now resolved, in Calico's favour
 

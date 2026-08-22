@@ -193,7 +193,7 @@ Get-VM | Where-Object { $_.Name -match "control1|worker1|worker2" }
 Get-VMHardDiskDrive -VMName control1, worker1, worker2 | Select-Object VMName, Path
 
 # Quick reachability test
-.\cka-info.ps1
+.\Get-CkaConnectionInfo.ps1
 </code></pre>
 
 <h2>Disk layout</h2>

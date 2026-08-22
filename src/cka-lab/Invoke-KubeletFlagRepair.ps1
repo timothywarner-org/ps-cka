@@ -45,9 +45,9 @@
     Same repair against worker1 (Course 10 reuse).
 
 .NOTES
-    Author: Tim Warner | CKA Course 3 lab (control1, worker1, worker2)
+    Author: Tim Warner | CKA lab (control1, worker1, worker2)
     Run as: Administrator PowerShell 7+, from a window OTHER than your recording SSH
-            session, in C:\github\ps-cka\src\cka-lab\course-03-lifecycle-upgrades
+            session, in C:\github\ps-cka\src\cka-lab
     Pairs with: Invoke-M02Upgrade.ps1 (the upgrade this rescues mid-flight)
 #>
 
@@ -69,11 +69,8 @@ $ErrorActionPreference = 'Stop'
 
 # Reuse the shared engine: Write-* palette helpers, Initialize-LabEncoding,
 # Get-CkaLabNodes. One definition of the lab, never duplicated here.
-. (Join-Path -Path $PSScriptRoot -ChildPath '..\lib\CkaLab.ps1')
+. (Join-Path -Path $PSScriptRoot -ChildPath 'lib\CkaLab.ps1')
 Initialize-LabEncoding
-
-# Point Vagrant/SSH at the lab (Vagrantfile + .vagrant live one level up).
-$env:VAGRANT_CWD = Split-Path -Parent $PSScriptRoot
 
 #region On-rails render helpers (same rhythm as Invoke-M02Upgrade.ps1) ----------
 function Write-PhaseBanner {

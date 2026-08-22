@@ -11,10 +11,11 @@ This is Tim Warner's **Certified Kubernetes Administrator (CKA) v1.35 Skill Path
 - `exercise-files/` -- All course content, organized as `course-NN-topic/mNN-module-name/`. **Every course folder and every module folder has a `README.md`** (navigation hub at the course level, file table + CKA objectives at the module level). Recorded courses (1, 2, 3) ship real learner resources; Courses 4-11 module READMEs carry a "coming as recorded" boilerplate until each is recorded. Course 3 is fully populated (etcd backup/restore scripts, kubeadm upgrade scripts, Helm/Kustomize/CRD demos) sourced from the shipped course folders. Manifests get written as each course is recorded.
 - `exercise-files/shared/apps/` -- Reusable demo applications (catalog-api, fleet-dashboard, telemetry-worker) for the Globomantics storyline. Also placeholder folders today.
 - `exercise-files/K8S/` -- Reference book directories (Bayfield, Muschko, Qin, Sachdeva, etc.). Tracked as `.gitkeep` stubs; PDFs are pulled in locally and not committed.
-- `k8s-foundations-exercise-files.md` -- Pluralsight Course 1 download pointer. Lives at the repo root because Pluralsight's exercise-file download is a single Markdown file; this one points learners back to the GitHub repo for everything (manifests, lab scripts, runbooks). Treat as learner-facing copy: tone, badges, and link targets all matter.
+- `docs/` -- Pluralsight per-course download pointers plus standalone lab diagrams. Each `*-exercise-files.md` is the single Markdown file Pluralsight serves as a course's "Exercise Files" download; it points learners back to the GitHub repo for everything real (manifests, lab scripts, runbooks). One per recorded course: `k8s-foundations-` (C1), `installing-clusters-kubeadm-` (C2), `rbac-admission-controls-` (C4). Treat as learner-facing copy: tone, badges, and link targets all matter. The `diagram-*.html` files are self-contained Mermaid lab diagrams.
+- `scripts/` -- Host-side PowerShell wrappers for the Course 2 Vagrant lab (`c02-vagrant.ps1`, `c02-snapshots.ps1`). Thin convenience shims; the real lab tooling is in `src/cka-lab/`.
 - `src/cka-lab/` -- The lab environment (KIND console app + Hyper-V Vagrant lab). See `src/cka-lab/CLAUDE.md` for internal architecture.
 - `cka-cert-buddy/` -- **Separate** GitHub Copilot agent workspace for CKA practice scenarios, labs, and study plans. Primary runtime is GitHub Copilot Chat, not Claude Code. Has its own `cka-cert-buddy/CLAUDE.md` with authoring rules. Do not duplicate the lab-runner code here.
-- `dev/` -- Recording-only assets: per-module demo runbooks for Course 1 (`m01-`/`m02-`/`m03-demo-runbook.md`). `test-environments.ps1` is an empty placeholder. Nothing in `dev/` ships to learners.
+- `dev/` -- Recording-only assets: per-module demo runbooks for Course 1 (`m01-` and `m03-demo-runbook.md`; there is no `m02-` runbook on disk). `dev/archive/` holds superseded drafts and one-shot helper scripts, both gitignored. Nothing in `dev/` ships to learners.
 - `reference/` -- **Gitignored.** Tim's local strategic reference: official CKA candidate handbook + curriculum PDFs/MD, LLM research outputs (`cka-research-{chatgpt,claude,gemini}.md`), `tim-proposed-skill-path.md`, working module decks. Read it for context, but do not author against it as if it were repo content.
 - `temp/` -- **Gitignored.** Transient working files: course outlines (DOCX), slide decks (PPTX), in-flight research.
 
@@ -355,3 +356,45 @@ padding a list, and it is worth more.
 
 **The tone he asked for:** direct, kind, mindful. Directness is the service;
 kindness is the delivery. Neither one is padding.
+
+---
+
+## Rule 16 — Two-column slides need per-bullet call-outs on BOTH sides
+
+Discovered 2026-08-17 by Tim, on M01 slide 10, hours before recording.
+
+The `Comparison: Point-by-Point` layout puts **six bullets on screen** in two
+columns. M01 slide 10's notes covered each column with a prose paragraph
+("On the left... / On the right...") and **never quoted a single bullet**. So on
+camera there is no landing line per point — the very thing the bracket-delineator
+convention exists to provide. M02 slide 9 and M03 slide 9 inherited the identical
+hole.
+
+**The rule:** on any left/right or two-column layout, every on-screen bullet gets
+its own `[bullet text]` delineator plus teaching that ADDS, exactly as on a
+single-column list slide. **Column headers get one too** — they are a click target
+and he needs somewhere to land. Slide titles do not.
+
+**How to detect it cheaply.** Extract every non-`vs.` string from the slide's
+shapes, extract every `^\[...\]$` line from the notes, and diff. Everything except
+the slide title should match. This caught it in one pass across three decks:
+
+```python
+onscreen = [t for sh in slide.shapes if sh.has_text_frame
+              for p in sh.text_frame.paragraphs
+              for t in ["".join(r.text for r in p.runs).strip()]
+              if t and t != "vs."]
+brackets = re.findall(r'^\[([^\]]+)\]$', notes, re.M)
+missing  = [b for b in onscreen if b not in brackets]   # expect: title only
+```
+
+**Why prose paragraphs slipped through every earlier review.** The notes *looked*
+complete — right length, right voice, both columns discussed. The audit metrics
+being tracked (bracket-delineator COUNT per deck) were satisfied by the total
+while the distribution was wrong. **A count is not a coverage check.** Any metric
+that sums across a deck can hide a hole in a specific slide; assert per-slide
+against the slide's own contents.
+
+**Cost of the fix:** a comparison slide goes from ~120-170 spoken words to
+~310-370, so its Estimated Time roughly doubles. Recompute it from the actual word
+count at the deck's own measured rate, do not guess.

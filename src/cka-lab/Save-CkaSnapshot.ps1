@@ -43,8 +43,8 @@
     Dry run: lists what WOULD be checkpointed and creates nothing.
 
 .NOTES
-    Author: Tim Warner | CKA Course 3 lab (control1, worker1, worker2)
-    Run as: Administrator PowerShell 7+, from C:\github\ps-cka\src\cka-lab\course-03-lifecycle-upgrades
+    Author: Tim Warner | CKA lab (control1, worker1, worker2)
+    Run as: Administrator PowerShell 7+, from C:\github\ps-cka\src\cka-lab
     Pairs with: Restore-CkaSnapshot.ps1 (rewind), Get-CkaLabStatus.ps1 (inspect),
                 README.md (copy-paste cheat sheet)
 #>
@@ -61,7 +61,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-. (Join-Path -Path $PSScriptRoot -ChildPath '..\lib\CkaLab.ps1')
+. (Join-Path -Path $PSScriptRoot -ChildPath 'lib\CkaLab.ps1')
 Initialize-LabEncoding
 
 # One definition of the node list lives in lib\CkaLab.ps1 (Get-CkaLabVMs),

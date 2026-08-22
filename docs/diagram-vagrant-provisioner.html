@@ -208,7 +208,7 @@ flowchart TB
 <ol>
 <li><strong>The <code>Vagrantfile</code> is the source of truth.</strong> Vagrant re-reads it on every command. Edit the Vagrantfile, and the next <code>vagrant up</code> sees the new config — but <strong>provisioners don't re-run automatically</strong> on already-created VMs unless you explicitly say <code>vagrant provision</code>.</li>
 <li><strong><code>.vagrant/</code> is Vagrant's brain.</strong> Inside it, <code>machines/&lt;vm&gt;/&lt;provider&gt;/id</code> holds the Hyper-V VM ID — the link between "the line that says <code>control1</code> in your Vagrantfile" and "the actual VM running on Hyper-V." Delete <code>.vagrant/</code> and Vagrant forgets your VMs exist (the VMs themselves keep running; Vagrant just can't talk to them).</li>
-<li><strong>Provisioners run once at create, not on every boot.</strong> <code>vagrant up</code> on an existing VM is a fast boot. <code>vagrant up --provision</code> forces them to re-run. <code>vagrant up --no-provision</code> is explicit "don't even try" (used by <code>cka-up.ps1</code> for speed).</li>
+<li><strong>Provisioners run once at create, not on every boot.</strong> <code>vagrant up</code> on an existing VM is a fast boot. <code>vagrant up --provision</code> forces them to re-run. <code>vagrant up --no-provision</code> is explicit "don't even try" (used by <code>Start-CkaLab.ps1</code> for speed).</li>
 </ol>
 </div>
 

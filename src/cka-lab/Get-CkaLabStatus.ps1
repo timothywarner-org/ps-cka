@@ -20,8 +20,8 @@
     .\Get-CkaLabStatus.ps1 -Quiet
 
 .NOTES
-    Author: Tim Warner | CKA Course 3 lab (control1, worker1, worker2)
-    Run as: Administrator PowerShell 7+, from C:\github\ps-cka\src\cka-lab\course-03-lifecycle-upgrades
+    Author: Tim Warner | CKA lab (control1, worker1, worker2)
+    Run as: Administrator PowerShell 7+, from C:\github\ps-cka\src\cka-lab
     Pairs with: Start-CkaLab.ps1, Stop-CkaLab.ps1
 #>
 
@@ -35,7 +35,7 @@ param(
 
 $ErrorActionPreference = 'Continue'
 
-. (Join-Path -Path $PSScriptRoot -ChildPath '..\lib\CkaLab.ps1')
+. (Join-Path -Path $PSScriptRoot -ChildPath 'lib\CkaLab.ps1')
 Initialize-LabEncoding
 
 $Nodes = Get-CkaLabNodes

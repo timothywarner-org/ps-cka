@@ -56,8 +56,7 @@
 
 .NOTES
     Author: Tim Warner | CKA Course 3, Module 2 (control1, worker1, worker2)
-    Run as: Administrator PowerShell 7+, from
-            C:\github\ps-cka\src\cka-lab\course-03-lifecycle-upgrades
+    Run as: Administrator PowerShell 7+, from C:\github\ps-cka\src\cka-lab
     Grounding: kubernetes.io kubeadm-upgrade, change-package-repository, and
                version-skew-policy. Commands verified live against the lab.
     Pairs with: Restore-CkaSnapshot.ps1 m02-pre-upgrade (manual rewind),
@@ -90,12 +89,11 @@ $ErrorActionPreference = 'Stop'
 
 # Reuse the shared engine: Write-* palette helpers, Get-CkaLabNodes (Name+IP),
 # Initialize-LabEncoding. One definition of the lab, never duplicated here.
-. (Join-Path -Path $PSScriptRoot -ChildPath '..\lib\CkaLab.ps1')
+. (Join-Path -Path $PSScriptRoot -ChildPath 'lib\CkaLab.ps1')
 Initialize-LabEncoding
 
-# Point Vagrant/SSH at the lab. The three nodes and their static IPs come from
-# the shared module so this script can never disagree with the rest of the lab.
-$env:VAGRANT_CWD = Split-Path -Parent $PSScriptRoot
+# The three nodes and their static IPs come from the shared module so this
+# script can never disagree with the rest of the lab.
 $Nodes      = Get-CkaLabNodes
 $Control    = ($Nodes | Where-Object Name -eq 'control1')
 $Workers    = ($Nodes | Where-Object Name -ne 'control1')

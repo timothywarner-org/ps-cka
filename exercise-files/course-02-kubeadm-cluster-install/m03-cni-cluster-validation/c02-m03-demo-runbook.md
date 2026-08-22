@@ -6,11 +6,11 @@
 **Starting state:** `m03-start` snapshot from Module 2 (control plane up, both workers joined, every node NotReady, CoreDNS Pending).
 **Authoritative command source:** Deck slide 11 (YAML two-liner + DNS smoke test), slide 12 (Helm sidebar, if present), slide 13 (diagnostic ladder).
 **Validator:** Six-point cluster validation checklist (slides 8 + 9) run end-to-end on camera.
-**Cleanup between takes:** `cka-restore.ps1 m03-start` rewinds in 60-90 sec. Snapshot to `m04-start` at the end so the course closes from a known-good baseline.
+**Cleanup between takes:** `Restore-CkaSnapshot.ps1 m03-start` rewinds in 60-90 sec. Snapshot to `m04-start` at the end so the course closes from a known-good baseline.
 
 > **YAML-first, with Helm as the production sidebar.** The CKA exam still tests `kubectl create -f` against the upstream Calico/Tigera manifests far more often than it tests Helm. So on camera, the primary command path is **two `kubectl create -f` lines** -- the same two lines the exam expects. Helm gets a focused 60-second sidebar showing the production-grade alternative (operator-managed, version-pinned, upgradeable cleanly), because v1.35 added Helm/Kustomize as a curriculum objective. **Slide 11 is the YAML command source. Slide 12 (if present) covers Helm.**
 
-> **Lab path reminder:** This module uses the **Vagrant / Hyper-V** lab. The `cka-*.ps1` scripts (`cka-up`, `cka-status`, `cka-snapshot`, `cka-restore`, `cka-info`) are the Vagrant entry points. The `kind-*.ps1` scripts are for Course 1 only.
+> **Lab path reminder:** This module uses the **Vagrant / Hyper-V** lab. The `cka-*.ps1` scripts (`Start-CkaLab`, `cka-status`, `cka-snapshot`, `cka-restore`, `cka-info`) are the Vagrant entry points. The `kind-*.ps1` scripts are for Course 1 only.
 
 > **Course 2 design principle:** No `Start-TutorialMXX` wrapper. You type every command on the real Linux shell. That is the pedagogical bet for this whole course — and the break-and-fix exercise is the entire reason the course exists.
 
@@ -44,7 +44,7 @@ cd C:\github\ps-cka\src\cka-lab
 ### Step 1 — Restore the Module 2 finish line
 
 ```powershell
-.\cka-restore.ps1 m03-start
+.\Restore-CkaSnapshot.ps1 m03-start
 ```
 
 Atomic restore across all three VMs. ~60-90 sec. Three nodes registered, all NotReady, CoreDNS Pending. **Every recording of M3 starts here.**
@@ -52,7 +52,7 @@ Atomic restore across all three VMs. ~60-90 sec. Three nodes registered, all Not
 ### Step 2 — Confirm the m03-start state is clean
 
 ```powershell
-.\cka-status.ps1
+.\Get-CkaLabStatus.ps1
 vagrant ssh control1 -c "kubectl get nodes; kubectl get pods -n kube-system | head -8"
 ```
 
@@ -61,10 +61,10 @@ vagrant ssh control1 -c "kubectl get nodes; kubectl get pods -n kube-system | he
 ### Step 3 — Snapshot the pre-record state
 
 ```powershell
-.\cka-snapshot.ps1 pre-record-m3
+.\Save-CkaSnapshot.ps1 pre-record-m3
 ```
 
-A failed take = `.\cka-restore.ps1 pre-record-m3` in ~60-90 sec.
+A failed take = `.\Restore-CkaSnapshot.ps1 pre-record-m3` in ~60-90 sec.
 
 ### Step 4 — Dry-run the demo OFF camera
 
@@ -77,7 +77,7 @@ Inside control1, walk Demos 1-3. Confirm `busybox:1.28` image pulls cleanly, con
 ### Camera checklist (final scan before recording)
 
 - [ ] Admin pwsh, font 16pt+, 140 cols wide, prompt trimmed
-- [ ] `.\cka-info.ps1` shows all 3 nodes **UP** with their `.10/.11/.12` IPs
+- [ ] `.\Get-CkaConnectionInfo.ps1` shows all 3 nodes **UP** with their `.10/.11/.12` IPs
 - [ ] `kubectl get nodes` from control1 shows three NotReady — the correct starting state
 - [ ] Only one terminal window visible — no chat apps, no notifications
 - [ ] Screen recorder set to 1080p, no HiDPI blur, no taskbar
@@ -97,7 +97,7 @@ Inside control1, walk Demos 1-3. Confirm `busybox:1.28` image pulls cleanly, con
 8. **Demo 3c** — `exit` → `vagrant ssh worker1` → `sudo journalctl -u kubelet -n 20` → `sudo systemctl start kubelet` → `exit`
 9. **Demo 3d** — `vagrant ssh control1` → `kubectl get nodes` (worker1 Ready again)
 10. **Demo 4** — `kubectl create deployment nginx --image=nginx:1.27 --replicas=3` → `kubectl expose deployment nginx --type=NodePort --port=80` → `curl` test
-11. `exit` → `.\cka-snapshot.ps1 m04-start`
+11. `exit` → `.\Save-CkaSnapshot.ps1 m04-start`
 
 **Total ENTERs:** ~30 across the whole module. Slow is smooth, smooth is fast.
 
@@ -719,7 +719,7 @@ exit
 ```
 
 ```powershell
-.\cka-snapshot.ps1 m04-start
+.\Save-CkaSnapshot.ps1 m04-start
 ```
 
 **Snapshot narration (verbatim):**
@@ -756,7 +756,7 @@ Every command in this module is idempotent against `kubectl delete` of the Tiger
 ### Fast rewind (most common)
 
 ```powershell
-.\cka-restore.ps1 pre-record-m3
+.\Restore-CkaSnapshot.ps1 pre-record-m3
 ```
 
 ~60-90 sec. Back to the pre-record baseline (m03-start from Module 2).
@@ -777,8 +777,8 @@ Then restore Module 2's m03-start snapshot for a clean restart.
 ### Snapshot library to build during dry-runs
 
 ```powershell
-.\cka-snapshot.ps1 pre-record-m3        # baseline before each M3 take
-.\cka-snapshot.ps1 m04-start  # after Demo 4 — Course 3's starting point
+.\Save-CkaSnapshot.ps1 pre-record-m3        # baseline before each M3 take
+.\Save-CkaSnapshot.ps1 m04-start  # after Demo 4 — Course 3's starting point
 ```
 
 ---
@@ -805,7 +805,7 @@ Then restore Module 2's m03-start snapshot for a clean restart.
 
 - **Live commands:** Deck slide 11 (YAML two-liner + DNS smoke test), slide 12 (Helm sidebar, if present), slide 13 (diagnostic ladder). One-to-one with what you type on camera.
 - **Lab setup from Modules 1-2:** `src/cka-lab/Vagrantfile` provisions containerd + crictl + kubeadm/kubelet/kubectl (no Helm — the Helm sidebar in Step 2.2b is narration only). Module 2 leaves the `m03-start` snapshot.
-- **Snapshot helpers:** `src/cka-lab/cka-snapshot.ps1` and `src/cka-lab/cka-restore.ps1` — atomic, all-or-nothing across the three VMs.
+- **Snapshot helpers:** `src/cka-lab/Save-CkaSnapshot.ps1` and `src/cka-lab/Restore-CkaSnapshot.ps1` — atomic, all-or-nothing across the three VMs.
 - **Snapshot chain across Course 2:** `m02-start` (m01 end) → `m03-start` (m02 end) → `pre-record-m3` (m03 takes) → `m04-start` (Course 3 starting point). Convention: each `m{N}-start` snapshot is the verified baseline that Module N restores from.
 
 ---

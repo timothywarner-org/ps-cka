@@ -32,4 +32,3 @@ Superseded by the final `mNN-demo-runbook.md` files above. Safe to delete once C
 
 ## Placeholders
 
-- [test-environments.ps1](test-environments.ps1) — empty file. Either a future test harness for verifying both lab paths (KIND + Hyper-V) before a recording session, or dead code. Remove or repurpose.
