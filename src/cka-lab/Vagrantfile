@@ -1,6 +1,11 @@
 Vagrant.configure("2") do |config|
-  config.vm.box = "generic/ubuntu2204"
+  # Ubuntu 24.04 LTS box with an amd64 Hyper-V provider.
+  config.vm.box = "boxen/ubuntu-24.04"
   config.vm.box_check_update = false
+
+  # Keep the three-node lab usable on a modest development workstation.
+  VM_CPUS      = 2
+  VM_MEMORY_MB = 2048
 
   # --- Kubernetes version (override for the Module 2 upgrade lab) -----------
   # Defaults reproduce the current v1.35 lab byte-for-byte when these env vars
@@ -35,83 +40,41 @@ Vagrant.configure("2") do |config|
   NODES.each do |name, ip|
     config.vm.define name do |node|
       node.vm.hostname = name
+      # The box advertises /bin/sh, but the provisioning scripts deliberately
+      # use pipefail and other Bash features.
+      node.ssh.shell = "bash -l"
 
       # Hyper-V provider settings
       node.vm.provider "hyperv" do |h|
-        h.memory = 2048
-        h.cpus = 2
+        h.memory = VM_MEMORY_MB
+        h.cpus = VM_CPUS
         h.vmname = name
         h.enable_checkpoints = true
         h.enable_automatic_checkpoints = false
       end
 
-      # Use CKA-NAT switch instead of Default Switch.
-      # auto_config: false tells Vagrant NOT to write its own network config —
-      # netplan (below) becomes the sole authority for the interface, which
-      # avoids a race between Vagrant's DHCP attempt and our static IP.
+      # CKA-NAT deliberately has no DHCP service. Hyper-V can still discover
+      # the guest's IPv6 link-local address for Vagrant's first SSH connection;
+      # the bootstrap provisioner below then makes the IPv4 address persistent.
       node.vm.network "public_network", bridge: "CKA-NAT", auto_config: false
 
-      # --- Static IP via netplan ---
-      node.vm.provision "shell", name: "static-ip", inline: <<-NETPLAN
-        set -euo pipefail
-
-        echo "[+] Configuring static IP #{ip} on $(hostname)..."
-
-        # Find the Hyper-V network interface:
-        #   - must be UP (avoids cloud-init stub interfaces that never came up)
-        #   - exclude loopback, docker, cni, veth, virbr, bridge, flannel, calico
-        #   - prefer eth0 (deterministic on Hyper-V boxes) if present and up
-        if ip -o link show up | awk -F': ' '{print $2}' | grep -qx eth0; then
-          IFACE=eth0
-        else
-          IFACE=$(ip -o link show up | \
-            awk -F': ' '$2 !~ /^(lo|docker|cni|veth|virbr|br-|flannel|cali)/ {print $2; exit}')
-        fi
-
-        if [ -z "${IFACE:-}" ]; then
-          echo "[ERROR] Could not detect network interface" >&2
-          ip -o link show >&2
-          exit 1
-        fi
-        echo "[+] Using interface: $IFACE"
-
-        cat <<YAML | tee /etc/netplan/01-cka-static.yaml
-network:
-  version: 2
-  ethernets:
-    ${IFACE}:
-      dhcp4: false
-      addresses:
-        - #{ip}/24
-      routes:
-        - to: default
-          via: #{GATEWAY}
-      nameservers:
-        addresses: [#{DNS}, 8.8.4.4]
-YAML
-
-        # Remove any DHCP config that conflicts
-        rm -f /etc/netplan/00-installer-config.yaml 2>/dev/null || true
-        rm -f /etc/netplan/50-cloud-init.yaml 2>/dev/null || true
-        rm -f /etc/netplan/50-vagrant.yaml 2>/dev/null || true
-
-        # Regenerate backend config, then prefer `netplan try` — it auto-reverts
-        # if the new config kills connectivity (which would be unrecoverable
-        # mid-provision). Fall back to `apply` on older netplan builds.
-        netplan generate
-        if netplan try --help >/dev/null 2>&1; then
-          # `netplan try` wants a confirmation on stdin; feeding it newline
-          # accepts the change before the 30s auto-revert timer fires.
-          echo "" | netplan try --timeout 30 || netplan apply
-        else
-          netplan apply
-        fi
-        echo "[OK] Static IP #{ip} applied on $IFACE"
-      NETPLAN
+      # Vagrant's embedded Ruby socket cannot reliably connect to a scoped
+      # link-local IPv6 address on Windows. Start a short-lived Windows
+      # OpenSSH watcher before the VM exists; it writes netplan and reboots the
+      # guest, after which Vagrant sees and uses the static IPv4 address.
+      node.trigger.before :up do |trigger|
+        trigger.info = "Starting static network bootstrap for #{name}..."
+        trigger.run = {
+          path: "./bootstrap-static-network.ps1",
+          args: ["-VmName", name, "-IPAddress", ip]
+        }
+      end
 
       # --- /etc/hosts so nodes can resolve each other ---
       node.vm.provision "shell", name: "hosts-file", inline: <<-HOSTS
         set -euo pipefail
+        echo "[+] Setting hostname to #{name}..."
+        hostnamectl set-hostname #{name}
         echo "[+] Writing /etc/hosts entries..."
 
         # Remove any old CKA entries, then append fresh
@@ -130,7 +93,7 @@ YAML
         #!/usr/bin/env bash
         #================================================================
         # CKA Lab — Pre-cluster provisioning
-        # Installs containerd + crictl + kubeadm/kubelet/kubectl on Ubuntu 22.04
+        # Installs containerd + crictl + kubeadm/kubelet/kubectl on Ubuntu 24.04
         # Stops BEFORE kubeadm init so you can snapshot clean state
         #================================================================
 
@@ -184,7 +147,7 @@ YAML
         # --- 1. Disable swap ---
         run_step "Disable swap"
         swapoff -a
-        # Comment the swap line regardless of space/tab delimiters. Ubuntu 22.04
+        # Comment the swap line regardless of space/tab delimiters. Ubuntu
         # writes /etc/fstab with TABS, so the old ' swap ' (space-only) match never
         # commented /swap.img -- swap silently came back on every reboot and kubelet
         # crashlooped with "running with swap on is not supported". [[:space:]]

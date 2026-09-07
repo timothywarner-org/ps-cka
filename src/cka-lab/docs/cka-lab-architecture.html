@@ -307,7 +307,7 @@ graph LR
 graph TB
     subgraph HOST["Windows 11 Host"]
         subgraph HYPERV["Hyper-V Hypervisor"]
-            subgraph VM_CP["VM: cp<br/>Ubuntu 22.04 | 2 CPU | 2GB RAM<br/>192.168.50.10"]
+            subgraph VM_CP["VM: cp<br/>Ubuntu 24.04 LTS | 2 CPU | 2GiB RAM<br/>192.168.50.10"]
                 VCP_CTRD["containerd"]
                 VCP_KUBELET["kubelet"]
                 VCP_KUBEADM["kubeadm"]
@@ -318,14 +318,14 @@ graph TB
                 VCP_CNI["CNI plugin<br/>(Calico v3.29.1)"]
             end
 
-            subgraph VM_W1["VM: worker1<br/>Ubuntu 22.04 | 2 CPU | 2GB RAM<br/>192.168.50.11"]
+            subgraph VM_W1["VM: worker1<br/>Ubuntu 24.04 LTS | 2 CPU | 2GiB RAM<br/>192.168.50.11"]
                 VW1_CTRD["containerd"]
                 VW1_KUBELET["kubelet"]
                 VW1_KUBEADM["kubeadm"]
                 VW1_PODS["User Pods"]
             end
 
-            subgraph VM_W2["VM: worker2<br/>Ubuntu 22.04 | 2 CPU | 2GB RAM<br/>192.168.50.12"]
+            subgraph VM_W2["VM: worker2<br/>Ubuntu 24.04 LTS | 2 CPU | 2GiB RAM<br/>192.168.50.12"]
                 VW2_CTRD["containerd"]
                 VW2_KUBELET["kubelet"]
                 VW2_KUBEADM["kubeadm"]
