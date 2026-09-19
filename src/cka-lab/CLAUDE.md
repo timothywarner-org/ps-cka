@@ -8,7 +8,7 @@ When users want to **DO** things (run the lab, drive a snapshot/restore loop, pr
 
 ## What This Is
 
-CKA (Certified Kubernetes Administrator) lab environment for Tim Warner's Pluralsight training content. **Hyper-V + Vagrant only** -- three Ubuntu 22.04 VMs with real kubeadm v1.35, systemd, apt, and a snapshot-and-rollback practice loop. There is no Docker-based/KIND path; an earlier KIND-based lab was retired because it doesn't teach real `kubeadm init`/CNI-install muscle memory, which the CKA exam demands.
+CKA (Certified Kubernetes Administrator) lab environment for Tim Warner's Pluralsight training content. **Hyper-V + Vagrant only** -- three Ubuntu 24.04 LTS VMs with real kubeadm v1.35, systemd, apt, and a snapshot-and-rollback practice loop. There is no Docker-based/KIND path; an earlier KIND-based lab was retired because it doesn't teach real `kubeadm init`/CNI-install muscle memory, which the CKA exam demands.
 
 ## Repository Layout
 
@@ -64,11 +64,11 @@ All entry-point scripts live flat at the repo root (`src/cka-lab/`) -- there is 
 
 ### Vagrant / Hyper-V Path
 
-`Vagrantfile` provisions 3 Ubuntu 22.04 VMs (control1, worker1, worker2) on a dedicated NAT switch (`CKA-NAT`, 192.168.50.0/24) with static IPs. Key design points to preserve:
+`Vagrantfile` provisions 3 Ubuntu 24.04 LTS VMs (control1, worker1, worker2) on a dedicated NAT switch (`CKA-NAT`, 192.168.50.0/24) with static IPs. Key design points to preserve:
 
-- **Interface picker in provisioning**: the script prefers `eth0` and explicitly excludes `docker*`, `cni*`, `veth*`, `virbr*`, `br-*`, `flannel*`, `cali*`. Previously a naive "first non-loopback" pick could grab a cluster-internal interface after a previous test run.
-- **`netplan try --timeout 30`**: netplan is applied with auto-revert so a misconfig that breaks SSH rolls back automatically instead of bricking the VM.
-- **`auto_config: false` in Vagrant**: Vagrant is not allowed to touch the interface -- netplan is authoritative. This prevents Vagrant's `ifdown`/`ifup` dance from fighting cloud-init.
+- **Static networking uses a host-side Windows OpenSSH watcher**: `CKA-NAT` has no DHCP service, but Hyper-V reports each guest's IPv6 link-local address. A before-up trigger starts `bootstrap-static-network.ps1`, which waits for that address, writes persistent netplan configuration, and reboots the guest. Vagrant then connects over static IPv4. This avoids the embedded Ruby socket's unreliable handling of scoped IPv6 on Windows.
+- **Interface matching uses the guest MAC address**: the bootstrap watcher detects the first non-loopback interface, then writes a netplan match using its MAC address. This avoids depending on whether Ubuntu names it `eth0` or `enp*`.
+- **`auto_config: false` in Vagrant**: Vagrant's generic public-network configuration is disabled; the explicit netplan provisioner is authoritative.
 - **Pinned K8s packages**: `kubelet/kubeadm/kubectl` are installed at exactly `1.35.0-1.1` and then `apt-mark hold`'d. Version drift would invalidate exam-parity. The version is **parameterized** via host env vars `CKA_K8S_MINOR` / `CKA_K8S_PKG_VERSION` (defaults `1.35` / `1.35.0-1.1`); set them before `vagrant up` to build the **v1.34** cluster for the Module 2 upgrade demo. Unset, the defaults reproduce the current lab byte-for-byte.
 - **No password logging**: the `vagrant` user's password is set via a method that doesn't echo to `/var/log/cka-provision.log`.
 - **`bootstrap_cp.sh` hardening**: `set -euo pipefail`; Calico pinned to `v3.29.1`, installed via the Tigera operator on pod CIDR `192.168.0.0/16` to match C02 M03 and every recorded module since; a comment block at the top documents how to swap in another CNI.
@@ -117,4 +117,4 @@ Every entry-point script uses PowerShell **Verb-Noun** naming (`Start-CkaLab.ps1
 - Kubernetes version target: v1.35
 - `.gitignore` excludes `*.deb`, `*.zip`, `temp/`, `.vagrant/`
 - `bootstrap_cp.sh` auto-detects the CP IP via `hostname -I` (DHCP-compatible)
-- Vagrant VMs: 2 CPU / 2 GB RAM each, static IPs on `CKA-NAT`, checkpoints enabled
+- Vagrant VMs: 2 vCPUs / 2 GiB RAM each; storage uses the base box's primary virtual disk, static IPs on `CKA-NAT`, checkpoints enabled

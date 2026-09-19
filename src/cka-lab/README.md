@@ -3,7 +3,7 @@
 > *The CKA exam doesn't care how you got here. It only cares whether `kubeadm init`
 > is muscle memory and whether you can debug a crashlooping pod before the timer beeps.*
 
-Three Ubuntu 22.04 VMs on Hyper-V (**control1**, **worker1**, **worker2**), real
+Three Ubuntu 24.04 LTS VMs on Hyper-V (**control1**, **worker1**, **worker2**), real
 systemd, real kubeadm, real containerd. No Docker-in-Docker shortcuts -- this is
 the exam-shaped lab.
 
@@ -37,7 +37,8 @@ per-module snapshot/restore loop and the on-rails upgrade/Helm demos.
 | `CLAUDE.md` | Architecture/code-level guidance for editors and AI agents |
 | `TUTORIAL-HYPERV.md` | Hands-on VM walkthrough + practice loop |
 | `RECORDING-WORKFLOW.md` | Per-module snapshot/restore loop for recording sessions |
-| `Vagrantfile` | 3 headless Ubuntu 22.04 VMs (control1, worker1, worker2), all prereqs installed, pinned to Kubernetes `1.35.0-1.1`. Stops *before* `kubeadm init`. |
+| `Vagrantfile` | 3 headless Ubuntu 24.04 LTS VMs (control1, worker1, worker2), each with 2 vCPUs and 2 GiB RAM; a short-lived Windows OpenSSH watcher uses initial link-local SSH to write persistent static `CKA-NAT` addresses, then reboots each guest to apply them. Storage uses the base box's primary virtual disk. All prereqs are installed and Kubernetes is pinned to `1.35.0-1.1`. Stops *before* `kubeadm init`. |
+| `bootstrap-static-network.ps1` | Starts the per-VM link-local SSH watcher used to establish static IPv4 before Vagrant connects. |
 | `create-nat-switch.ps1` | Builds the `CKA-NAT` switch on `192.168.50.0/24`. Exact-match adapter lookup, /24 collision preflight. |
 | `bootstrap_cp.sh` | kubeadm init on control1 (`set -euo pipefail`, Calico pinned `v3.29.1` via the Tigera operator, pod CIDR `192.168.0.0/16`, CNI-swap comments). |
 | `Repair-CkaNatSwitch.ps1` | Rebuilds the `vEthernet (CKA-NAT)` adapter when Hyper-V drops it -- the usual cause of VMs booting unreachable. |

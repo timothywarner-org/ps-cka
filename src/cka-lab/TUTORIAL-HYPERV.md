@@ -9,7 +9,7 @@
 
 By the end of this tutorial you will have:
 
-1. Provisioned three Ubuntu 22.04 VMs on an isolated Hyper-V NAT switch
+1. Provisioned three Ubuntu 24.04 LTS VMs on an isolated Hyper-V NAT switch
 2. Run `kubeadm init` and joined two workers with a fresh bootstrap token
 3. Installed a CNI (Calico by default; Flannel and Cilium are one line away)
 4. Deployed a workload, deliberately broken the cluster, and rolled back with a named Hyper-V checkpoint
@@ -37,7 +37,7 @@ You need all of these. Non-negotiable:
 | Hyper-V feature enabled | `Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All` |
 | [Vagrant](https://developer.hashicorp.com/vagrant/install) installed | 2.4.x or later |
 | PowerShell 7+, **running as Administrator** | Hyper-V cmdlets require elevation. Every script in this lab starts with `#Requires -RunAsAdministrator`. There is no non-admin path. |
-| ~10 GB free disk | Ubuntu box + three VM differencing disks |
+| Disk space for the base box plus its three VMs | Storage capacity is inherited from the base box's primary virtual disk |
 | ~8 GB free RAM | Three VMs at 2 GB each, plus overhead |
 
 ### First-time install (copy-paste)
@@ -91,12 +91,14 @@ What happens, in order:
    Hyper-V internal switch (192.168.50.0/24), assigns `192.168.50.1` to the
    host adapter, and wires up a Windows NAT so the VMs reach the internet.
    Idempotent — re-running it on a lab that's already set up is a no-op.
-2. **Each VM boots** off the `generic/ubuntu2204` box (first run downloads
+2. **Each VM boots** off the `boxen/ubuntu-24.04` Hyper-V box (first run downloads
    ~1.5 GB; cached after that).
-3. **Netplan writes a static IP** on the CKA-NAT interface. The Vagrantfile
-   uses `netplan try` with a 30-second auto-revert — if the new config kills
-   connectivity, the VM rolls back automatically rather than leaving you
-   locked out mid-provision.
+3. **The bootstrap watcher writes static netplan over initial link-local SSH.**
+   The `CKA-NAT` switch intentionally has no DHCP service, but Hyper-V reports
+   the guest's IPv6 link-local address. `bootstrap-static-network.ps1` uses
+   Windows OpenSSH for that first connection, writes the node's persistent
+   `192.168.50.x` address, and reboots the guest before Vagrant continues over
+   IPv4.
 4. **Main prereq provisioner** installs containerd (with `SystemdCgroup = true`),
    kubelet, kubeadm, and kubectl **pinned to `1.35.0-1.1`**, holds those
    packages against accidental `apt upgrade`, loads kernel modules, sets
@@ -132,11 +134,11 @@ step — without it, your practice loop is a ~15-minute rebuild instead of a
 
 | Node | IP | vCPU / RAM | Role |
 |------|-----|-----------|------|
-| `control1` | 192.168.50.10 | 2 / 2 GB | Control plane — where `kubeadm init` happens |
-| `worker1` | 192.168.50.11 | 2 / 2 GB | Worker — joins the cluster |
-| `worker2` | 192.168.50.12 | 2 / 2 GB | Worker — joins the cluster |
+| `control1` | 192.168.50.10 | 2 / 2 GiB | Control plane — where `kubeadm init` happens |
+| `worker1` | 192.168.50.11 | 2 / 2 GiB | Worker — joins the cluster |
+| `worker2` | 192.168.50.12 | 2 / 2 GiB | Worker — joins the cluster |
 
-All three run Ubuntu 22.04 headless, sit on the `CKA-NAT` switch, and have
+All three run Ubuntu 24.04 LTS headless, sit on the `CKA-NAT` switch, and have
 each other plus themselves in `/etc/hosts` (so you can `ping worker1` without
 fiddling with DNS).
 
@@ -640,19 +642,20 @@ vagrant provision control1   # re-run provisioner only on the failed VM
 The `br_netfilter` module didn't load. Re-run `vagrant provision <vm>` — the
 sysctl step is idempotent.
 
-### "netplan try timed out after 30 seconds"
+### "Vagrant times out waiting for SSH on first boot"
 
-The Vagrantfile uses `netplan try` with a 30s auto-revert — if the new
-static config breaks connectivity, netplan reverts and the provisioner
-falls back to `netplan apply`. If you see the revert message, it means the
-interface picker chose the wrong NIC. Check the log:
+Hyper-V first reports the guest's IPv6 link-local address. The host-side
+bootstrap watcher then writes the static netplan and reboots the guest. Confirm
+that Hyper-V eventually sees the expected address:
 
 ```powershell
-vagrant ssh control1 -c "cat /var/log/cka-provision.log | grep IFACE"
+Get-VMNetworkAdapter -VMName control1 | Select-Object -ExpandProperty IPAddresses
 ```
 
-Expected: `Using interface: eth0`. If you see a Docker or CNI bridge there,
-that's a bug — file an issue.
+Expected: `192.168.50.10`. If it is absent after the provisioning reboot, open
+the VM console and run `sudo netplan generate` to inspect the netplan error.
+The watcher log is `%TEMP%\cka-control1-network-bootstrap.log` (substitute the
+affected VM name).
 
 ---
 
@@ -786,7 +789,7 @@ kubectl get pods -A
 
 - Kubernetes: **v1.35.0-1.1** (apt pin + `apt-mark hold`)
 - Calico (default CNI): **v3.29.1**
-- Ubuntu box: `generic/ubuntu2204`
+- Ubuntu box: `boxen/ubuntu-24.04` (Hyper-V)
 - Container runtime: `containerd` (Ubuntu-packaged, `SystemdCgroup = true`)
 
 ### File map
@@ -795,6 +798,7 @@ kubectl get pods -A
 |------|---------|
 | `src/cka-lab/Vagrantfile` | VM definitions + provisioner |
 | `src/cka-lab/create-nat-switch.ps1` | Creates `CKA-NAT` switch (called by Vagrantfile trigger) |
+| `src/cka-lab/bootstrap-static-network.ps1` | Bootstraps each guest's static IPv4 address over link-local SSH |
 | `src/cka-lab/bootstrap_cp.sh` | `kubeadm init` + CNI on control1 |
 | `src/cka-lab/join_worker.sh` | Self-sufficient worker join (fetches fresh token) |
 | `src/cka-lab/Start-CkaLab.ps1` | Boot VMs (no re-provisioning) |
